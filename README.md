@@ -1,16 +1,123 @@
-# React + Vite
+# 🧥 Should I Wear a Jacket?
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personalized weather-based recommendation app that determines whether you should wear a jacket — and what type — based on real-time weather data and individual user factors.
 
-Currently, two official plugins are available:
+Unlike basic temperature-only tools, this app accounts for:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Feels-like temperature
+- Wind speed and wind chill
+- Rain probability
+- Time spent outdoors
+- Personal cold tolerance
+- Activity level
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🚀 Live Demo
+(Coming Soon)
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🎯 Project Goals
+
+This project aims to:
+
+- Build a clean, responsive weather-based UI
+- Integrate a real-time weather API
+- Implement a dynamic scoring algorithm for clothing recommendations
+- Personalize output based on user traits
+- Practice API integration and state management in React
+
+---
+
+## 🧠 Core Logic Concept
+
+The application calculates a **Jacket Score** based on multiple factors:
+
+JacketScore =  
+TemperatureFactor +  
+WindFactor +  
+RainFactor +  
+DurationFactor +  
+PersonalSensitivityFactor  
+
+The final score maps to a recommendation category:
+
+- No jacket
+- Light jacket / hoodie
+- Insulated jacket
+- Waterproof shell
+- Heavy winter coat
+
+---
+
+## 🛠 Tech Stack
+
+- React (Vite)
+- JavaScript
+- Weather API (TBD: OpenWeather / WeatherAPI)
+- CSS / Tailwind (TBD)
+- GitHub for version control
+- Vercel for deployment (planned)
+
+---
+
+## 📌 MVP Features
+
+- [ ] Clean UI layout
+- [ ] User input form (duration, tolerance, activity)
+- [ ] Weather API integration
+- [ ] Jacket scoring algorithm
+- [ ] Recommendation output component
+- [ ] Basic styling
+
+---
+
+## 🌟 Phase 2 Features
+
+- [ ] Wind chill formula implementation
+- [ ] Geolocation auto-detection
+- [ ] Outfit recommendation cards with icons
+- [ ] Dynamic background based on temperature
+- [ ] Save user preferences (local storage)
+
+---
+
+## 🧪 Phase 3 (Advanced / Experimental)
+
+- [ ] User feedback loop ("Were you comfortable?")
+- [ ] Adaptive scoring adjustments
+- [ ] ML-based recommendation tuning
+- [ ] Analytics dashboard
+
+---
+
+## 📈 Why This Project?
+
+Most "Do I need a jacket?" websites rely solely on temperature.  
+This project improves upon that by modeling environmental and human variables to deliver more realistic recommendations.
+
+It demonstrates:
+
+- API consumption
+- Conditional logic modeling
+- UX personalization
+- Clean component structure
+- Scalable feature planning
+
+---
+
+## 📂 Project Structure (Planned)
+
+src/
+  components/
+  hooks/
+  utils/
+  App.jsx
+  main.jsx
+
+---
+
+## 👤 Author
+
+Daniel Islas
