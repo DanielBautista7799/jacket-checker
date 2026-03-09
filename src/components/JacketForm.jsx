@@ -1,16 +1,36 @@
 import { useState } from "react";
+import { calculateJacketScore } from "../utils/calculateJacketScore";
+import { mapScoreToRecommendation } from "../utils/mapScoreToRecommendation";
 
 function JacketForm() {
-  const [duration, setDuration] = useState("");
-  const [tolerance, setTolerance] = useState("");
-  const [activity, setActivity] = useState("");
+const [duration, setDuration] = useState("");
+const [tolerance, setTolerance] = useState("");
+const [activity, setActivity] = useState("");
+const [recommendation, setRecommendation] = useState("");
 
-  const handleSubmit = (e) => {
+const handleSubmit = (e) => {
     e.preventDefault();
 
-    console.log("Duration:", duration);
-    console.log("Tolerance:", tolerance);
-    console.log("Activity:", activity);
+    const mockWeather = {
+    feelsLike: 48,
+    windSpeed: 12,
+    rainChance: 40,
+    };
+
+    const score = calculateJacketScore({
+    feelsLike: mockWeather.feelsLike,
+    windSpeed: mockWeather.windSpeed,
+    rainChance: mockWeather.rainChance,
+    duration,
+    tolerance,
+    activity,
+    });
+
+    const result = mapScoreToRecommendation(score);
+    setRecommendation(result);
+
+    console.log("Score:", score);
+    console.log("Recommendation:", result);
 };
 
 return (
@@ -48,6 +68,13 @@ return (
     </div>
 
     <button type="submit">Check Recommendation</button>
+
+    {recommendation && (
+        <div>
+    <h3>Recommendation:</h3>
+        <p>{recommendation}</p>
+        </div>
+    )}
     </form>
 );
 }
