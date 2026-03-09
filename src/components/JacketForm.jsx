@@ -9,30 +9,34 @@ const [activity, setActivity] = useState("");
 const [recommendation, setRecommendation] = useState("");
 
 const handleSubmit = (e) => {
-    e.preventDefault();
+e.preventDefault();
 
-    const mockWeather = {
+if (!duration || !tolerance || !activity) {
+    setRecommendation("Please fill out all fields first.");
+    return;
+}
+
+const mockWeather = {
     feelsLike: 48,
     windSpeed: 12,
     rainChance: 40,
-    };
+};
 
-    const score = calculateJacketScore({
+const score = calculateJacketScore({
     feelsLike: mockWeather.feelsLike,
     windSpeed: mockWeather.windSpeed,
     rainChance: mockWeather.rainChance,
     duration,
     tolerance,
     activity,
-    });
+});
 
-    const result = mapScoreToRecommendation(score);
-    setRecommendation(result);
+const result = mapScoreToRecommendation(score);
+setRecommendation(result);
 
-    console.log("Score:", score);
-    console.log("Recommendation:", result);
+console.log("Score:", score);
+console.log("Recommendation:", result);
 };
-
 return (
     <form onSubmit={handleSubmit}>
     <h2>Tell Us About Your Situation</h2>
