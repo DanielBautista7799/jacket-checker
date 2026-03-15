@@ -1,4 +1,4 @@
-function WeatherCard({ weather, onGenerateRecommendation }) {
+function WeatherCard({ weather }) {
 if (!weather) return null;
 
 return (
@@ -13,14 +13,6 @@ return (
     <p className="text-slate-200 capitalize">
         Condition: {weather.description}
     </p>
-
-    <button
-        type="button"
-        onClick={onGenerateRecommendation}
-        className="mt-2 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-white transition hover:bg-emerald-400"
-    >
-        Generate Jacket Recommendation
-    </button>
     </div>
 );
 }

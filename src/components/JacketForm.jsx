@@ -23,17 +23,16 @@ if (!city || !duration || !tolerance || !activity) {
 }
 
 setRecommendation("");
-await fetchWeather(city);
-};
 
-const handleGenerateRecommendation = () => {
-if (!weather) return;
+const weatherData = await fetchWeather(city);
+
+if (!weatherData) return;
 
 const rainChance = 0;
 
 const score = calculateJacketScore({
-    feelsLike: weather.feelsLike,
-    windSpeed: weather.windSpeed,
+    feelsLike: weatherData.feelsLike,
+    windSpeed: weatherData.windSpeed,
     rainChance,
     duration,
     tolerance,
@@ -126,10 +125,7 @@ return (
     </div>
     )}
 
-    <WeatherCard
-    weather={weather}
-    onGenerateRecommendation={handleGenerateRecommendation}
-    />
+    <WeatherCard weather={weather} />
 
     <RecommendationCard recommendation={recommendation} />
 </div>
