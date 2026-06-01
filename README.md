@@ -1,123 +1,224 @@
 # 🧥 Should I Wear a Jacket?
 
-A personalized weather-based recommendation app that determines whether you should wear a jacket — and what type — based on real-time weather data and individual user factors.
+A weather intelligence application that goes beyond temperature and provides practical jacket recommendations using current conditions, forecast trends, and environmental factors.
 
-Unlike basic temperature-only tools, this app accounts for:
+The goal is simple:
 
-- Feels-like temperature
-- Wind speed and wind chill
-- Rain probability
-- Time spent outdoors
-- Personal cold tolerance
-- Activity level
+> Given a location and the current forecast, determine whether someone should wear a jacket and recommend the most appropriate type.
+
+Unlike most weather applications, the recommendation engine is designed to explain its decisions rather than simply display weather data.
 
 ---
 
-## 🚀 Live Demo
-(Coming Soon)
+# Current Project Vision
+
+The project is being developed in two major phases.
+
+## Phase 1: Guest Experience (Current Focus)
+
+The guest experience is designed to be as fast and frictionless as possible.
+
+### User Flow
+
+1. Search for a location
+2. Select the correct location from autocomplete suggestions
+3. Press "Do I Need A Jacket?"
+4. Receive an explainable recommendation
+
+No account required.
+
+No personalization required.
+
+No setup required.
+
+### Current Inputs
+
+* Location search with autocomplete
+* Exact location selection using coordinates
+
+### Current Outputs
+
+* YES / NO jacket verdict
+* Recommended jacket type
+* Weather explanation
+* Forecast warnings
+* Temperature trend analysis
+
+Example:
+
+YES
+
+Recommended:
+Light Jacket
+
+Why:
+
+* Feels like 54°F
+* Moderate wind
+* Temperature expected to drop later
+
+Forecast Watch:
+
+* Low temperature of 43°F tonight
+* Rain possible this evening
 
 ---
 
-## 🎯 Project Goals
+## Phase 2: Personalized Account Experience
 
-This project aims to:
+The logged-in experience will focus on personalization.
 
-- Build a clean, responsive weather-based UI
-- Integrate a real-time weather API
-- Implement a dynamic scoring algorithm for clothing recommendations
-- Personalize output based on user traits
-- Practice API integration and state management in React
+Planned profile fields:
 
----
+* Cold tolerance
+* Body type
+* Activity level
+* Style preference
+* Preferred jacket types
+* Comfort history
 
-## 🧠 Core Logic Concept
+Planned recommendation output:
 
-The application calculates a **Jacket Score** based on multiple factors:
+Wear:
+Black Bomber Jacket
 
-JacketScore =  
-TemperatureFactor +  
-WindFactor +  
-RainFactor +  
-DurationFactor +  
-PersonalSensitivityFactor  
+Why:
+You typically run cold and temperatures are expected to fall rapidly this evening.
 
-The final score maps to a recommendation category:
+Style Suggestion:
+Grey hoodie
+Black jeans
+White sneakers
 
-- No jacket
-- Light jacket / hoodie
-- Insulated jacket
-- Waterproof shell
-- Heavy winter coat
+The goal is to transition from weather recommendation to outfit recommendation.
 
 ---
 
-## 🛠 Tech Stack
-
-- React (Vite)
-- JavaScript
-- Weather API (TBD: OpenWeather / WeatherAPI)
-- CSS / Tailwind (TBD)
-- GitHub for version control
-- Vercel for deployment (planned)
-
----
-
-## 📌 MVP Features
-
-- [ ] Clean UI layout
-- [ ] User input form (duration, tolerance, activity)
-- [ ] Weather API integration
-- [ ] Jacket scoring algorithm
-- [ ] Recommendation output component
-- [ ] Basic styling
-
----
-
-## 🌟 Phase 2 Features
-
-- [ ] Wind chill formula implementation
-- [ ] Geolocation auto-detection
-- [ ] Outfit recommendation cards with icons
-- [ ] Dynamic background based on temperature
-- [ ] Save user preferences (local storage)
-
----
-
-## 🧪 Phase 3 (Advanced / Experimental)
-
-- [ ] User feedback loop ("Were you comfortable?")
-- [ ] Adaptive scoring adjustments
-- [ ] ML-based recommendation tuning
-- [ ] Analytics dashboard
-
----
-
-## 📈 Why This Project?
-
-Most "Do I need a jacket?" websites rely solely on temperature.  
-This project improves upon that by modeling environmental and human variables to deliver more realistic recommendations.
-
-It demonstrates:
-
-- API consumption
-- Conditional logic modeling
-- UX personalization
-- Clean component structure
-- Scalable feature planning
-
----
-
-## 📂 Project Structure (Planned)
+# Current Architecture
 
 src/
-  components/
-  hooks/
-  utils/
-  App.jsx
-  main.jsx
+├── components/
+│   ├── JacketForm.jsx
+│   ├── LocationSearch.jsx
+│   ├── RecommendationCard.jsx
+│   └── WeatherCard.jsx
+│
+├── hooks/
+│   ├── useWeather.js
+│   └── useLocationSearch.js
+│
+├── utils/
+│   ├── calculateJacketScore.js
+│   └── mapScoreToRecommendation.js
+│
+├── App.jsx
+└── main.jsx
 
 ---
 
-## 👤 Author
+# Recommendation Engine
+
+The recommendation engine evaluates multiple weather factors rather than relying solely on temperature.
+
+Current factors:
+
+* Feels-like temperature
+* Wind speed
+* Rain probability
+* Daily low temperature
+* Upcoming hourly forecast
+* Predicted temperature drops
+
+The engine produces:
+
+1. Numerical score
+2. Recommendation category
+3. Explanation list
+4. Forecast alerts
+
+This allows the application to justify every recommendation.
+
+---
+
+# Current Features
+
+Completed:
+
+* React + Vite setup
+* GitHub repository setup
+* Tailwind CSS integration
+* WeatherAPI integration
+* Forecast API integration
+* Location autocomplete search
+* Exact coordinate-based weather lookup
+* Current weather display
+* Forecast display
+* Jacket scoring engine
+* Recommendation mapping engine
+* Explainable recommendation output
+* Modular React architecture
+
+---
+
+# Planned Portfolio Features
+
+## Near-Term
+
+* Use My Current Location
+* Weather icons
+* Dynamic backgrounds based on conditions
+* Better forecast visualization
+* Improved jacket categories
+
+## Medium-Term
+
+* User authentication
+* Saved profiles
+* Personalized recommendations
+* Style preferences
+* Saved jacket inventory
+
+## Advanced
+
+* Outfit recommendations
+* Feedback system ("Were you comfortable?")
+* Adaptive recommendation tuning
+* Recommendation analytics dashboard
+
+---
+
+# Technical Concepts Demonstrated
+
+This project demonstrates:
+
+* React component architecture
+* Custom React hooks
+* API integration
+* Forecast data processing
+* State management
+* Explainable decision systems
+* Recommendation engines
+* Search/autocomplete UX
+* Coordinate-based geolocation handling
+* Scalable application design
+
+---
+
+# Why This Project?
+
+Most "Should I Wear a Jacket?" tools rely primarily on temperature.
+
+This project attempts to model real-world decision making by combining:
+
+* Current conditions
+* Forecast trends
+* Environmental factors
+* Future personalization
+
+The objective is to create a recommendation engine that behaves more like a human decision-making process than a simple temperature lookup.
+
+---
+
+# Author
 
 Daniel Islas

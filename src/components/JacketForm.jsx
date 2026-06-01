@@ -2,120 +2,64 @@ import { useState } from "react";
 import { calculateJacketScore } from "../utils/calculateJacketScore";
 import { mapScoreToRecommendation } from "../utils/mapScoreToRecommendation";
 import useWeather from "../hooks/useWeather";
+import LocationSearch from "./LocationSearch";
 import WeatherCard from "./WeatherCard";
 import RecommendationCard from "./RecommendationCard";
 
 function JacketForm() {
-const [city, setCity] = useState("");
-const [duration, setDuration] = useState("");
-const [tolerance, setTolerance] = useState("");
-const [activity, setActivity] = useState("");
-const [recommendation, setRecommendation] = useState("");
+const [selectedLocation, setSelectedLocation] = useState(null);
+const [recommendation, setRecommendation] = useState(null);
 
 const { weather, loading, error, fetchWeather } = useWeather();
 
 const handleSubmit = async (e) => {
 e.preventDefault();
 
-if (!city || !duration || !tolerance || !activity) {
-    setRecommendation("Please fill out all fields first.");
-    return;
-}
+if (!selectedLocation) return;
 
-setRecommendation("");
+setRecommendation(null);
 
-const weatherData = await fetchWeather(city);
+const weatherData = await fetchWeather(selectedLocation);
 
 if (!weatherData) return;
 
-const rainChance = 0;
-
-const score = calculateJacketScore({
-    feelsLike: weatherData.feelsLike,
-    windSpeed: weatherData.windSpeed,
-    rainChance,
-    duration,
-    tolerance,
-    activity,
+const scoringResult = calculateJacketScore({
+    weather: weatherData,
 });
 
-const result = mapScoreToRecommendation(score);
-setRecommendation(result);
+const mappedRecommendation = mapScoreToRecommendation(
+    scoringResult.score,
+    weatherData
+);
+
+setRecommendation({
+    ...mappedRecommendation,
+    score: scoringResult.score,
+    reasons: scoringResult.reasons,
+    forecastNotes: scoringResult.forecastNotes,
+    lowestUpcomingFeelsLike: scoringResult.lowestUpcomingFeelsLike,
+    tempDrop: scoringResult.tempDrop,
+});
 };
 
 return (
 <div className="space-y-6">
     <form onSubmit={handleSubmit} className="space-y-5">
     <h2 className="text-2xl font-semibold text-white">
-        Tell Us About Your Situation
+        Should I Wear A Jacket?
     </h2>
 
-    <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-200">
-        City
-        </label>
-        <input
-        type="text"
-        placeholder="Enter a city"
-        value={city}
-        onChange={(e) => setCity(e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none transition focus:border-sky-500"
-        />
-    </div>
-
-    <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-200">
-        Time outside
-        </label>
-        <select
-        value={duration}
-        onChange={(e) => setDuration(e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none transition focus:border-sky-500"
-        >
-        <option value="">Select...</option>
-        <option value="short">Less than 10 minutes</option>
-        <option value="medium">10–30 minutes</option>
-        <option value="long">30+ minutes</option>
-        </select>
-    </div>
-
-    <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-200">
-        Cold tolerance
-        </label>
-        <select
-        value={tolerance}
-        onChange={(e) => setTolerance(e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none transition focus:border-sky-500"
-        >
-        <option value="">Select...</option>
-        <option value="cold">Run cold</option>
-        <option value="normal">Normal</option>
-        <option value="hot">Run hot</option>
-        </select>
-    </div>
-
-    <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-200">
-        Activity level
-        </label>
-        <select
-        value={activity}
-        onChange={(e) => setActivity(e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none transition focus:border-sky-500"
-        >
-        <option value="">Select...</option>
-        <option value="still">Standing still</option>
-        <option value="walk">Walking</option>
-        <option value="active">Active</option>
-        </select>
-    </div>
+    <LocationSearch
+        selectedLocation={selectedLocation}
+        onSelectLocation={setSelectedLocation}
+    />
 
     <button
         type="submit"
-        className="w-full rounded-xl bg-sky-500 px-4 py-3 font-semibold text-white transition hover:bg-sky-400"
+        disabled={!selectedLocation || loading}
+        className="w-full rounded-xl bg-sky-500 px-4 py-3 font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
     >
-        {loading ? "Checking weather..." : "Check Recommendation"}
+        {loading ? "Checking Forecast..." : "Do I Need A Jacket?"}
     </button>
     </form>
 
