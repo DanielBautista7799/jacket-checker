@@ -29,16 +29,15 @@ const scoringResult = calculateJacketScore({
 
 const mappedRecommendation = mapScoreToRecommendation(
     scoringResult.score,
-    weatherData
+    weatherData,
+    scoringResult.forecastAnalysis
 );
 
 setRecommendation({
     ...mappedRecommendation,
     score: scoringResult.score,
     reasons: scoringResult.reasons,
-    forecastNotes: scoringResult.forecastNotes,
-    lowestUpcomingFeelsLike: scoringResult.lowestUpcomingFeelsLike,
-    tempDrop: scoringResult.tempDrop,
+    forecastAnalysis: scoringResult.forecastAnalysis,
 });
 };
 
@@ -68,10 +67,12 @@ return (
         {error}
     </div>
     )}
+    
+    <RecommendationCard recommendation={recommendation} />
+
 
     <WeatherCard weather={weather} />
 
-    <RecommendationCard recommendation={recommendation} />
 </div>
 );
 }
