@@ -67,10 +67,9 @@ return (
         {error}
     </div>
     )}
-    
+
+
     <RecommendationCard recommendation={recommendation} />
-
-
     <WeatherCard weather={weather} />
 
 </div>

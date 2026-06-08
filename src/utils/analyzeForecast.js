@@ -122,7 +122,7 @@ const uniqueBringAlongSuggestions = bringAlongSuggestions.filter(
 
 return {
     alerts,
-    bringAlongSuggestions: uniqueBringAlongSuggestions,
+bringAlongSuggestions: uniqueBringAlongSuggestions,
     lowestUpcomingFeelsLike,
     highestUpcomingRainChance,
     tempDrop,
