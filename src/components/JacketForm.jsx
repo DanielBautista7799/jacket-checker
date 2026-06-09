@@ -3,11 +3,13 @@ import { calculateJacketScore } from "../utils/calculateJacketScore";
 import { mapScoreToRecommendation } from "../utils/mapScoreToRecommendation";
 import useWeather from "../hooks/useWeather";
 import LocationSearch from "./LocationSearch";
+import TimeWindowSelect from "./TimeWindowSelect";
 import WeatherCard from "./WeatherCard";
 import RecommendationCard from "./RecommendationCard";
 
 function JacketForm() {
 const [selectedLocation, setSelectedLocation] = useState(null);
+const [timeWindow, setTimeWindow] = useState("rest_of_day");
 const [recommendation, setRecommendation] = useState(null);
 
 const { weather, loading, error, fetchWeather } = useWeather();
@@ -25,6 +27,7 @@ if (!weatherData) return;
 
 const scoringResult = calculateJacketScore({
     weather: weatherData,
+    windowId: timeWindow,
 });
 
 const mappedRecommendation = mapScoreToRecommendation(
@@ -44,14 +47,12 @@ setRecommendation({
 return (
 <div className="space-y-6">
     <form onSubmit={handleSubmit} className="space-y-5">
-    <h2 className="text-2xl font-semibold text-white">
-        Should I Wear A Jacket?
-    </h2>
-
     <LocationSearch
         selectedLocation={selectedLocation}
         onSelectLocation={setSelectedLocation}
     />
+
+    <TimeWindowSelect value={timeWindow} onChange={setTimeWindow} />
 
     <button
         type="submit"
@@ -67,10 +68,10 @@ return (
         {error}
     </div>
     )}
-
-
     <RecommendationCard recommendation={recommendation} />
-    <WeatherCard weather={weather} />
+
+
+    <WeatherCard weather={weather} recommendation={recommendation} />
 
 </div>
 );

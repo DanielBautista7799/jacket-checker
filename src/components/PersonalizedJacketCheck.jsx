@@ -3,10 +3,13 @@ import { useState } from "react";
 import useWeather from "../hooks/useWeather";
 import WeatherCard from "./WeatherCard";
 import RecommendationCard from "./RecommendationCard";
+import TimeWindowSelect from "./TimeWindowSelect";
 import { calculatePersonalizedRecommendation } from "../utils/calculatePersonalizedRecommendation";
 
 function PersonalizedJacketCheck({ profile }) {
 const [recommendation, setRecommendation] = useState(null);
+const [timeWindow, setTimeWindow] = useState("rest_of_day");
+
 const { weather, loading, error, fetchWeather } = useWeather();
 
 const hasDefaultLocation =
@@ -34,6 +37,7 @@ if (!weatherData) return;
 const personalizedRecommendation = calculatePersonalizedRecommendation({
     weather: weatherData,
     profile,
+    windowId: timeWindow,
 });
 
 setRecommendation(personalizedRecommendation);
@@ -51,21 +55,23 @@ return (
     </h1>
 
     <p className="mt-3 text-slate-300">
-        Uses your saved profile, default location, and forecast conditions.
+        Uses your saved profile, default location, and forecast window.
     </p>
     </div>
 
     <div className="rounded-2xl border border-slate-700 bg-slate-800/80 p-5">
     {defaultLocation ? (
-        <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-sm text-sky-100">
+        <div className="mb-5 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-sm text-sky-100">
         Default location: {defaultLocation.name}, {defaultLocation.region},{" "}
         {defaultLocation.country}
         </div>
     ) : (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+        <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
         Save a default location in your profile first.
         </div>
     )}
+
+    <TimeWindowSelect value={timeWindow} onChange={setTimeWindow} />
 
     <button
         type="button"
@@ -91,8 +97,9 @@ return (
     )}
 
     <div className="mt-6 space-y-5">
-    <WeatherCard weather={weather} />
     <RecommendationCard recommendation={recommendation} />
+
+    <WeatherCard weather={weather} recommendation={recommendation} />
     </div>
 </section>
 );

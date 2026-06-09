@@ -1,73 +1,87 @@
-export function analyzeForecast(weather) {
+import { getForecastWindowHours, getTimeWindowLabel } from "./timeWindows";
+
+export function analyzeForecast(weather, windowId = "rest_of_day") {
 const alerts = [];
 const bringAlongSuggestions = [];
 
+const windowHours = getForecastWindowHours(weather, windowId);
+const windowLabel = getTimeWindowLabel(windowId);
+
 const {
-    feelsLike,
-    dailyLow,
-    rainChance,
-    maxWind,
-    upcomingHours = [],
+feelsLike,
+dailyLow,
+rainChance,
+maxWind,
+windSpeed,
 } = weather;
 
-const lowestUpcomingFeelsLike =
-    upcomingHours.length > 0
-    ? Math.min(...upcomingHours.map((hour) => hour.feelsLike))
+const lowestWindowFeelsLike =
+windowHours.length > 0
+    ? Math.min(...windowHours.map((hour) => hour.feelsLike))
     : feelsLike;
 
-const highestUpcomingRainChance =
-    upcomingHours.length > 0
-    ? Math.max(...upcomingHours.map((hour) => hour.rainChance))
+const highestWindowFeelsLike =
+windowHours.length > 0
+    ? Math.max(...windowHours.map((hour) => hour.feelsLike))
+    : feelsLike;
+
+const highestWindowRainChance =
+windowHours.length > 0
+    ? Math.max(...windowHours.map((hour) => hour.rainChance))
     : rainChance;
 
-const tempDrop = feelsLike - lowestUpcomingFeelsLike;
+const highestWindowWind =
+windowHours.length > 0
+    ? Math.max(...windowHours.map((hour) => hour.windSpeed))
+    : maxWind || windSpeed;
 
-// Rain analysis
-if (highestUpcomingRainChance >= 60 || rainChance >= 60) {
+const tempDrop = feelsLike - lowestWindowFeelsLike;
+
+if (windowId !== "now") {
+if (highestWindowRainChance >= 60 || rainChance >= 60) {
     alerts.push({
     type: "rain",
-    message: `Rain is likely later with up to ${Math.round(
-        highestUpcomingRainChance
+    message: `Rain is likely during ${windowLabel.toLowerCase()} with up to ${Math.round(
+        highestWindowRainChance
     )}% chance.`,
     });
 
     bringAlongSuggestions.push({
-    item: "Rain jacket",
-    reason: "Rain is likely later, so water resistance matters.",
+    item: "Rain jacket or waterproof shell",
+    reason: "Rain is likely, so water resistance matters more than warmth.",
     });
-} else if (highestUpcomingRainChance >= 35 || rainChance >= 35) {
+} else if (highestWindowRainChance >= 35 || rainChance >= 35) {
     alerts.push({
     type: "rain",
-    message: `There is some rain risk later with up to ${Math.round(
-        highestUpcomingRainChance
+    message: `There is some rain risk during ${windowLabel.toLowerCase()} with up to ${Math.round(
+        highestWindowRainChance
     )}% chance.`,
     });
 
     bringAlongSuggestions.push({
     item: "Light rain shell",
-    reason: "Rain is possible, but not guaranteed.",
+    reason: "Rain is possible, so a packable layer is safer.",
     });
 }
 
-// Temperature drop analysis
 if (tempDrop >= 12) {
     alerts.push({
     type: "temperature-drop",
-    message: `Temperatures are projected to drop about ${Math.round(
+    message: `It may feel about ${Math.round(
         tempDrop
-    )}°F over the next few hours.`,
+    )}°F colder during ${windowLabel.toLowerCase()}.`,
     });
 
     bringAlongSuggestions.push({
     item: "Light jacket",
-    reason: "It may feel noticeably colder later.",
+    reason: "It may feel noticeably colder later in the selected window.",
     });
 } else if (tempDrop >= 7) {
     alerts.push({
     type: "temperature-drop",
     message: `It may cool down about ${Math.round(
         tempDrop
-    )}°F later today.`,
+    )}°F during ${windowLabel.toLowerCase()}.`,
     });
 
     bringAlongSuggestions.push({
@@ -76,36 +90,38 @@ if (tempDrop >= 12) {
     });
 }
 
-// Daily low analysis
-if (dailyLow <= 45 && feelsLike > 50) {
+if (lowestWindowFeelsLike <= 45 && feelsLike > 50) {
     alerts.push({
-    type: "daily-low",
-    message: `Today's low is ${Math.round(
-        dailyLow
-    )}°F, so it may get chilly later.`,
+    type: "chilly-later",
+    message: `Feels-like temperature may reach ${Math.round(
+        lowestWindowFeelsLike
+    )}°F during ${windowLabel.toLowerCase()}.`,
     });
 
     bringAlongSuggestions.push({
-    item: "Light jacket",
-    reason: "The low temperature is jacket-worthy later in the day.",
+    item: "Light or medium jacket",
+    reason: "The selected window includes jacket-worthy temperatures.",
     });
 }
 
-// Wind analysis
-if (maxWind >= 22) {
+if (highestWindowWind >= 22) {
     alerts.push({
     type: "wind",
-    message: `Strong winds may reach ${Math.round(maxWind)} mph today.`,
+    message: `Wind may reach ${Math.round(
+        highestWindowWind
+    )} mph during ${windowLabel.toLowerCase()}.`,
     });
 
     bringAlongSuggestions.push({
     item: "Windbreaker",
     reason: "Wind can make mild temperatures feel colder.",
     });
-} else if (maxWind >= 16) {
+} else if (highestWindowWind >= 16) {
     alerts.push({
     type: "wind",
-    message: `Breezy conditions may reach ${Math.round(maxWind)} mph today.`,
+    message: `Breezy conditions may reach ${Math.round(
+        highestWindowWind
+    )} mph during ${windowLabel.toLowerCase()}.`,
     });
 
     bringAlongSuggestions.push({
@@ -113,18 +129,37 @@ if (maxWind >= 22) {
     reason: "A wind-resistant layer could help.",
     });
 }
+}
 
-// Remove duplicate bring-along items
+if (dailyLow <= 45 && feelsLike > 50 && windowId === "rest_of_day") {
+alerts.push({
+    type: "daily-low",
+    message: `Today's low is ${Math.round(
+    dailyLow
+    )}°F, so it may get chilly later.`,
+});
+
+bringAlongSuggestions.push({
+    item: "Light jacket",
+    reason: "The daily low is jacket-worthy later in the day.",
+});
+}
+
 const uniqueBringAlongSuggestions = bringAlongSuggestions.filter(
-    (suggestion, index, self) =>
+(suggestion, index, self) =>
     index === self.findIndex((item) => item.item === suggestion.item)
 );
 
 return {
-    alerts,
+windowId,
+windowLabel,
+windowHours,
+alerts,
 bringAlongSuggestions: uniqueBringAlongSuggestions,
-    lowestUpcomingFeelsLike,
-    highestUpcomingRainChance,
-    tempDrop,
+lowestWindowFeelsLike,
+highestWindowFeelsLike,
+highestWindowRainChance,
+highestWindowWind,
+tempDrop,
 };
 }

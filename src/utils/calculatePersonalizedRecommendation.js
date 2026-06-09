@@ -2,8 +2,12 @@ import { calculateJacketScore } from "./calculateJacketScore";
 import { mapScoreToRecommendation } from "./mapScoreToRecommendation";
 import { calculateProfileModifier } from "./calculateProfileModifier";
 
-export function calculatePersonalizedRecommendation({ weather, profile }) {
-const baseResult = calculateJacketScore({ weather });
+export function calculatePersonalizedRecommendation({
+weather,
+profile,
+windowId = "rest_of_day",
+}) {
+const baseResult = calculateJacketScore({ weather, windowId });
 const profileResult = calculateProfileModifier(profile, weather);
 
 const personalizedScore = baseResult.score + profileResult.modifier;

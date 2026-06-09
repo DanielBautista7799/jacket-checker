@@ -26,7 +26,7 @@ try {
     const response = await fetch(
     `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${encodeURIComponent(
         query
-    )}&days=1&aqi=no&alerts=no`
+    )}&days=2&aqi=no&alerts=no`
     );
 
     const data = await response.json();
@@ -35,14 +35,25 @@ try {
     throw new Error(data.error.message);
     }
 
-    const today = data.forecast.forecastday[0];
-    const currentHour = new Date(data.location.localtime).getHours();
+    const forecastDays = data.forecast.forecastday;
 
-    const upcomingHours = today.hour
-    .filter((hour) => {
-        const hourTime = new Date(hour.time).getHours();
-        return hourTime >= currentHour;
-    })
+    const forecastHours = forecastDays.flatMap((day) =>
+    day.hour.map((hour) => ({
+        time: hour.time,
+        timeEpoch: hour.time_epoch,
+        temp: hour.temp_f,
+        feelsLike: hour.feelslike_f,
+        rainChance: hour.chance_of_rain,
+        windSpeed: hour.wind_mph,
+        condition: hour.condition.text,
+    }))
+    );
+
+    const currentEpoch = data.current.last_updated_epoch;
+    const today = forecastDays[0];
+
+    const upcomingHours = forecastHours
+    .filter((hour) => hour.timeEpoch >= currentEpoch)
     .slice(0, 6);
 
     const formattedWeather = {
@@ -50,6 +61,7 @@ try {
     region: data.location.region,
     country: data.location.country,
     localTime: data.location.localtime,
+    currentEpoch,
 
     temperature: data.current.temp_f,
     feelsLike: data.current.feelslike_f,
@@ -63,13 +75,8 @@ try {
     maxWind: today.day.maxwind_mph,
     willRain: today.day.daily_will_it_rain,
 
-    upcomingHours: upcomingHours.map((hour) => ({
-        time: hour.time,
-        temp: hour.temp_f,
-        feelsLike: hour.feelslike_f,
-        rainChance: hour.chance_of_rain,
-        condition: hour.condition.text,
-    })),
+    forecastHours,
+    upcomingHours,
     };
 
     setWeather(formattedWeather);
