@@ -1,142 +1,299 @@
 # 🧥 Should I Wear a Jacket?
 
-A weather intelligence application that goes beyond temperature and provides practical jacket recommendations using current conditions, forecast trends, and environmental factors.
+A weather intelligence application that gives practical jacket recommendations using real-time weather, forecast trends, location data, and user personalization.
 
 The goal is simple:
 
-> Given a location and the current forecast, determine whether someone should wear a jacket and recommend the most appropriate type.
+> Given a location and a forecast window, determine whether someone should wear a jacket, what kind of jacket makes sense, and whether they should bring a backup layer for later conditions.
 
-Unlike most weather applications, the recommendation engine is designed to explain its decisions rather than simply display weather data.
+Unlike basic weather apps or temperature-only jacket checkers, this project is designed around explainable recommendations. It does not just show the weather; it explains why a jacket is or is not recommended.
 
 ---
 
 # Current Project Vision
 
-The project is being developed in two major phases.
+The project is split into two separate user experiences.
 
-## Phase 1: Guest Experience (Current Focus)
+## Phase 1: Guest Experience
 
-The guest experience is designed to be as fast and frictionless as possible.
+The guest version is designed to be fast, clean, and low-friction.
 
-### User Flow
+### Guest User Flow
 
-1. Search for a location
-2. Select the correct location from autocomplete suggestions
+1. Use current location or search for a location
+2. Select a forecast window
 3. Press "Do I Need A Jacket?"
-4. Receive an explainable recommendation
+4. Receive a single jacket verdict with explanation
 
 No account required.
 
+No saved profile required.
+
 No personalization required.
 
-No setup required.
+### Guest Inputs
 
-### Current Inputs
-
+* Use My Location through browser geolocation
 * Location search with autocomplete
 * Exact location selection using coordinates
+* Forecast window selection:
 
-### Current Outputs
+  * Right now
+  * Next 2 hours
+  * Next 4 hours
+  * Rest of today
+  * Tonight
+  * Tomorrow morning
+
+### Guest Outputs
 
 * YES / NO jacket verdict
 * Recommended jacket type
-* Weather explanation
+* Forecast-aware explanation
+* Bring-along suggestion
 * Forecast warnings
-* Temperature trend analysis
+* Weather breakdown
+* Time-window preview
+
+Example:
+
+NO
+
+Current Recommendation:
+No jacket
+
+Bring Along:
+Light rain shell
+
+Why:
+
+* Feels like 76°F right now
+* Rain risk increases later
+* The forecast window shows possible showers
+
+Forecast Watch:
+
+* Rain chance may reach 65%
+* A waterproof layer may be useful later
+
+---
+
+## Phase 2: Personalized Account Experience
+
+The logged-in version is a separate experience from guest mode.
+
+Users can create an account, save a profile, set a default location, and run personalized jacket checks. The personalization score is calculated under the hood and is not shown directly to the user.
+
+### Personalized User Flow
+
+1. Login or create an account
+2. Complete profile setup
+3. Save default location
+4. Go to personalized jacket app
+5. Run a personalized forecast check
+
+### Saved Profile Fields
+
+* Display name
+* Age
+* Sex
+* Height
+* Weight
+* Cold tolerance
+* Rain sensitivity
+* Wind sensitivity
+* Usual time outside
+* Default location
+
+### Personalized Recommendation Factors
+
+* Forecast-based weather score
+* User cold tolerance
+* Rain sensitivity
+* Wind sensitivity
+* Usual exposure time
+* Age-based warmth buffer
+* Default location
+
+### Personalized Output
+
+The personalized version still returns a simple user-facing recommendation, but the internal scoring adjusts based on the saved profile.
 
 Example:
 
 YES
 
 Recommended:
-Light Jacket
+Water-resistant jacket
 
 Why:
 
-* Feels like 54°F
-* Moderate wind
-* Temperature expected to drop later
+* Rain is likely later
+* Wind may increase
+* Your profile says rain affects your comfort more than average
+* Your usual time outside is medium, so the forecast window matters
 
-Forecast Watch:
-
-* Low temperature of 43°F tonight
-* Rain possible this evening
-
----
-
-## Phase 2: Personalized Account Experience
-
-The logged-in experience will focus on personalization.
-
-Planned profile fields:
-
-* Cold tolerance
-* Body type
-* Activity level
-* Style preference
-* Preferred jacket types
-* Comfort history
-
-Planned recommendation output:
-
-Wear:
-Black Bomber Jacket
-
-Why:
-You typically run cold and temperatures are expected to fall rapidly this evening.
-
-Style Suggestion:
-Grey hoodie
-Black jeans
-White sneakers
-
-The goal is to transition from weather recommendation to outfit recommendation.
+The goal is to eventually evolve the logged-in experience into a full outfit recommendation engine.
 
 ---
 
 # Current Architecture
 
+```text
 src/
 ├── components/
+│   ├── AppHeader.jsx
+│   ├── AuthPanel.jsx
 │   ├── JacketForm.jsx
 │   ├── LocationSearch.jsx
+│   ├── PersonalizedJacketCheck.jsx
+│   ├── ProfileForm.jsx
+│   ├── ProtectedRoute.jsx
 │   ├── RecommendationCard.jsx
+│   ├── TimeWindowSelect.jsx
 │   └── WeatherCard.jsx
 │
+├── context/
+│   └── AuthContext.jsx
+│
 ├── hooks/
-│   ├── useWeather.js
-│   └── useLocationSearch.js
+│   ├── useAuth.js
+│   ├── useBrowserLocation.js
+│   ├── useLocationSearch.js
+│   ├── useProfile.js
+│   └── useWeather.js
+│
+├── lib/
+│   └── supabaseClient.js
+│
+├── pages/
+│   ├── AuthPage.jsx
+│   ├── GuestPage.jsx
+│   ├── PersonalizedPage.jsx
+│   └── ProfilePage.jsx
 │
 ├── utils/
+│   ├── analyzeForecast.js
 │   ├── calculateJacketScore.js
-│   └── mapScoreToRecommendation.js
+│   ├── calculatePersonalizedRecommendation.js
+│   ├── calculateProfileModifier.js
+│   ├── mapScoreToRecommendation.js
+│   └── timeWindows.js
 │
 ├── App.jsx
 └── main.jsx
+```
 
 ---
 
 # Recommendation Engine
 
-The recommendation engine evaluates multiple weather factors rather than relying solely on temperature.
+The recommendation engine evaluates current weather and forecast conditions across a selected time window.
 
 Current factors:
 
 * Feels-like temperature
 * Wind speed
+* Maximum projected wind
 * Rain probability
-* Daily low temperature
-* Upcoming hourly forecast
-* Predicted temperature drops
+* Hourly forecast
+* Daily high and low
+* Temperature drops
+* Forecast window
+* Precipitation risk
+* User profile modifiers for logged-in users
 
 The engine produces:
 
-1. Numerical score
-2. Recommendation category
-3. Explanation list
-4. Forecast alerts
+1. Numerical internal score
+2. YES / NO jacket verdict
+3. Jacket type
+4. Explanation list
+5. Forecast alerts
+6. Bring-along suggestions
+7. Time-window analysis
 
-This allows the application to justify every recommendation.
+The internal score is used for decision-making but is hidden from the user.
+
+---
+
+# Location System
+
+The app supports two location flows.
+
+## Use My Location
+
+The app uses the browser Geolocation API to request latitude and longitude from the user. If the user allows permission, those coordinates are passed directly to WeatherAPI.
+
+This avoids ambiguous city names and allows the guest mode to be nearly one-click.
+
+## Location Search
+
+The app also supports manual location search through WeatherAPI's search endpoint.
+
+Example:
+
+Searching "Paris" can return:
+
+* Paris, France
+* Paris, Texas, United States
+* Paris, Ontario, Canada
+
+The user selects the exact location, and the app stores the selected latitude and longitude for the weather request.
+
+This prevents the forecast API from guessing the wrong city.
+
+---
+
+# Forecast Window System
+
+The app supports time-window based recommendations.
+
+Available windows:
+
+* Right now
+* Next 2 hours
+* Next 4 hours
+* Rest of today
+* Tonight
+* Tomorrow morning
+
+Instead of only answering based on current conditions, the app can say things like:
+
+* No jacket right now, but bring a rain shell because showers are expected later.
+* No jacket now, but bring a light jacket because it gets chilly tonight.
+* Yes, wear a windbreaker because wind increases during your selected window.
+
+This makes the app behave more like a real decision system than a simple weather display.
+
+---
+
+# Authentication and Data Storage
+
+The logged-in experience uses Supabase.
+
+Current Supabase features:
+
+* Email/password authentication
+* User session tracking
+* Saved user profiles
+* Default location storage
+* Row Level Security policies
+* Profile upsert logic
+
+User profile data is stored in Supabase and protected so each authenticated user can only access their own profile.
+
+Environment variables are stored in `.env` and excluded from GitHub.
+
+Required environment variables:
+
+```env
+VITE_WEATHER_API_KEY=YOUR_WEATHERAPI_KEY
+VITE_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
+VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+
+`.env.example` should contain placeholder values only.
 
 ---
 
@@ -151,11 +308,25 @@ Completed:
 * Forecast API integration
 * Location autocomplete search
 * Exact coordinate-based weather lookup
+* Browser geolocation support
+* Time-window forecast analysis
 * Current weather display
-* Forecast display
-* Jacket scoring engine
-* Recommendation mapping engine
+* Forecast window preview
+* Forecast-aware jacket scoring engine
+* Bring-along recommendations
+* Rain-aware recommendations
+* Wind-aware recommendations
+* Temperature-drop detection
 * Explainable recommendation output
+* React Router page separation
+* Guest mode page
+* Auth page
+* Profile page
+* Personalized app page
+* Supabase authentication
+* Supabase profile persistence
+* Protected personalized routes
+* Hidden personalization scoring
 * Modular React architecture
 
 ---
@@ -164,26 +335,30 @@ Completed:
 
 ## Near-Term
 
-* Use My Current Location
-* Weather icons
-* Dynamic backgrounds based on conditions
-* Better forecast visualization
-* Improved jacket categories
+* Improve UI polish
+* Add weather icons
+* Add dynamic backgrounds based on weather conditions
+* Add better forecast visualization
+* Add confidence score internally
+* Add improved jacket categories
 
 ## Medium-Term
 
-* User authentication
-* Saved profiles
-* Personalized recommendations
-* Style preferences
+* Style preference system
 * Saved jacket inventory
+* Jacket taxonomy
+* Better outfit matching
+* User feedback loop
+* Recommendation history
 
 ## Advanced
 
-* Outfit recommendations
-* Feedback system ("Were you comfortable?")
 * Adaptive recommendation tuning
-* Recommendation analytics dashboard
+* Comfort feedback learning
+* Local caching for weather requests
+* Analytics dashboard
+* Style mode with outfit generation
+* Developer-only debug panel for scoring internals
 
 ---
 
@@ -192,30 +367,40 @@ Completed:
 This project demonstrates:
 
 * React component architecture
+* React Router page routing
 * Custom React hooks
+* Context-based authentication state
+* Supabase authentication
+* Supabase database persistence
+* Row Level Security design
 * API integration
+* Browser Geolocation API
 * Forecast data processing
+* Time-window analysis
 * State management
 * Explainable decision systems
-* Recommendation engines
-* Search/autocomplete UX
+* Rule-based recommendation engines
 * Coordinate-based geolocation handling
-* Scalable application design
+* Search/autocomplete UX
+* Environment variable management
+* Modular application design
 
 ---
 
 # Why This Project?
 
-Most "Should I Wear a Jacket?" tools rely primarily on temperature.
+Most "Should I Wear a Jacket?" tools rely primarily on current temperature.
 
-This project attempts to model real-world decision making by combining:
+This project models a more realistic decision process by combining:
 
 * Current conditions
 * Forecast trends
-* Environmental factors
-* Future personalization
+* Time-window planning
+* Rain and wind risk
+* Location disambiguation
+* User profile personalization
 
-The objective is to create a recommendation engine that behaves more like a human decision-making process than a simple temperature lookup.
+The objective is to build a recommendation system that behaves closer to how a person would actually decide what to wear.
 
 ---
 
