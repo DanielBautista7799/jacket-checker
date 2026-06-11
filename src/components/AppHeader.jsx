@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { CloudSun, Home, LogIn, Settings, Sparkles, UserRound } from "lucide-react";
+import { CloudSun, LogIn, Shirt, UserRound } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import useAuth from "../hooks/useAuth";
 
@@ -13,59 +13,56 @@ navigate("/");
 };
 
 const linkClass = ({ isActive }) =>
-`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+`rounded-xl px-3 py-2 text-sm font-semibold transition ${
     isActive
-    ? "bg-sky-500 text-white shadow-lg shadow-sky-500/20"
+    ? "bg-sky-500 text-white"
     : "text-slate-300 hover:bg-white/10 hover:text-white"
 }`;
 
 return (
-<header className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
-    <Link to="/" className="flex items-center gap-3">
-    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500 text-white shadow-lg shadow-sky-500/25">
-        <CloudSun size={24} />
+<header className="mb-6 flex items-center justify-between gap-4">
+    <Link to={user ? "/app" : "/"} className="flex items-center gap-3">
+    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-500 text-white">
+        <CloudSun size={22} />
     </div>
 
-    <div>
-        <p className="text-lg font-black tracking-tight text-white">
+    <p className="text-lg font-black tracking-tight text-white">
         JacketCheck
-        </p>
-        <p className="text-xs text-slate-400">Forecast-based outfit logic</p>
-    </div>
+    </p>
     </Link>
 
-    <nav className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2">
-    <NavLink to="/" className={linkClass}>
-        <Home size={16} />
-        Guest
-    </NavLink>
-
+    <nav className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2">
     {user ? (
         <>
         <NavLink to="/app" className={linkClass}>
-            <Sparkles size={16} />
-            Personalized
+            App
         </NavLink>
 
         <NavLink to="/profile" className={linkClass}>
-            <UserRound size={16} />
-            Profile
+            <UserRound size={15} className="inline" />
+            <span className="ml-1">Profile</span>
         </NavLink>
 
         <button
             type="button"
             onClick={handleSignOut}
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
+            className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
         >
-            <Settings size={16} />
             Sign Out
         </button>
         </>
     ) : (
-        <NavLink to="/auth" className={linkClass}>
-        <LogIn size={16} />
-        Login
+        <>
+        <NavLink to="/" className={linkClass}>
+            <Shirt size={15} className="inline" />
+            <span className="ml-1">Guest</span>
         </NavLink>
+
+        <NavLink to="/auth" className={linkClass}>
+            <LogIn size={15} className="inline" />
+            <span className="ml-1">Create Account</span>
+        </NavLink>
+        </>
     )}
     </nav>
 </header>

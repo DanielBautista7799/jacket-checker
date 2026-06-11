@@ -1,5 +1,30 @@
 import { useEffect, useState } from "react";
+import {
+CloudRain,
+Clock,
+Ruler,
+Save,
+Scale,
+Thermometer,
+UserRound,
+Waves,
+} from "lucide-react";
 import LocationSearch from "./LocationSearch";
+
+function FieldShell({ icon: Icon, label, children }) {
+return (
+<div>
+    <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
+    {Icon && <Icon size={16} className="text-sky-300" />}
+    {label}
+    </label>
+    {children}
+</div>
+);
+}
+
+const inputClass =
+"w-full rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-4 text-white outline-none transition focus:border-sky-500/70 focus:ring-4 focus:ring-sky-500/10";
 
 function ProfileForm({ profile, onSave, profileLoading }) {
 const [form, setForm] = useState({
@@ -71,42 +96,40 @@ await onSave(payload);
 return (
 <form
     onSubmit={handleSubmit}
-    className="rounded-2xl border border-slate-700 bg-slate-800/80 p-5"
+    className="rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-xl"
 >
-    <h3 className="mb-4 text-xl font-bold text-white">Profile</h3>
+    <div className="mb-6">
+    <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+        Saved Profile
+    </p>
+    <h3 className="mt-1 text-2xl font-black text-white">
+        Comfort & location settings
+    </h3>
+    </div>
 
-    <div className="grid gap-4 md:grid-cols-2">
-    <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200">
-        Display Name
-        </label>
+    <div className="grid gap-5 md:grid-cols-2">
+    <FieldShell icon={UserRound} label="Display Name">
         <input
         value={form.display_name}
         onChange={(e) => updateField("display_name", e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-sky-500"
+        className={inputClass}
         />
-    </div>
+    </FieldShell>
 
-    <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200">
-        Age
-        </label>
+    <FieldShell icon={UserRound} label="Age">
         <input
         type="number"
         value={form.age}
         onChange={(e) => updateField("age", e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-sky-500"
+        className={inputClass}
         />
-    </div>
+    </FieldShell>
 
-    <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200">
-        Sex
-        </label>
+    <FieldShell icon={UserRound} label="Sex">
         <select
         value={form.sex}
         onChange={(e) => updateField("sex", e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-sky-500"
+        className={inputClass}
         >
         <option value="prefer_not_to_say">Prefer not to say</option>
         <option value="male">Male</option>
@@ -114,105 +137,98 @@ return (
         <option value="nonbinary">Nonbinary</option>
         <option value="other">Other</option>
         </select>
-    </div>
+    </FieldShell>
 
-    <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200">
-        Cold Tolerance
-        </label>
+    <FieldShell icon={Thermometer} label="Cold Tolerance">
         <select
         value={form.cold_tolerance}
         onChange={(e) => updateField("cold_tolerance", e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-sky-500"
+        className={inputClass}
         >
         <option value="cold">I run cold</option>
         <option value="normal">Average</option>
         <option value="hot">I run hot</option>
         </select>
-    </div>
+    </FieldShell>
 
-    <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200">
-        Height (inches)
-        </label>
+    <FieldShell icon={Ruler} label="Height (inches)">
         <input
         type="number"
         value={form.height_inches}
         onChange={(e) => updateField("height_inches", e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-sky-500"
+        className={inputClass}
         />
-    </div>
+    </FieldShell>
 
-    <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200">
-        Weight (lbs)
-        </label>
+    <FieldShell icon={Scale} label="Weight (lbs)">
         <input
         type="number"
         value={form.weight_lbs}
         onChange={(e) => updateField("weight_lbs", e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-sky-500"
+        className={inputClass}
         />
-    </div>
+    </FieldShell>
 
-    <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200">
-        Rain Sensitivity
-        </label>
+    <FieldShell icon={CloudRain} label="Rain Sensitivity">
         <select
         value={form.rain_sensitivity}
         onChange={(e) => updateField("rain_sensitivity", e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-sky-500"
+        className={inputClass}
         >
         <option value="low">Rain does not bother me much</option>
         <option value="normal">Average</option>
         <option value="high">Rain bothers me a lot</option>
         </select>
-    </div>
+    </FieldShell>
 
-    <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200">
-        Wind Sensitivity
-        </label>
+    <FieldShell icon={Waves} label="Wind Sensitivity">
         <select
         value={form.wind_sensitivity}
         onChange={(e) => updateField("wind_sensitivity", e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-sky-500"
+        className={inputClass}
         >
         <option value="low">Wind does not bother me much</option>
         <option value="normal">Average</option>
         <option value="high">Wind bothers me a lot</option>
         </select>
-    </div>
+    </FieldShell>
 
     <div className="md:col-span-2">
-        <label className="mb-2 block text-sm font-medium text-slate-200">
-        Usual Time Outside
-        </label>
+        <FieldShell icon={Clock} label="Usual Time Outside">
         <select
-        value={form.default_exposure}
-        onChange={(e) => updateField("default_exposure", e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-sky-500"
+            value={form.default_exposure}
+            onChange={(e) => updateField("default_exposure", e.target.value)}
+            className={inputClass}
         >
-        <option value="short">Short — quick walks only</option>
-        <option value="medium">Medium — walking around campus / errands</option>
-        <option value="long">Long — outside for a while</option>
+            <option value="short">Short — quick walks only</option>
+            <option value="medium">
+            Medium — walking around campus / errands
+            </option>
+            <option value="long">Long — outside for a while</option>
         </select>
+        </FieldShell>
     </div>
 
     <div className="md:col-span-2">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+        <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            Default Location
+        </p>
+
         <LocationSearch
-        selectedLocation={selectedLocation}
-        onSelectLocation={setSelectedLocation}
+            selectedLocation={selectedLocation}
+            onSelectLocation={setSelectedLocation}
         />
+        </div>
     </div>
     </div>
 
     <button
     type="submit"
     disabled={profileLoading}
-    className="mt-5 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700"
+    className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-4 font-black text-white shadow-lg shadow-emerald-500/25 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
     >
+    <Save size={19} />
     {profileLoading ? "Saving..." : "Save Profile"}
     </button>
 </form>

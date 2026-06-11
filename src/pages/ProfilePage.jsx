@@ -9,18 +9,17 @@ useProfile(user);
 
 return (
 <section>
-    <div className="mb-8">
-    <p className="text-sm uppercase tracking-wide text-sky-400">
-        Profile Setup
+    <div className="mb-6">
+    <p className="text-sm font-semibold uppercase tracking-wide text-purple-400">
+        Profile
     </p>
 
-    <h1 className="mt-2 text-4xl font-bold tracking-tight text-white">
-        Personalize Your Jacket Score
+    <h1 className="mt-2 text-4xl font-black tracking-tight text-white">
+        Personal settings
     </h1>
 
-    <p className="mt-3 text-slate-300">
-        Your profile is stored securely and used only to tune your personalized
-        jacket recommendation.
+    <p className="mt-2 text-slate-400">
+        Used quietly in the background to tune your result.
     </p>
     </div>
 
