@@ -26,52 +26,52 @@ const weatherData = await fetchWeather(selectedLocation);
 if (!weatherData) return;
 
 const scoringResult = calculateJacketScore({
-    weather: weatherData,
-    windowId: timeWindow,
+weather: weatherData,
+windowId: timeWindow,
 });
 
 const mappedRecommendation = mapScoreToRecommendation(
-    scoringResult.score,
-    weatherData,
-    scoringResult.forecastAnalysis
+scoringResult.score,
+weatherData,
+scoringResult.forecastAnalysis
 );
 
 setRecommendation({
-    ...mappedRecommendation,
-    score: scoringResult.score,
-    reasons: scoringResult.reasons,
-    forecastAnalysis: scoringResult.forecastAnalysis,
+...mappedRecommendation,
+score: scoringResult.score,
+reasons: scoringResult.reasons,
+forecastAnalysis: scoringResult.forecastAnalysis,
 });
 };
 
 return (
 <div className="space-y-6">
-    <form onSubmit={handleSubmit} className="space-y-5">
-    <LocationSearch
-        selectedLocation={selectedLocation}
-        onSelectLocation={setSelectedLocation}
-    />
+<form onSubmit={handleSubmit} className="space-y-5">
+<LocationSearch
+    selectedLocation={selectedLocation}
+    onSelectLocation={setSelectedLocation}
+/>
 
-    <TimeWindowSelect value={timeWindow} onChange={setTimeWindow} />
+<TimeWindowSelect value={timeWindow} onChange={setTimeWindow} />
 
-    <button
-        type="submit"
-        disabled={!selectedLocation || loading}
-        className="w-full rounded-xl bg-sky-500 px-4 py-3 font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
-    >
-        {loading ? "Checking Forecast..." : "Do I Need A Jacket?"}
-    </button>
-    </form>
+<button
+    type="submit"
+    disabled={!selectedLocation || loading}
+    className="w-full rounded-xl bg-sky-500 px-4 py-3 font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+>
+    {loading ? "Checking Forecast..." : "Do I Need A Jacket?"}
+</button>
+</form>
 
-    {error && (
-    <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
-        {error}
-    </div>
-    )}
-    <RecommendationCard recommendation={recommendation} />
+{error && (
+<div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
+    {error}
+</div>
+)}
+<RecommendationCard recommendation={recommendation} />
 
 
-    <WeatherCard weather={weather} recommendation={recommendation} />
+<WeatherCard weather={weather} recommendation={recommendation} />
 
 </div>
 );
