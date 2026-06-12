@@ -4,6 +4,7 @@ CheckCircle2,
 CloudRain,
 MapPin,
 Shield,
+Shirt,
 Sparkles,
 Thermometer,
 Wind,
@@ -37,6 +38,7 @@ const forecastAlerts = recommendation.forecastAnalysis?.alerts || [];
 const bringAlongSuggestions =
     recommendation.forecastAnalysis?.bringAlongSuggestions || [];
 const profileReasons = recommendation.profileReasons || [];
+const styleSuggestion = recommendation.styleSuggestion;
 
 const topReasons = recommendation.reasons?.slice(0, 3) || [];
 const topProfileReasons = profileReasons.slice(0, 3);
@@ -80,6 +82,38 @@ return (
         {recommendation.summary}
         </p>
     </div>
+
+    {isPersonalized && styleSuggestion && (
+        <div className="mb-5 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
+        <div className="mb-3 flex items-center gap-2 text-emerald-200">
+            <Shirt size={18} />
+            <p className="font-bold">Style It</p>
+        </div>
+
+        <p className="mb-3 font-bold text-white">
+            {styleSuggestion.outfitTitle}
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+            {styleSuggestion.pieces.map((piece) => (
+            <span
+                key={piece}
+                className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200"
+            >
+                {piece}
+            </span>
+            ))}
+        </div>
+
+        <p className="mt-3 text-sm leading-5 text-slate-300">
+            {styleSuggestion.reason}
+        </p>
+
+        <p className="mt-2 text-sm leading-5 text-slate-400">
+            {styleSuggestion.colorNote}
+        </p>
+        </div>
+    )}
 
     {isPersonalized && topProfileReasons.length > 0 && (
         <div className="mb-5 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-5">

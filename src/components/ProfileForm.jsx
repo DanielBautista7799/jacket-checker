@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import {
 CloudRain,
 Clock,
+Palette,
 Ruler,
 Save,
 Scale,
+Shirt,
+Sparkles,
 Thermometer,
 UserRound,
 Waves,
@@ -37,6 +40,13 @@ cold_tolerance: "normal",
 rain_sensitivity: "normal",
 wind_sensitivity: "normal",
 default_exposure: "medium",
+
+style_preference: "streetwear",
+fit_preference: "relaxed",
+preferred_color: "black",
+favorite_shoes: "jordans",
+default_bottoms: "cargos",
+style_influence: "american_streetwear",
 });
 
 const [selectedLocation, setSelectedLocation] = useState(null);
@@ -54,6 +64,13 @@ setForm({
     rain_sensitivity: profile.rain_sensitivity || "normal",
     wind_sensitivity: profile.wind_sensitivity || "normal",
     default_exposure: profile.default_exposure || "medium",
+
+    style_preference: profile.style_preference || "streetwear",
+    fit_preference: profile.fit_preference || "relaxed",
+    preferred_color: profile.preferred_color || "black",
+    favorite_shoes: profile.favorite_shoes || "jordans",
+    default_bottoms: profile.default_bottoms || "cargos",
+    style_influence: profile.style_influence || "american_streetwear",
 });
 
 if (profile.default_location_lat && profile.default_location_lon) {
@@ -103,7 +120,7 @@ return (
         Saved Profile
     </p>
     <h3 className="mt-1 text-2xl font-black text-white">
-        Comfort & location settings
+        Comfort & style settings
     </h3>
     </div>
 
@@ -207,6 +224,126 @@ return (
             <option value="long">Long — outside for a while</option>
         </select>
         </FieldShell>
+    </div>
+
+    <div className="md:col-span-2">
+        <div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
+        <div className="mb-5">
+            <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-emerald-200">
+            <Shirt size={16} />
+            Style Mode
+            </p>
+            <p className="mt-1 text-sm text-slate-300">
+            Used only in personalized mode to suggest how to style the jacket.
+            </p>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+            <FieldShell icon={Sparkles} label="Style Preference">
+            <select
+                value={form.style_preference}
+                onChange={(e) =>
+                updateField("style_preference", e.target.value)
+                }
+                className={inputClass}
+            >
+                <option value="streetwear">Streetwear</option>
+                <option value="minimal">Minimal</option>
+                <option value="athletic">Athletic</option>
+                <option value="smart_casual">Smart casual</option>
+                <option value="techwear">Techwear</option>
+                <option value="vintage">Vintage</option>
+                <option value="skater">Skater</option>
+                <option value="outdoor">Outdoor</option>
+            </select>
+            </FieldShell>
+
+            <FieldShell icon={Shirt} label="Fit Preference">
+            <select
+                value={form.fit_preference}
+                onChange={(e) =>
+                updateField("fit_preference", e.target.value)
+                }
+                className={inputClass}
+            >
+                <option value="relaxed">Relaxed</option>
+                <option value="fitted">Fitted</option>
+                <option value="oversized">Oversized</option>
+                <option value="layered">Layered</option>
+            </select>
+            </FieldShell>
+
+            <FieldShell icon={Palette} label="Preferred Color">
+            <select
+                value={form.preferred_color}
+                onChange={(e) =>
+                updateField("preferred_color", e.target.value)
+                }
+                className={inputClass}
+            >
+                <option value="black">Black</option>
+                <option value="white">White</option>
+                <option value="grey">Grey</option>
+                <option value="navy">Navy</option>
+                <option value="earth_tones">Earth tones</option>
+                <option value="bold">Bold colors</option>
+            </select>
+            </FieldShell>
+
+            <FieldShell icon={Shirt} label="Favorite Shoes">
+            <select
+                value={form.favorite_shoes}
+                onChange={(e) =>
+                updateField("favorite_shoes", e.target.value)
+                }
+                className={inputClass}
+            >
+                <option value="jordans">Jordans</option>
+                <option value="sneakers">Sneakers</option>
+                <option value="boots">Boots</option>
+                <option value="loafers">Loafers</option>
+                <option value="running_shoes">Running shoes</option>
+            </select>
+            </FieldShell>
+
+            <FieldShell icon={Shirt} label="Default Bottoms">
+            <select
+                value={form.default_bottoms}
+                onChange={(e) =>
+                updateField("default_bottoms", e.target.value)
+                }
+                className={inputClass}
+            >
+                <option value="cargos">Cargos</option>
+                <option value="jeans">Jeans</option>
+                <option value="chinos">Chinos</option>
+                <option value="joggers">Joggers</option>
+                <option value="trousers">Trousers</option>
+            </select>
+            </FieldShell>
+
+            <FieldShell icon={Sparkles} label="Style Influence">
+            <select
+                value={form.style_influence}
+                onChange={(e) =>
+                updateField("style_influence", e.target.value)
+                }
+                className={inputClass}
+            >
+                <option value="american_streetwear">
+                American streetwear
+                </option>
+                <option value="korean_casual">Korean casual</option>
+                <option value="japanese_minimal">Japanese minimal</option>
+                <option value="european_clean">European clean</option>
+                <option value="skater">Skater</option>
+                <option value="outdoor">Outdoor</option>
+                <option value="athletic">Athletic</option>
+                <option value="techwear">Techwear</option>
+            </select>
+            </FieldShell>
+        </div>
+        </div>
     </div>
 
     <div className="md:col-span-2">

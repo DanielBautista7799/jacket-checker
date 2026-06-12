@@ -1,6 +1,7 @@
 import { calculateJacketScore } from "./calculateJacketScore";
 import { mapScoreToRecommendation } from "./mapScoreToRecommendation";
 import { calculateProfileModifier } from "./calculateProfileModifier";
+import { generateStyleSuggestion } from "./generateStyleSuggestion";
 
 export function calculatePersonalizedRecommendation({
 weather,
@@ -18,7 +19,7 @@ weather,
 baseResult.forecastAnalysis
 );
 
-return {
+const recommendationBase = {
 ...mappedRecommendation,
 score: personalizedScore,
 baseScore: baseResult.score,
@@ -26,5 +27,16 @@ profileModifier: profileResult.modifier,
 reasons: [...baseResult.reasons, ...profileResult.profileReasons],
 forecastAnalysis: baseResult.forecastAnalysis,
 profileReasons: profileResult.profileReasons,
+};
+
+const styleSuggestion = generateStyleSuggestion({
+recommendation: recommendationBase,
+weather,
+profile,
+});
+
+return {
+...recommendationBase,
+styleSuggestion,
 };
 }
