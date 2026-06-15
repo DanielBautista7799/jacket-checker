@@ -38,6 +38,11 @@ return (
             App
         </NavLink>
 
+        <NavLink to="/closet" className={linkClass}>
+            <Shirt size={15} className="inline" />
+            <span className="ml-1">Closet</span>
+        </NavLink>
+
         <NavLink to="/profile" className={linkClass}>
             <UserRound size={15} className="inline" />
             <span className="ml-1">Profile</span>

@@ -39,6 +39,7 @@ const bringAlongSuggestions =
     recommendation.forecastAnalysis?.bringAlongSuggestions || [];
 const profileReasons = recommendation.profileReasons || [];
 const styleSuggestion = recommendation.styleSuggestion;
+const closetMatch = recommendation.closetMatch;
 
 const topReasons = recommendation.reasons?.slice(0, 3) || [];
 const topProfileReasons = profileReasons.slice(0, 3);
@@ -83,6 +84,23 @@ return (
         </p>
     </div>
 
+    {isPersonalized && closetMatch && (
+        <div className="mb-5 rounded-3xl border border-sky-400/20 bg-sky-400/10 p-5">
+        <div className="mb-3 flex items-center gap-2 text-sky-200">
+            <Shirt size={18} />
+            <p className="font-bold">Closet Match</p>
+        </div>
+
+        <p className="font-bold text-white">{closetMatch.item.name}</p>
+
+        <ul className="mt-3 space-y-2 text-sm leading-5 text-slate-300">
+            {closetMatch.reasons.slice(0, 3).map((reason, index) => (
+            <li key={index}>• {reason}</li>
+            ))}
+        </ul>
+        </div>
+    )}
+
     {isPersonalized && styleSuggestion && (
         <div className="mb-5 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
         <div className="mb-3 flex items-center gap-2 text-emerald-200">
@@ -115,21 +133,39 @@ return (
         </div>
     )}
 
-    {isPersonalized && topProfileReasons.length > 0 && (
-        <div className="mb-5 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-5">
-        <div className="mb-3 flex items-center gap-2 text-purple-200">
-            <Sparkles size={18} />
-            <p className="font-bold">Tuned For You</p>
-        </div>
+{isPersonalized && closetMatch && (
+<div className="mb-5 overflow-hidden rounded-3xl border border-sky-400/20 bg-sky-400/10">
+{closetMatch.item.image_url && (
+    <img
+    src={closetMatch.item.image_url}
+    alt={closetMatch.item.name}
+    className="h-56 w-full object-cover"
+    />
+)}
 
-        <ul className="space-y-2 text-sm leading-5 text-slate-300">
-            {topProfileReasons.map((reason, index) => (
-            <li key={index}>• {reason}</li>
-            ))}
-        </ul>
-        </div>
-    )}
+<div className="p-5">
+    <div className="mb-3 flex items-center gap-2 text-sky-200">
+    <Shirt size={18} />
+    <p className="font-bold">Closet Match</p>
+    </div>
 
+    <p className="text-xl font-black text-white">
+    {closetMatch.item.name}
+    </p>
+
+    <p className="mt-1 text-sm capitalize text-slate-300">
+    {closetMatch.item.color}{" "}
+    {closetMatch.item.type.replaceAll("_", " ")}
+    </p>
+
+    <ul className="mt-3 space-y-2 text-sm leading-5 text-slate-300">
+    {closetMatch.reasons.slice(0, 3).map((reason, index) => (
+        <li key={index}>• {reason}</li>
+    ))}
+    </ul>
+</div>
+</div>
+)}
     {bringAlongSuggestions.length > 0 && (
         <div className="mb-5 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
         <div className="mb-3 flex items-center gap-2 text-amber-200">

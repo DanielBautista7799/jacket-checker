@@ -1,12 +1,17 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { MapPin, Sparkles } from "lucide-react";
+import { MapPin, Shirt, Sparkles } from "lucide-react";
+import useAuth from "../hooks/useAuth";
+import useClosetItems from "../hooks/useClosetItems";
 import useWeather from "../hooks/useWeather";
 import TimeWindowSelect from "./TimeWindowSelect";
 import CheckResultCard from "./CheckResultCard";
 import { calculatePersonalizedRecommendation } from "../utils/calculatePersonalizedRecommendation";
 
 function PersonalizedJacketCheck({ profile }) {
+const { user } = useAuth();
+const { closetItems, incrementTimesRecommended } = useClosetItems(user);
+
 const [recommendation, setRecommendation] = useState(null);
 const [timeWindow, setTimeWindow] = useState("rest_of_day");
 
@@ -38,15 +43,20 @@ const personalizedRecommendation = calculatePersonalizedRecommendation({
     weather: weatherData,
     profile,
     windowId: timeWindow,
+    closetItems,
 });
 
 setRecommendation(personalizedRecommendation);
+
+if (personalizedRecommendation.closetMatch?.item?.id) {
+    incrementTimesRecommended(personalizedRecommendation.closetMatch.item.id);
+}
 };
 
 const profileSummary = [
 profile?.cold_tolerance && `Runs ${profile.cold_tolerance}`,
-profile?.rain_sensitivity && `${profile.rain_sensitivity} rain sensitivity`,
-profile?.wind_sensitivity && `${profile.wind_sensitivity} wind sensitivity`,
+profile?.style_preference && profile.style_preference.replace("_", " "),
+`${closetItems.length} closet item${closetItems.length === 1 ? "" : "s"}`,
 ].filter(Boolean);
 
 return (
@@ -90,21 +100,34 @@ return (
         {profileSummary.map((item) => (
             <span
             key={item}
-            className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200"
+            className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold capitalize text-slate-200"
             >
             {item}
             </span>
         ))}
         </div>
 
-        <Link
-        to="/profile"
-        className="mt-3 block text-sm font-bold text-sky-300 hover:text-sky-200"
-        >
-        Edit profile →
+        <div className="mt-3 flex gap-3 text-sm font-bold">
+        <Link to="/profile" className="text-sky-300 hover:text-sky-200">
+            Edit profile →
         </Link>
+
+        <Link to="/closet" className="text-emerald-300 hover:text-emerald-200">
+            Closet →
+        </Link>
+        </div>
     </div>
     </div>
+
+    {closetItems.length === 0 && (
+    <div className="mb-5 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+        <div className="flex items-center gap-2">
+        <Shirt size={17} />
+        Add jackets to your closet so the app can recommend specific items
+        you own.
+        </div>
+    </div>
+    )}
 
     <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
     <div className="h-fit rounded-3xl border border-white/10 bg-slate-950/60 p-5">

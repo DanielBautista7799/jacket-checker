@@ -30,6 +30,7 @@ return bottomsMap[bottoms] || "pants";
 
 function getTopLayer({ weather, stylePreference, fitPreference, preferredColor }) {
 const feelsLike = weather?.feelsLike ?? 65;
+
 const color =
     preferredColor === "earth_tones"
     ? "cream"
@@ -107,6 +108,7 @@ export function generateStyleSuggestion({
 recommendation,
 weather,
 profile,
+closetItem,
 }) {
 if (!recommendation || !profile) return null;
 
@@ -119,10 +121,15 @@ const styleInfluence = profile.style_influence || "american_streetwear";
 
 const styleProfile = findStyleProfile(stylePreference);
 const colorPalette = findColorPalette(preferredColor);
-const jacketMatch = findMatchingJacket(
-    recommendation.primaryItem || recommendation.jacketType,
-    stylePreference
-);
+
+const jacketMatch = closetItem
+    ? {
+        label: closetItem.name,
+    }
+    : findMatchingJacket(
+        recommendation.primaryItem || recommendation.jacketType,
+        stylePreference
+    );
 
 const top = getTopLayer({
     weather,
@@ -135,14 +142,11 @@ const bottoms = formatBottoms(defaultBottoms);
 const shoes = formatShoes(favoriteShoes);
 const accessory = getAccessory(weather);
 
-const outfitTitle = `${styleProfile.label} ${jacketMatch.label.toLowerCase()} fit`;
+const outfitTitle = closetItem
+    ? `${styleProfile.label} fit with ${closetItem.name}`
+    : `${styleProfile.label} ${jacketMatch.label.toLowerCase()} fit`;
 
-const pieces = [
-    top,
-    bottoms,
-    shoes,
-    accessory,
-].filter(Boolean);
+const pieces = [top, bottoms, shoes, accessory].filter(Boolean);
 
 return {
     outfitTitle,
