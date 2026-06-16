@@ -17,14 +17,19 @@ items.map(async (item) => {
     }
 
     try {
-    const signedUrl = await createClosetImageUrl(item.image_path);
+    const signedUrl = await createClosetImageUrl(
+        item.image_path
+    );
 
     return {
         ...item,
         image_url: signedUrl,
     };
     } catch (error) {
-    console.error("Could not create closet image URL:", error);
+    console.error(
+        "Could not create closet image URL:",
+        error
+    );
 
     return {
         ...item,
@@ -58,22 +63,34 @@ try {
 
     if (error) throw error;
 
-    const hydratedItems = await hydrateClosetImages(data || []);
+    const hydratedItems = await hydrateClosetImages(
+    data || []
+    );
 
     setClosetItems(hydratedItems);
+
     return hydratedItems;
 } catch (error) {
     console.error("Closet fetch failed:", error);
-    setClosetError(error.message || "Could not fetch closet items.");
+
+    setClosetError(
+    error.message || "Could not fetch closet items."
+    );
+
     return [];
 } finally {
     setClosetLoading(false);
 }
 }, [user]);
 
-const saveClosetItem = async (itemData, imageFile = null) => {
+const saveClosetItem = async (
+itemData,
+imageFile = null
+) => {
 if (!user) {
-    setClosetError("You must be signed in to save closet items.");
+    setClosetError(
+    "You must be signed in to save closet items."
+    );
     return null;
 }
 
@@ -105,16 +122,30 @@ try {
 
     if (error) throw error;
 
-    const signedUrl = data.image_path
-    ? await createClosetImageUrl(data.image_path)
-    : null;
+    let signedUrl = null;
+
+    if (data.image_path) {
+    try {
+        signedUrl = await createClosetImageUrl(
+        data.image_path
+        );
+    } catch (urlError) {
+        console.error(
+        "Could not create image URL:",
+        urlError
+        );
+    }
+    }
 
     const hydratedItem = {
     ...data,
     image_url: signedUrl,
     };
 
-    setClosetItems((current) => [hydratedItem, ...current]);
+    setClosetItems((current) => [
+    hydratedItem,
+    ...current,
+    ]);
 
     return hydratedItem;
 } catch (error) {
@@ -124,11 +155,17 @@ try {
     try {
         await deleteClosetImage(uploadedImagePath);
     } catch (cleanupError) {
-        console.error("Failed to clean up uploaded image:", cleanupError);
+        console.error(
+        "Failed to clean up uploaded image:",
+        cleanupError
+        );
     }
     }
 
-    setClosetError(error.message || "Could not save closet item.");
+    setClosetError(
+    error.message || "Could not save closet item."
+    );
+
     return null;
 } finally {
     setClosetLoading(false);
@@ -138,7 +175,9 @@ try {
 const deleteClosetItem = async (itemId) => {
 if (!user) return false;
 
-const itemToDelete = closetItems.find((item) => item.id === itemId);
+const itemToDelete = closetItems.find(
+    (item) => item.id === itemId
+);
 
 if (!itemToDelete) return false;
 
@@ -156,9 +195,14 @@ try {
 
     if (itemToDelete.image_path) {
     try {
-        await deleteClosetImage(itemToDelete.image_path);
+        await deleteClosetImage(
+        itemToDelete.image_path
+        );
     } catch (imageError) {
-        console.error("Closet record deleted, but image cleanup failed:", imageError);
+        console.error(
+        "Database item deleted, but image cleanup failed:",
+        imageError
+        );
     }
     }
 
@@ -169,7 +213,11 @@ try {
     return true;
 } catch (error) {
     console.error("Closet delete failed:", error);
-    setClosetError(error.message || "Could not delete closet item.");
+
+    setClosetError(
+    error.message || "Could not delete closet item."
+    );
+
     return false;
 } finally {
     setClosetLoading(false);
@@ -185,7 +233,8 @@ const item = closetItems.find(
 
 if (!item) return;
 
-const nextCount = (item.times_recommended || 0) + 1;
+const nextCount =
+    (item.times_recommended || 0) + 1;
 
 const { error } = await supabase
     .from("closet_items")
@@ -196,7 +245,10 @@ const { error } = await supabase
     .eq("user_id", user.id);
 
 if (error) {
-    console.error("Could not increment recommendation count:", error);
+    console.error(
+    "Could not increment recommendation count:",
+    error
+    );
     return;
 }
 

@@ -86,29 +86,42 @@ Forecast Watch:
 
 ## Phase 2: Personalized Account Experience
 
-The logged-in version is a separate experience from guest mode.
+The logged-in version is a separate experience from Guest Mode and now functions as a personalized closet and style recommendation system.
 
-Users can create an account, save a profile, set a default location, and run personalized jacket checks. The personalization score is calculated under the hood and is not shown directly to the user.
+Users can create an account, save a profile, set a default location, build a private jacket closet, upload jacket photos, analyze those photos with AI, and receive recommendations using items they actually own.
 
-Personalized Mode should feel more advanced than Guest Mode while still staying clean:
+The personalization score and closet ranking score are calculated under the hood and are not shown directly to the user.
 
-* Uses saved profile
-* Uses comfort preferences
-* Uses default location
-* Uses forecast window
-* Shows personalized reasoning
-* Eventually adds style suggestions, closet items, and outfit recommendations
+Personalized Mode currently includes:
+
+* Saved comfort profile
+* Saved style profile
+* Default location
+* Forecast-window analysis
+* Personal jacket closet
+* Private jacket image storage
+* AI-assisted jacket recognition
+* User review and correction before saving
+* Weather-based closet ranking
+* Personalized outfit suggestions
+* Jacket images inside recommendations
 
 ### Personalized User Flow
 
 1. Login or create an account
-2. Complete profile setup
-3. Save default location
-4. Go to personalized jacket app
-5. Run a personalized forecast check
-6. Receive a more tailored jacket recommendation
+2. Complete comfort and style profile setup
+3. Save a default location
+4. Add jackets manually or upload a jacket image
+5. Optionally analyze the image with AI
+6. Review and correct the suggested jacket details
+7. Save the confirmed item to the private closet
+8. Run a personalized forecast check
+9. Receive a recommendation using the best matching owned jacket
+10. Receive a style suggestion built around that jacket
 
 ### Saved Profile Fields
+
+Comfort fields:
 
 * Display name
 * Age
@@ -121,6 +134,15 @@ Personalized Mode should feel more advanced than Guest Mode while still staying 
 * Usual time outside
 * Default location
 
+Style fields:
+
+* Style preference
+* Fit preference
+* Preferred color
+* Favorite shoes
+* Default bottoms
+* Style influence
+
 ### Personalized Recommendation Factors
 
 * Forecast-based weather score
@@ -130,31 +152,47 @@ Personalized Mode should feel more advanced than Guest Mode while still staying 
 * Usual exposure time
 * Age-based warmth buffer
 * Default location
+* Jacket warmth rating
+* Jacket rain rating
+* Jacket wind rating
+* Jacket formality rating
+* Jacket style tags
+* Preferred color
+* Saved style preference
+* Saved closet inventory
+* Overkill penalty for jackets that are too heavy
+* Previous recommendation count
 
 ### Personalized Output
 
-The personalized version returns a simple user-facing recommendation, but the internal scoring adjusts based on the saved profile.
+The personalized version returns a simple recommendation while using a more complex internal pipeline.
 
 Example:
 
 YES
 
 Wear:
-Water-resistant jacket
+Your black windbreaker
 
-Tuned For You:
+Closet Match:
 
-* Your profile says rain affects your comfort more than average
-* Your usual time outside is medium, so the forecast window matters
+* Warmth matches the selected forecast window
+* Strong rain and wind protection
+* Matches your saved streetwear preference
+
+Style It:
+
+* Black tee
+* Black cargos
+* Jordan 1s
 
 Why:
 
-* Rain is likely later
-* Wind may increase
+* Rain is expected later
+* Wind increases during the selected window
+* This is the best matching jacket in your closet
 
-The goal is to eventually evolve the logged-in experience into a full outfit recommendation engine.
-
----
+The UI stays simple while the personalization, ranking, image analysis, and outfit logic remain under the hood.
 
 # Current Architecture
 
@@ -164,21 +202,28 @@ src/
 │   ├── AppHeader.jsx
 │   ├── AuthPanel.jsx
 │   ├── CheckResultCard.jsx
+│   ├── ClosetItemCard.jsx
+│   ├── ClosetItemForm.jsx
 │   ├── JacketForm.jsx
 │   ├── LocationSearch.jsx
 │   ├── PersonalizedJacketCheck.jsx
 │   ├── ProfileForm.jsx
 │   ├── ProtectedRoute.jsx
-│   ├── TimeWindowSelect.jsx
 │   ├── RecommendationCard.jsx
+│   ├── TimeWindowSelect.jsx
 │   └── WeatherCard.jsx
 │
 ├── context/
 │   └── AuthContext.jsx
 │
+├── data/
+│   └── styleLibrary.js
+│
 ├── hooks/
 │   ├── useAuth.js
 │   ├── useBrowserLocation.js
+│   ├── useClosetImageAnalysis.js
+│   ├── useClosetItems.js
 │   ├── useLocationSearch.js
 │   ├── useProfile.js
 │   └── useWeather.js
@@ -188,6 +233,7 @@ src/
 │
 ├── pages/
 │   ├── AuthPage.jsx
+│   ├── ClosetPage.jsx
 │   ├── GuestPage.jsx
 │   ├── PersonalizedPage.jsx
 │   └── ProfilePage.jsx
@@ -197,18 +243,27 @@ src/
 │   ├── calculateJacketScore.js
 │   ├── calculatePersonalizedRecommendation.js
 │   ├── calculateProfileModifier.js
+│   ├── generateStyleSuggestion.js
 │   ├── mapScoreToRecommendation.js
-│   └── timeWindows.js
+│   ├── normalizeClosetAnalysis.js
+│   ├── rankClosetItems.js
+│   ├── timeWindows.js
+│   └── uploadClosetImage.js
 │
 ├── App.jsx
 └── main.jsx
+
+supabase/
+├── config.toml
+└── functions/
+    ├── deno.json
+    └── analyze-closet-item/
+        └── index.ts
 ```
 
-Note:
+`CheckResultCard.jsx` combines the verdict, selected closet item, jacket image, forecast evidence, personal reasoning, and style suggestion into one focused result.
 
-`WeatherCard.jsx` and `RecommendationCard.jsx` may remain in the project temporarily, but the main guest and personalized check flows now use `CheckResultCard.jsx` to keep the UI focused on the jacket decision instead of feeling like a weather dashboard.
-
----
+`WeatherCard.jsx` and `RecommendationCard.jsx` may remain temporarily, but the main guest and personalized flows use `CheckResultCard.jsx`.
 
 # Recommendation Engine
 
@@ -300,17 +355,39 @@ Current Supabase features:
 
 * Email/password authentication
 * User session tracking
-* Saved user profiles
+* Saved comfort profiles
+* Saved style profiles
 * Default location storage
+* Personal closet storage
+* Private jacket image storage
 * Row Level Security policies
+* Storage access policies
 * Profile upsert logic
 * Protected personalized routes
+* Supabase Edge Function for AI image analysis
+* Server-side Gemini API secret storage
 
-User profile data is stored in Supabase and protected so each authenticated user can only access their own profile.
+User profile and closet data are protected so each authenticated user can only access their own records.
 
-Environment variables are stored in `.env` and excluded from GitHub.
+Jacket images are stored in the private `closet-images` bucket using paths scoped to the authenticated user:
 
-Required environment variables:
+```text
+closet-images/<user-id>/<random-file-name>
+```
+
+Temporary signed URLs are generated when images need to be displayed. Stable storage paths are saved in the database instead of expiring signed URLs.
+
+The AI provider key is stored as a Supabase Edge Function secret:
+
+```text
+GEMINI_API_KEY
+```
+
+It must never be added as a `VITE_` environment variable because Vite variables are exposed to browser code.
+
+Frontend environment variables are stored in `.env` and excluded from GitHub.
+
+Required frontend environment variables:
 
 ```env
 VITE_WEATHER_API_KEY=YOUR_WEATHERAPI_KEY
@@ -319,8 +396,6 @@ VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 ```
 
 `.env.example` should contain placeholder values only.
-
----
 
 # Current Features
 
@@ -344,9 +419,10 @@ Completed:
 * Explainable recommendation output
 * Combined jacket result card
 * React Router page separation
-* Guest mode page
+* Guest Mode page
 * Auth page
 * Profile page
+* Closet page
 * Personalized app page
 * Supabase authentication
 * Supabase profile persistence
@@ -354,32 +430,59 @@ Completed:
 * Hidden personalization scoring
 * Minimal signed-out navigation
 * Minimal signed-in navigation
-* Modular React architecture
-
----
+* Comfort profile settings
+* Style profile settings
+* Local style library
+* Rule-based outfit suggestion generation
+* Personal closet database
+* Manual closet item creation
+* Closet item deletion
+* Jacket warmth, rain, wind, and formality ratings
+* Style tags and color metadata
+* Weather-needs calculation
+* Closet jacket ranking
+* Overkill penalties
+* Specific owned-jacket recommendations
+* Private Supabase Storage bucket
+* Private closet image upload
+* Signed image URL generation
+* Jacket images on closet cards
+* Jacket images in personalized recommendations
+* Secure Supabase Edge Function integration
+* Gemini-powered multimodal jacket analysis
+* Structured AI metadata extraction
+* Server-side AI response validation
+* Controlled jacket type, color, tag, and weather-use enums
+* AI confidence indicators
+* User review and correction flow
+* Manual fallback when AI is unavailable
+* Original AI result persistence
+* Confirmed user values stored as final closet metadata
+* Storage cleanup after failed database inserts
+* Modular React and serverless architecture
 
 # Style Mode Roadmap
 
-Style Mode is the next major phase of the project and will be the main difference between Guest Mode and Personalized Mode.
+Style Mode is the main difference between Guest Mode and Personalized Mode.
 
-Guest Mode should stay fast, simple, and minimal:
+Guest Mode stays fast and minimal:
 
 * Use location
 * Select forecast window
 * Get a YES / NO jacket recommendation
 * See a quick bring-along suggestion if needed
 
-Personalized Mode should become more advanced and tailored:
+Personalized Mode now includes:
 
-* Uses saved profile
-* Uses style preferences
-* Uses saved closet items
-* Suggests specific jackets
-* Suggests how to style the jacket
-* Learns from user feedback over time
-* Eventually supports jacket image uploads and AI-assisted item descriptions
+* Saved comfort and style profiles
+* Saved closet items
+* Private jacket images
+* AI-assisted jacket descriptions
+* User-confirmed metadata
+* Specific owned-jacket recommendations
+* Color-aware outfit suggestions
 
-The long-term goal is to evolve the project from a weather-based jacket checker into a personalized outfit recommendation system.
+The next major goal is to make the system learn from explicit user feedback over time.
 
 ---
 
@@ -422,7 +525,7 @@ You prefer streetwear, darker colors, and relaxed fits.
 
 Style Mode should be built in phases so the project stays clean and scalable.
 
-## Phase A: Style Profile MVP
+## Phase A: Style Profile MVP — Completed
 
 Goal: collect style preferences from the user and use them in personalized recommendations.
 
@@ -497,7 +600,7 @@ Instead of using "nationality" directly to determine style, the app should use "
 
 ---
 
-## Phase B: Base Style Library
+## Phase B: Base Style Library — Completed
 
 Create a local style library first before adding closet uploads.
 
@@ -560,7 +663,7 @@ Each item should eventually have:
 
 ---
 
-## Phase C: Style Suggestion Algorithm
+## Phase C: Style Suggestion Algorithm — Completed
 
 Create a utility function:
 
@@ -610,7 +713,7 @@ This section should only appear in Personalized Mode, not Guest Mode.
 
 ---
 
-## Phase D: Personal Closet Database
+## Phase D: Personal Closet Database — Completed
 
 After the base style library works, add a user closet.
 
@@ -669,7 +772,7 @@ Your black windbreaker
 
 ---
 
-## Phase E: Jacket Ranking Algorithm
+## Phase E: Jacket Ranking Algorithm — Completed
 
 Create a ranking system that compares weather needs against the user's closet.
 
@@ -722,7 +825,7 @@ This makes the app feel intelligent because it selects the best item for the con
 
 ---
 
-## Phase F: Outfit Generation
+## Phase F: Outfit Generation — MVP Completed
 
 Once a jacket is selected, the app should suggest a full outfit.
 
@@ -763,7 +866,7 @@ Rule-based logic is better for the MVP because it is reliable, explainable, and 
 
 ---
 
-## Phase G: Feedback Loop
+## Phase G: Feedback Loop — Next Sprint
 
 After a personalized style recommendation, ask:
 
@@ -807,7 +910,7 @@ This turns the project into an adaptive recommendation system.
 
 ---
 
-## Phase H: Image Upload MVP
+## Phase H: Image Upload MVP — Completed
 
 After closet items work manually, add jacket image upload.
 
@@ -844,7 +947,7 @@ Example upload form fields:
 
 ---
 
-## Phase I: AI Image Description
+## Phase I: AI Image Description — Completed
 
 After manual image upload works, add optional AI-assisted item recognition.
 
@@ -891,106 +994,115 @@ Do not make image AI required for the core app. The closet and style engine shou
 
 ---
 
-# Style Mode Implementation Order
+# Style Mode Implementation Status
 
-The correct order is:
+Completed:
 
-1. Add style fields to Supabase profile table
-2. Update `ProfileForm.jsx` with style preferences
-3. Create local `styleLibrary.js`
-4. Create `generateStyleSuggestion.js`
-5. Update `calculatePersonalizedRecommendation.js`
-6. Update `CheckResultCard.jsx` to show Style It section in Personalized Mode
-7. Add closet item table in Supabase
-8. Build manual closet item form
-9. Add closet item ranking algorithm
-10. Add outfit generation based on closet item
-11. Add feedback table and feedback buttons
-12. Add Supabase image upload
-13. Add AI-assisted image description
-14. Add user confirmation and correction flow
+1. Added style fields to the Supabase profile table
+2. Updated `ProfileForm.jsx` with style preferences
+3. Created `styleLibrary.js`
+4. Created `generateStyleSuggestion.js`
+5. Added personalized style suggestions
+6. Added the `closet_items` Supabase table
+7. Built manual closet item creation
+8. Added closet item ranking
+9. Added outfit generation using the selected closet item
+10. Added private Supabase image storage
+11. Added jacket image previews
+12. Added AI-assisted image analysis
+13. Added user confirmation and correction
+14. Connected AI-created closet items to personalized recommendations
 
----
+Remaining major steps:
+
+1. Add style feedback storage
+2. Add feedback controls to personalized recommendations
+3. Convert feedback into preference weights
+4. Use learned weights during closet and outfit ranking
+5. Add recommendation history
+6. Add caching and analytics
 
 # Immediate Next Sprint
 
-The next sprint should be:
+## Feedback and Preference-Learning System
 
-## Style Profile MVP + Outfit Suggestion Library
+The next sprint will allow Personalized Mode to learn from user reactions.
 
-Tasks:
+Planned flow:
 
-1. Add style fields to `profiles` table
-2. Update profile form
-3. Create style library
-4. Generate outfit suggestion from profile + jacket type
-5. Display compact personalized-only Style It section
+```text
+Personalized recommendation
+→ User selects Fire, Good, or Not It
+→ Feedback is stored in Supabase
+→ Jacket, color, style, and outfit preferences receive updated weights
+→ Future rankings use those weights
+```
+
+Planned tasks:
+
+1. Create a `style_feedback` table
+2. Add Row Level Security policies
+3. Add feedback buttons to `CheckResultCard.jsx`
+4. Save the recommended jacket, outfit, weather snapshot, and rating
+5. Create a user preference-weight calculation
+6. Boost combinations the user likes
+7. Reduce combinations the user dislikes
+8. Prevent a single rating from overpowering all future recommendations
+9. Add recommendation history
+10. Keep the learned score hidden from the user
 
 Expected result:
 
-Guest Mode:
-
 ```text
-NO
-Wear: No jacket
-Bring Along: Light rain shell
-```
-
-Personalized Mode:
-
-```text
-YES
-Wear: Light jacket
+Wear:
+Your black windbreaker
 
 Style It:
-Grey hoodie
-Black cargos
+Black tee
+Cargos
 Jordan 1s
 
-Why:
-Matches your streetwear preference and works with the forecast.
+Did this fit your style?
+Fire | Good | Not It
 ```
 
-This will make the difference between Guest Mode and Personalized Mode obvious without making the screen cluttered.
-
----
+The system should gradually learn the user’s actual preferences instead of relying only on the profile form.
 
 # Planned Portfolio Features
 
 ## Near-Term
 
-* Improve UI polish
-* Add weather icons
-* Add dynamic backgrounds based on weather conditions
-* Add confidence score internally
-* Add improved jacket categories
-* Implement Style Profile MVP
-* Add outfit suggestion library
+* Style feedback table
+* Fire / Good / Not It feedback controls
+* Learned preference weights
+* Recommendation history
+* Improved color-pairing rules
+* Better outfit variation
+* Mobile closet polish
+* Improved AI retry and error states
 
 ## Medium-Term
 
-* Style preference system
-* Saved jacket inventory
-* Jacket taxonomy
-* Better outfit matching
-* User feedback loop
-* Recommendation history
-* Manual closet item creation
-* Supabase closet item storage
+* Adaptive jacket ranking
+* Adaptive outfit ranking
+* Comfort feedback learning
+* Per-item preference scores
+* Edit existing closet items
+* Multiple images per closet item
+* Tops, bottoms, and shoes in the personal closet
+* Better weather and style confidence scoring
+* Local weather caching
 
 ## Advanced
 
-* Adaptive recommendation tuning
-* Comfort feedback learning
-* Style feedback learning
-* Local caching for weather requests
+* Trend-aware style library updates
+* Image embeddings and similarity search
+* Automatic background removal
+* Full wardrobe outfit generation
 * Analytics dashboard
-* Style mode with outfit generation
-* Supabase image upload
-* AI-assisted jacket image description
-* Developer-only debug panel for scoring internals
-
----
+* Developer-only scoring debug panel
+* Optional shopping recommendations
+* Provider-swappable AI analysis
 
 # Technical Concepts Demonstrated
 
@@ -1003,34 +1115,45 @@ This project demonstrates:
 * Supabase authentication
 * Supabase database persistence
 * Row Level Security design
+* Supabase Storage access control
+* Private file storage
+* Temporary signed URLs
+* Supabase Edge Functions
+* Deno-based serverless functions
+* Server-side secret management
 * API integration
+* Multimodal image analysis
+* Structured AI output
+* AI response normalization
+* Human-in-the-loop AI correction
 * Browser Geolocation API
 * Forecast data processing
 * Time-window analysis
 * State management
 * Explainable decision systems
 * Rule-based recommendation engines
+* User preference modeling
+* Closet item scoring
+* Weather-needs modeling
+* Color-aware style suggestions
 * Coordinate-based geolocation handling
 * Search/autocomplete UX
+* Graceful AI failure handling
+* Storage cleanup and error recovery
 * Environment variable management
-* Modular application design
+* Modular frontend and backend design
 
-Planned Style Mode concepts:
+Planned learning-system concepts:
 
-* User preference modeling
-* Recommendation ranking
-* Rule-based outfit generation
-* Closet item scoring
-* Color matching logic
-* Feedback-based learning
-* Image upload pipelines
-* Human-in-the-loop AI correction
-
----
+* Explicit user feedback collection
+* Preference-weight updates
+* Adaptive recommendation ranking
+* Recommendation history
+* Controlled exploration versus repeated favorites
 
 # Why This Project?
 
-Most "Should I Wear a Jacket?" tools rely primarily on current temperature.
+Most “Should I Wear a Jacket?” tools rely primarily on current temperature.
 
 This project models a more realistic decision process by combining:
 
@@ -1039,28 +1162,34 @@ This project models a more realistic decision process by combining:
 * Time-window planning
 * Rain and wind risk
 * Location disambiguation
-* User profile personalization
-* Future closet and style preferences
+* User comfort preferences
+* User style preferences
+* Personal closet inventory
+* Jacket protection ratings
+* Jacket images
+* AI-assisted clothing recognition
+* User-confirmed metadata
+* Rule-based outfit generation
 
-The objective is to build a recommendation system that behaves closer to how a person would actually decide what to wear.
+The app can now analyze a jacket image, let the user correct the result, save it privately, rank it against the forecast, and build an outfit suggestion around the selected item.
 
-Long-term, the project should feel like:
+The long-term system is:
 
 ```text
-Weather app
+Weather intelligence
 +
-Closet app
+Personal closet
 +
 Style recommender
 +
-Personal learning system
+Image understanding
++
+Preference-learning system
 ```
 
-But the UI should stay simple.
+The UI should remain simple.
 
 The complexity should live under the hood.
-
----
 
 # Author
 
