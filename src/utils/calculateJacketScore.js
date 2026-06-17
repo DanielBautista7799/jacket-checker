@@ -1,77 +1,179 @@
 import { analyzeForecast } from "./analyzeForecast";
 
-export function calculateJacketScore({ weather, windowId = "rest_of_day" }) {
+function getSelectedFeelsLike(
+weather,
+forecastAnalysis,
+windowId
+) {
+if (windowId === "now") {
+return Number(weather?.feelsLike) || 65;
+}
+
+return (
+Number(forecastAnalysis.averageWindowFeelsLike) ||
+Number(weather?.feelsLike) ||
+65
+);
+}
+
+function getSelectedRainChance(
+weather,
+forecastAnalysis,
+windowId
+) {
+if (windowId === "now") {
+return Number(weather?.rainChance) || 0;
+}
+
+return (
+Number(
+    forecastAnalysis.highestWindowRainChance
+) ||
+Number(weather?.rainChance) ||
+0
+);
+}
+
+function getSelectedWind(
+weather,
+forecastAnalysis,
+windowId
+) {
+if (windowId === "now") {
+return Number(weather?.windSpeed) || 0;
+}
+
+return (
+Number(forecastAnalysis.highestWindowWind) ||
+Number(weather?.windSpeed) ||
+0
+);
+}
+
+export function calculateJacketScore({
+weather,
+windowId = "rest_of_day",
+}) {
 let score = 0;
 const reasons = [];
 
-const forecastAnalysis = analyzeForecast(weather, windowId);
+const forecastAnalysis = analyzeForecast(
+weather,
+windowId
+);
 
-const { feelsLike, windSpeed, rainChance } = weather;
+const feelsLike = getSelectedFeelsLike(
+weather,
+forecastAnalysis,
+windowId
+);
+
+const rainChance = getSelectedRainChance(
+weather,
+forecastAnalysis,
+windowId
+);
+
+const windSpeed = getSelectedWind(
+weather,
+forecastAnalysis,
+windowId
+);
+
+const windowLabel =
+forecastAnalysis.windowLabel.toLowerCase();
 
 if (feelsLike >= 80) {
 score -= 4;
-reasons.push(`Feels like ${Math.round(feelsLike)}°F, which is warm right now.`);
+reasons.push(
+    `It should feel around ${Math.round(
+    feelsLike
+    )}°F during ${windowLabel}, which is warm.`
+);
 } else if (feelsLike >= 70) {
 score -= 2;
-reasons.push(`Feels like ${Math.round(feelsLike)}°F, so current conditions are mild.`);
-} else if (feelsLike >= 60) {
+reasons.push(
+    `It should feel around ${Math.round(
+    feelsLike
+    )}°F during ${windowLabel}, which is mild.`
+);
+} else if (feelsLike >= 62) {
 score += 1;
-reasons.push(`Feels like ${Math.round(feelsLike)}°F, slightly cool right now.`);
-} else if (feelsLike >= 50) {
+reasons.push(
+    `It should feel around ${Math.round(
+    feelsLike
+    )}°F during ${windowLabel}, so a light layer is optional.`
+);
+} else if (feelsLike >= 52) {
 score += 3;
-reasons.push(`Feels like ${Math.round(feelsLike)}°F, cool enough for a layer.`);
-} else if (feelsLike >= 40) {
+reasons.push(
+    `It should feel around ${Math.round(
+    feelsLike
+    )}°F during ${windowLabel}, which is cool.`
+);
+} else if (feelsLike >= 42) {
 score += 5;
-reasons.push(`Feels like ${Math.round(feelsLike)}°F, jacket weather right now.`);
-} else if (feelsLike >= 30) {
+reasons.push(
+    `It should feel around ${Math.round(
+    feelsLike
+    )}°F during ${windowLabel}, which is jacket weather.`
+);
+} else if (feelsLike >= 32) {
 score += 7;
-reasons.push(`Feels like ${Math.round(feelsLike)}°F, definitely cold.`);
+reasons.push(
+    `It should feel around ${Math.round(
+    feelsLike
+    )}°F during ${windowLabel}, which is cold.`
+);
 } else {
 score += 9;
-reasons.push(`Feels like ${Math.round(feelsLike)}°F, very cold.`);
+reasons.push(
+    `It should feel around ${Math.round(
+    feelsLike
+    )}°F during ${windowLabel}, which is very cold.`
+);
 }
 
-if (windSpeed >= 20) {
+if (windSpeed >= 22) {
 score += 2;
-reasons.push(`Current wind is strong at ${Math.round(windSpeed)} mph.`);
-} else if (windSpeed >= 10) {
+reasons.push(
+    `Wind may reach ${Math.round(
+    windSpeed
+    )} mph during the selected window.`
+);
+} else if (windSpeed >= 14) {
 score += 1;
-reasons.push(`Current wind is moderate at ${Math.round(windSpeed)} mph.`);
+reasons.push(
+    `Wind may reach ${Math.round(
+    windSpeed
+    )} mph during the selected window.`
+);
 }
 
 if (rainChance >= 60) {
 score += 2;
-reasons.push(`Rain chance is high today at ${rainChance}%.`);
-} else if (rainChance >= 30) {
+reasons.push(
+    `Rain chance may reach ${Math.round(
+    rainChance
+    )}% during the selected window.`
+);
+} else if (rainChance >= 35) {
 score += 1;
-reasons.push(`There is some rain risk today at ${rainChance}%.`);
+reasons.push(
+    `There is some rain risk during the selected window.`
+);
 }
 
-if (windowId !== "now") {
-if (forecastAnalysis.lowestWindowFeelsLike <= 45 && feelsLike > 50) {
-    score += 2;
-    reasons.push(
-    `Forecast window drops to around ${Math.round(
-        forecastAnalysis.lowestWindowFeelsLike
-    )}°F feels-like.`
-    );
-} else if (forecastAnalysis.tempDrop >= 12) {
-    score += 2;
-    reasons.push("Forecast shows a significant temperature drop later.");
-} else if (forecastAnalysis.tempDrop >= 7) {
-    score += 1;
-    reasons.push("Forecast shows it may cool down later.");
-}
-
-if (forecastAnalysis.highestWindowRainChance >= 60) {
-    score += 1;
-    reasons.push("Forecast shows rain is likely in the selected window.");
-}
-
-if (forecastAnalysis.highestWindowWind >= 22) {
-    score += 1;
-    reasons.push("Forecast shows strong wind in the selected window.");
-}
+if (
+windowId !== "now" &&
+forecastAnalysis.lowestWindowFeelsLike <= 45
+) {
+score += 1;
+reasons.push(
+    `The coolest part of the window may feel like ${Math.round(
+    forecastAnalysis.lowestWindowFeelsLike
+    )}°F.`
+);
 }
 
 return {

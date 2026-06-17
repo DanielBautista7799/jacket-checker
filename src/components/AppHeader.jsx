@@ -1,7 +1,13 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { CloudSun, LogIn, Shirt, UserRound } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import useAuth from "../hooks/useAuth";
+import {
+    CloudSun,
+    History,
+    LogIn,
+    Shirt,
+    UserRound,
+} from "lucide-react";
 
 function AppHeader() {
 const { user } = useAuth();
@@ -41,6 +47,11 @@ return (
         <NavLink to="/closet" className={linkClass}>
             <Shirt size={15} className="inline" />
             <span className="ml-1">Closet</span>
+        </NavLink>
+        
+        <NavLink to="/history" className={linkClass}>
+        <History size={15} className="inline" />
+        <span className="ml-1">History</span>
         </NavLink>
 
         <NavLink to="/profile" className={linkClass}>

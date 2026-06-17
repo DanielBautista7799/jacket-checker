@@ -1,14 +1,26 @@
 import { Link } from "react-router-dom";
-import { Sparkles, UserRound } from "lucide-react";
+
+import {
+Sparkles,
+UserRound,
+} from "lucide-react";
+
 import PersonalizedJacketCheck from "../components/PersonalizedJacketCheck";
+
 import useAuth from "../hooks/useAuth";
 import useProfile from "../hooks/useProfile";
 
 function PersonalizedPage() {
 const { user } = useAuth();
-const { profile, profileLoading, profileError } = useProfile(user);
 
-if (profileLoading) {
+const {
+profile,
+profileLoading,
+profileRefreshing,
+profileError,
+} = useProfile(user);
+
+if (profileLoading && !profile) {
 return (
     <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-8 text-center text-slate-300">
     Loading your profile...
@@ -16,7 +28,7 @@ return (
 );
 }
 
-if (profileError) {
+if (profileError && !profile) {
 return (
     <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
     {profileError}
@@ -38,8 +50,7 @@ return (
         </h1>
 
         <p className="mt-4 max-w-2xl text-lg leading-7 text-slate-300">
-        The personalized version needs your default location and comfort
-        preferences before it can run.
+        The personalized version needs your default location and comfort preferences before it can run.
         </p>
     </div>
 
@@ -54,7 +65,19 @@ return (
 );
 }
 
-return <PersonalizedJacketCheck profile={profile} />;
+return (
+<>
+    {profileRefreshing && (
+    <div className="mb-3 text-right text-xs font-semibold text-slate-500">
+        Syncing profile…
+    </div>
+    )}
+
+    <PersonalizedJacketCheck
+    profile={profile}
+    />
+</>
+);
 }
 
 export default PersonalizedPage;

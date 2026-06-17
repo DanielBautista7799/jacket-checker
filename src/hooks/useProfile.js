@@ -1,41 +1,167 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-function useProfile(user) {
-const [profile, setProfile] = useState(null);
-const [profileLoading, setProfileLoading] = useState(false);
-const [profileError, setProfileError] = useState("");
+const profileMemoryCache = new Map();
 
-const fetchProfile = async () => {
-if (!user) {
-    setProfile(null);
-    return null;
+function getProfileCacheKey(userId) {
+return `jacket-check:profile:${userId}`;
 }
 
-setProfileLoading(true);
-setProfileError("");
+function readCachedProfile(userId) {
+if (!userId) {
+return null;
+}
+
+if (profileMemoryCache.has(userId)) {
+return profileMemoryCache.get(userId);
+}
 
 try {
-    const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
+const savedProfile = localStorage.getItem(
+    getProfileCacheKey(userId)
+);
 
-    if (error) throw error;
+if (!savedProfile) {
+    return null;
+}
+
+const parsedProfile = JSON.parse(savedProfile);
+
+profileMemoryCache.set(userId, parsedProfile);
+
+return parsedProfile;
+} catch (error) {
+console.error(
+    "Could not read profile cache:",
+    error
+);
+
+return null;
+}
+}
+
+function writeCachedProfile(userId, profile) {
+if (!userId) {
+return;
+}
+
+profileMemoryCache.set(userId, profile);
+
+try {
+localStorage.setItem(
+    getProfileCacheKey(userId),
+    JSON.stringify(profile)
+);
+} catch (error) {
+console.error(
+    "Could not write profile cache:",
+    error
+);
+}
+}
+
+function clearCachedProfile(userId) {
+if (!userId) {
+return;
+}
+
+profileMemoryCache.delete(userId);
+
+try {
+localStorage.removeItem(
+    getProfileCacheKey(userId)
+);
+} catch (error) {
+console.error(
+    "Could not clear profile cache:",
+    error
+);
+}
+}
+
+function useProfile(user) {
+const cachedProfile = readCachedProfile(user?.id);
+
+const [profile, setProfile] = useState(
+cachedProfile
+);
+
+const [profileLoading, setProfileLoading] =
+useState(Boolean(user) && !cachedProfile);
+
+const [
+profileRefreshing,
+setProfileRefreshing,
+] = useState(false);
+
+const [profileError, setProfileError] =
+useState("");
+
+const fetchProfile = useCallback(
+async ({ silent = false } = {}) => {
+    if (!user) {
+    setProfile(null);
+    setProfileLoading(false);
+    setProfileRefreshing(false);
+
+    return null;
+    }
+
+    const existingProfile =
+    readCachedProfile(user.id);
+
+    if (silent || existingProfile) {
+    setProfileRefreshing(true);
+    } else {
+    setProfileLoading(true);
+    }
+
+    setProfileError("");
+
+    try {
+    const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    if (error) {
+        throw error;
+    }
+
+    if (data) {
+        writeCachedProfile(user.id, data);
+    } else {
+        clearCachedProfile(user.id);
+    }
 
     setProfile(data);
+
     return data;
-} catch (err) {
-    setProfileError(err.message || "Could not fetch profile.");
-    return null;
-} finally {
+    } catch (error) {
+    console.error(
+        "Profile fetch failed:",
+        error
+    );
+
+    setProfileError(
+        error.message ||
+        "Could not fetch profile."
+    );
+
+    return existingProfile || null;
+    } finally {
     setProfileLoading(false);
-}
-};
+    setProfileRefreshing(false);
+    }
+},
+[user]
+);
 
 const saveProfile = async (profileData) => {
-if (!user) return null;
+if (!user) {
+    return null;
+}
 
 setProfileLoading(true);
 setProfileError("");
@@ -53,12 +179,25 @@ try {
     .select()
     .single();
 
-    if (error) throw error;
+    if (error) {
+    throw error;
+    }
 
+    writeCachedProfile(user.id, data);
     setProfile(data);
+
     return data;
-} catch (err) {
-    setProfileError(err.message || "Could not save profile.");
+} catch (error) {
+    console.error(
+    "Profile save failed:",
+    error
+    );
+
+    setProfileError(
+    error.message ||
+        "Could not save profile."
+    );
+
     return null;
 } finally {
     setProfileLoading(false);
@@ -66,12 +205,32 @@ try {
 };
 
 useEffect(() => {
-fetchProfile();
-}, [user]);
+if (!user) {
+    setProfile(null);
+    setProfileLoading(false);
+    setProfileRefreshing(false);
+
+    return;
+}
+
+const cached = readCachedProfile(user.id);
+
+if (cached) {
+    setProfile(cached);
+    setProfileLoading(false);
+
+    fetchProfile({
+    silent: true,
+    });
+} else {
+    fetchProfile();
+}
+}, [user, fetchProfile]);
 
 return {
 profile,
 profileLoading,
+profileRefreshing,
 profileError,
 fetchProfile,
 saveProfile,

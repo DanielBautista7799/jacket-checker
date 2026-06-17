@@ -7,6 +7,7 @@ import AuthPage from "./pages/AuthPage";
 import ProfilePage from "./pages/ProfilePage";
 import PersonalizedPage from "./pages/PersonalizedPage";
 import ClosetPage from "./pages/ClosetPage";
+import HistoryPage from "./pages/HistoryPage";
 
 function AppShell() {
   return (
@@ -40,6 +41,15 @@ function AppShell() {
                 <ProtectedRoute>
                   <ClosetPage />
                 </ProtectedRoute>
+              }
+            />
+
+            <Route
+                path="/history"
+                element={
+                <ProtectedRoute>
+                <HistoryPage />
+              </ProtectedRoute>
               }
             />
 

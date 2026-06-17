@@ -1,33 +1,53 @@
-function clamp(value, min, max) {
-return Math.min(Math.max(value, min), max);
-}
+export function getWeatherNeeds(
+weather,
+forecastAnalysis
+) {
+const feelsLike =
+    weather?.feelsLike ?? 65;
 
-export function getWeatherNeeds(weather, forecastAnalysis) {
-const feelsLike = weather?.feelsLike ?? 65;
 const rainChance =
-    forecastAnalysis?.highestWindowRainChance ?? weather?.rainChance ?? 0;
+    forecastAnalysis?.highestWindowRainChance ??
+    weather?.rainChance ??
+    0;
+
 const windSpeed =
-    forecastAnalysis?.highestWindowWind ?? weather?.windSpeed ?? 0;
+    forecastAnalysis?.highestWindowWind ??
+    weather?.windSpeed ??
+    0;
 
 let warmthNeeded = 1;
 
-if (feelsLike < 30) warmthNeeded = 5;
-else if (feelsLike < 40) warmthNeeded = 4;
-else if (feelsLike < 50) warmthNeeded = 3;
-else if (feelsLike < 60) warmthNeeded = 2;
+if (feelsLike < 30) {
+    warmthNeeded = 5;
+} else if (feelsLike < 40) {
+    warmthNeeded = 4;
+} else if (feelsLike < 50) {
+    warmthNeeded = 3;
+} else if (feelsLike < 60) {
+    warmthNeeded = 2;
+}
 
 let rainNeeded = 1;
 
-if (rainChance >= 70) rainNeeded = 5;
-else if (rainChance >= 50) rainNeeded = 4;
-else if (rainChance >= 30) rainNeeded = 3;
+if (rainChance >= 70) {
+    rainNeeded = 5;
+} else if (rainChance >= 50) {
+    rainNeeded = 4;
+} else if (rainChance >= 30) {
+    rainNeeded = 3;
+}
 
 let windNeeded = 1;
 
-if (windSpeed >= 25) windNeeded = 5;
-else if (windSpeed >= 20) windNeeded = 4;
-else if (windSpeed >= 14) windNeeded = 3;
-else if (windSpeed >= 9) windNeeded = 2;
+if (windSpeed >= 25) {
+    windNeeded = 5;
+} else if (windSpeed >= 20) {
+    windNeeded = 4;
+} else if (windSpeed >= 14) {
+    windNeeded = 3;
+} else if (windSpeed >= 9) {
+    windNeeded = 2;
+}
 
 return {
     warmthNeeded,
@@ -36,46 +56,80 @@ return {
 };
 }
 
-function scoreRatingMatch(itemRating, neededRating) {
-const difference = Math.abs(itemRating - neededRating);
+function scoreRatingMatch(
+itemRating,
+neededRating
+) {
+const rating = Number(itemRating) || 1;
 
-if (difference === 0) return 20;
-if (difference === 1) return 14;
-if (difference === 2) return 7;
+const difference = Math.abs(
+    rating - neededRating
+);
+
+if (difference === 0) {
+    return 20;
+}
+
+if (difference === 1) {
+    return 14;
+}
+
+if (difference === 2) {
+    return 7;
+}
 
 return 2;
 }
 
-function getOverkillPenalty(item, needs) {
+function getOverkillPenalty(
+item,
+needs
+) {
 let penalty = 0;
 
-if (item.warmth_rating - needs.warmthNeeded >= 3) {
+if (
+    Number(item.warmth_rating) -
+    needs.warmthNeeded >=
+    3
+) {
     penalty += 8;
 }
 
-if (item.rain_rating - needs.rainNeeded >= 3) {
+if (
+    Number(item.rain_rating) -
+    needs.rainNeeded >=
+    3
+) {
     penalty += 3;
 }
 
 return penalty;
 }
 
-function getStyleScore(item, profile) {
-const stylePreference = profile?.style_preference;
-const preferredColor = profile?.preferred_color;
-
+function getProfileStyleScore(
+item,
+profile
+) {
 let score = 0;
 
-if (stylePreference && item.style_tags?.includes(stylePreference)) {
+const profileStyle =
+    profile?.style_preference;
+
+const preferredColor =
+    profile?.preferred_color;
+
+if (
+    profileStyle &&
+    item.style_tags?.includes(profileStyle)
+) {
     score += 15;
 }
 
-if (preferredColor && item.color === preferredColor) {
+if (
+    preferredColor &&
+    item.color === preferredColor
+) {
     score += 10;
-}
-
-if (item.times_recommended > 0) {
-    score += clamp(item.times_recommended, 0, 5);
 }
 
 return score;
@@ -86,42 +140,62 @@ closetItems = [],
 weather,
 forecastAnalysis,
 profile,
+excludedItemIds = [],
 }) {
-if (!closetItems.length) {
-    return {
-    bestItem: null,
-    rankedItems: [],
-    weatherNeeds: getWeatherNeeds(weather, forecastAnalysis),
-    };
-}
+const weatherNeeds = getWeatherNeeds(
+    weather,
+    forecastAnalysis
+);
 
-const weatherNeeds = getWeatherNeeds(weather, forecastAnalysis);
+const excludedSet = new Set(
+    excludedItemIds
+);
 
 const rankedItems = closetItems
+    .filter(
+    (item) => !excludedSet.has(item.id)
+    )
     .map((item) => {
-    const warmthScore = scoreRatingMatch(
+    const warmthScore =
+        scoreRatingMatch(
         item.warmth_rating,
         weatherNeeds.warmthNeeded
-    );
+        );
 
-    const rainScore = scoreRatingMatch(
+    const rainScore =
+        scoreRatingMatch(
         item.rain_rating,
         weatherNeeds.rainNeeded
-    );
+        );
 
-    const windScore = scoreRatingMatch(
+    const windScore =
+        scoreRatingMatch(
         item.wind_rating,
         weatherNeeds.windNeeded
+        );
+
+    const profileStyleScore =
+        getProfileStyleScore(
+        item,
+        profile
+        );
+
+    const preferenceScore = Number(
+        item.times_recommended || 0
     );
 
-    const styleScore = getStyleScore(item, profile);
-    const overkillPenalty = getOverkillPenalty(item, weatherNeeds);
+    const overkillPenalty =
+        getOverkillPenalty(
+        item,
+        weatherNeeds
+        );
 
     const score =
         warmthScore +
         rainScore +
         windScore +
-        styleScore -
+        profileStyleScore +
+        preferenceScore -
         overkillPenalty;
 
     const reasons = [
@@ -130,25 +204,67 @@ const rankedItems = closetItems
         `Wind ${item.wind_rating}/5 vs needed ${weatherNeeds.windNeeded}/5`,
     ];
 
-    if (styleScore > 0) {
-        reasons.push("Matches your saved style preferences.");
+    if (profileStyleScore > 0) {
+        reasons.push(
+        "Matches your saved style profile."
+        );
+    }
+
+    if (preferenceScore > 0) {
+        reasons.push(
+        `Preference score: +${preferenceScore}.`
+        );
+    }
+
+    if (preferenceScore < 0) {
+        reasons.push(
+        `Preference score: ${preferenceScore}.`
+        );
     }
 
     if (overkillPenalty > 0) {
-        reasons.push("Slightly penalized for being more than needed.");
+        reasons.push(
+        "Penalized for being more protection than the forecast needs."
+        );
     }
 
     return {
         item,
         score,
+        warmthScore,
+        rainScore,
+        windScore,
+        profileStyleScore,
+        preferenceScore,
+        overkillPenalty,
         reasons,
     };
     })
-    .sort((a, b) => b.score - a.score);
+    .sort((first, second) => {
+    if (second.score !== first.score) {
+        return second.score - first.score;
+    }
+
+    return (
+        Number(
+        second.item.times_recommended || 0
+        ) -
+        Number(
+        first.item.times_recommended || 0
+        )
+    );
+    });
 
 return {
-    bestItem: rankedItems[0]?.item || null,
-    bestMatch: rankedItems[0] || null,
+    bestItem:
+    rankedItems[0]?.item || null,
+
+    bestMatch:
+    rankedItems[0] || null,
+
+    topMatches:
+    rankedItems.slice(0, 3),
+
     rankedItems,
     weatherNeeds,
 };
