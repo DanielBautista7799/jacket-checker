@@ -1,13 +1,36 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { lazy, Suspense } from "react";
+
+import {
+  BrowserRouter,
+  Route,
+  Routes,
+} from "react-router-dom";
+
 import { AuthProvider } from "./context/AuthContext";
+import { ProfileProvider } from "./context/ProfileContext";
+import { ClosetProvider } from "./context/ClosetContext";
+import { RecommendationLearningProvider } from "./context/RecommendationLearningContext";
+import { WeatherProvider } from "./context/WeatherContext";
+
 import AppHeader from "./components/AppHeader";
 import ProtectedRoute from "./components/ProtectedRoute";
-import GuestPage from "./pages/GuestPage";
-import AuthPage from "./pages/AuthPage";
-import ProfilePage from "./pages/ProfilePage";
-import PersonalizedPage from "./pages/PersonalizedPage";
-import ClosetPage from "./pages/ClosetPage";
-import HistoryPage from "./pages/HistoryPage";
+
+const GuestPage = lazy(() => import("./pages/GuestPage"));
+const AuthPage = lazy(() => import("./pages/AuthPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const PersonalizedPage = lazy(() =>
+  import("./pages/PersonalizedPage")
+);
+const ClosetPage = lazy(() => import("./pages/ClosetPage"));
+const HistoryPage = lazy(() => import("./pages/HistoryPage"));
+
+function PageFallback() {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-8 text-center text-slate-300">
+      Loading page...
+    </div>
+  );
+}
 
 function AppShell() {
   return (
@@ -22,46 +45,48 @@ function AppShell() {
         <AppHeader />
 
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-4 shadow-2xl backdrop-blur-xl sm:p-6 lg:p-8">
-          <Routes>
-            <Route path="/" element={<GuestPage />} />
-            <Route path="/auth" element={<AuthPage />} />
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
+              <Route path="/" element={<GuestPage />} />
+              <Route path="/auth" element={<AuthPage />} />
 
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/closet"
-              element={
-                <ProtectedRoute>
-                  <ClosetPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/closet"
+                element={
+                  <ProtectedRoute>
+                    <ClosetPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
+              <Route
                 path="/history"
                 element={
-                <ProtectedRoute>
-                <HistoryPage />
-              </ProtectedRoute>
-              }
-            />
+                  <ProtectedRoute>
+                    <HistoryPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/app"
-              element={
-                <ProtectedRoute>
-                  <PersonalizedPage />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
+              <Route
+                path="/app"
+                element={
+                  <ProtectedRoute>
+                    <PersonalizedPage />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </Suspense>
         </div>
       </div>
     </main>
@@ -72,7 +97,15 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppShell />
+        <WeatherProvider>
+          <ProfileProvider>
+            <ClosetProvider>
+              <RecommendationLearningProvider>
+                <AppShell />
+              </RecommendationLearningProvider>
+            </ClosetProvider>
+          </ProfileProvider>
+        </WeatherProvider>
       </AuthProvider>
     </BrowserRouter>
   );
