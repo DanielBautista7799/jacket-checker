@@ -4,6 +4,15 @@ findMatchingJacket,
 findStyleProfile,
 } from "../data/styleLibrary";
 
+function toFiniteNumber(value, fallback) {
+if (value === null || value === undefined || value === "") {
+    return fallback;
+}
+
+const number = Number(value);
+return Number.isFinite(number) ? number : fallback;
+}
+
 function formatShoes(shoes) {
 const shoeMap = {
     jordans: "Jordan 1s",
@@ -28,22 +37,52 @@ const bottomsMap = {
 return bottomsMap[bottoms] || "pants";
 }
 
-function getTopLayer({ weather, stylePreference, fitPreference, preferredColor }) {
-const feelsLike = weather?.feelsLike ?? 65;
+function getSelectedWeather(weather, forecastAnalysis) {
+const selected = forecastAnalysis?.selectedConditions || {};
 
+return {
+    feelsLike: toFiniteNumber(
+    selected.feelsLike,
+    toFiniteNumber(weather?.feelsLike, 65)
+    ),
+
+    rainChance: toFiniteNumber(
+    selected.rainChance,
+    toFiniteNumber(weather?.rainChance, 0)
+    ),
+
+    windSpeed: toFiniteNumber(
+    selected.windSpeed,
+    toFiniteNumber(weather?.windSpeed, 0)
+    ),
+};
+}
+
+function getTopLayer({
+feelsLike,
+stylePreference,
+fitPreference,
+preferredColor,
+}) {
 const color =
     preferredColor === "earth_tones"
     ? "cream"
     : preferredColor === "bold"
-    ? "plain black"
-    : preferredColor;
+        ? "plain black"
+        : preferredColor;
 
 if (feelsLike < 45) {
-    if (stylePreference === "streetwear" || stylePreference === "skater") {
+    if (
+    stylePreference === "streetwear" ||
+    stylePreference === "skater"
+    ) {
     return `${color} hoodie`;
     }
 
-    if (stylePreference === "smart_casual" || stylePreference === "minimal") {
+    if (
+    stylePreference === "smart_casual" ||
+    stylePreference === "minimal"
+    ) {
     return `${color} knit or thermal`;
     }
 
@@ -62,27 +101,26 @@ if (feelsLike < 60) {
     return `${color} tee or crewneck`;
 }
 
-if (stylePreference === "minimal" || stylePreference === "smart_casual") {
+if (
+    stylePreference === "minimal" ||
+    stylePreference === "smart_casual"
+) {
     return `${color} plain tee`;
 }
 
 return `${color} tee`;
 }
 
-function getAccessory(weather) {
-const rainChance = weather?.rainChance ?? 0;
-const windSpeed = weather?.windSpeed ?? 0;
-const feelsLike = weather?.feelsLike ?? 65;
-
-if (rainChance >= 50) {
+function getAccessory(selectedWeather) {
+if (selectedWeather.rainChance >= 50) {
     return "small umbrella or water-resistant bag";
 }
 
-if (windSpeed >= 18) {
+if (selectedWeather.windSpeed >= 18) {
     return "cap or wind-resistant layer";
 }
 
-if (feelsLike < 40) {
+if (selectedWeather.feelsLike < 40) {
     return "beanie";
 }
 
@@ -91,17 +129,28 @@ return null;
 
 function getInfluenceNote(styleInfluence) {
 const notes = {
-    american_streetwear: "leans casual and streetwear-focused",
-    korean_casual: "leans clean, soft, and balanced",
-    japanese_minimal: "leans minimal and intentional",
-    european_clean: "leans polished and simple",
-    skater: "leans loose and casual",
-    outdoor: "leans practical and weather-ready",
-    athletic: "leans comfortable and movement-friendly",
-    techwear: "leans dark, functional, and weather-focused",
+    american_streetwear:
+    "leans casual and streetwear-focused",
+    korean_casual:
+    "leans clean, soft, and balanced",
+    japanese_minimal:
+    "leans minimal and intentional",
+    european_clean:
+    "leans polished and simple",
+    skater:
+    "leans loose and casual",
+    outdoor:
+    "leans practical and weather-ready",
+    athletic:
+    "leans comfortable and movement-friendly",
+    techwear:
+    "leans dark, functional, and weather-focused",
 };
 
-return notes[styleInfluence] || "matches your saved style influence";
+return (
+    notes[styleInfluence] ||
+    "matches your saved style influence"
+);
 }
 
 export function generateStyleSuggestion({
@@ -109,18 +158,37 @@ recommendation,
 weather,
 profile,
 closetItem,
+forecastAnalysis = null,
 }) {
-if (!recommendation || !profile) return null;
+if (!recommendation || !profile) {
+    return null;
+}
 
-const stylePreference = profile.style_preference || "streetwear";
-const fitPreference = profile.fit_preference || "relaxed";
-const preferredColor = profile.preferred_color || "black";
-const favoriteShoes = profile.favorite_shoes || "jordans";
-const defaultBottoms = profile.default_bottoms || "cargos";
-const styleInfluence = profile.style_influence || "american_streetwear";
+const stylePreference =
+    profile.style_preference || "streetwear";
+
+const fitPreference =
+    profile.fit_preference || "relaxed";
+
+const preferredColor =
+    profile.preferred_color || "black";
+
+const favoriteShoes =
+    profile.favorite_shoes || "jordans";
+
+const defaultBottoms =
+    profile.default_bottoms || "cargos";
+
+const styleInfluence =
+    profile.style_influence || "american_streetwear";
 
 const styleProfile = findStyleProfile(stylePreference);
 const colorPalette = findColorPalette(preferredColor);
+
+const selectedWeather = getSelectedWeather(
+    weather,
+    forecastAnalysis
+);
 
 const jacketMatch = closetItem
     ? {
@@ -132,7 +200,7 @@ const jacketMatch = closetItem
     );
 
 const top = getTopLayer({
-    weather,
+    feelsLike: selectedWeather.feelsLike,
     stylePreference,
     fitPreference,
     preferredColor: colorPalette.primary,
@@ -140,13 +208,18 @@ const top = getTopLayer({
 
 const bottoms = formatBottoms(defaultBottoms);
 const shoes = formatShoes(favoriteShoes);
-const accessory = getAccessory(weather);
+const accessory = getAccessory(selectedWeather);
 
 const outfitTitle = closetItem
     ? `${styleProfile.label} fit with ${closetItem.name}`
     : `${styleProfile.label} ${jacketMatch.label.toLowerCase()} fit`;
 
-const pieces = [top, bottoms, shoes, accessory].filter(Boolean);
+const pieces = [
+    top,
+    bottoms,
+    shoes,
+    accessory,
+].filter(Boolean);
 
 return {
     outfitTitle,

@@ -12,18 +12,40 @@ const [selectedLocation, setSelectedLocation] = useState(null);
 const [timeWindow, setTimeWindow] = useState("rest_of_day");
 const [recommendation, setRecommendation] = useState(null);
 
-const { weather, loading, error, fetchWeather } = useWeather();
+const {
+weather,
+loading,
+error,
+fetchWeather,
+clearWeather,
+} = useWeather();
 
-const handleSubmit = async (e) => {
-e.preventDefault();
+const handleLocationChange = (location) => {
+setSelectedLocation(location);
+setRecommendation(null);
+clearWeather();
+};
 
-if (!selectedLocation) return;
+const handleTimeWindowChange = (nextWindow) => {
+setTimeWindow(nextWindow);
+setRecommendation(null);
+clearWeather();
+};
+
+const handleSubmit = async (event) => {
+event.preventDefault();
+
+if (!selectedLocation) {
+    return;
+}
 
 setRecommendation(null);
 
 const weatherData = await fetchWeather(selectedLocation);
 
-if (!weatherData) return;
+if (!weatherData) {
+    return;
+}
 
 const scoringResult = calculateJacketScore({
     weather: weatherData,
@@ -41,6 +63,8 @@ setRecommendation({
     score: scoringResult.score,
     reasons: scoringResult.reasons,
     forecastAnalysis: scoringResult.forecastAnalysis,
+    selectedConditions: scoringResult.selectedConditions,
+    confidence: scoringResult.confidence,
 });
 };
 
@@ -53,10 +77,13 @@ return (
     <div className="space-y-5">
         <LocationSearch
         selectedLocation={selectedLocation}
-        onSelectLocation={setSelectedLocation}
+        onSelectLocation={handleLocationChange}
         />
 
-        <TimeWindowSelect value={timeWindow} onChange={setTimeWindow} />
+        <TimeWindowSelect
+        value={timeWindow}
+        onChange={handleTimeWindowChange}
+        />
 
         <button
         type="submit"

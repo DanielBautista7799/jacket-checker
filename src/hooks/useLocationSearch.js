@@ -1,53 +1,200 @@
-import { useState } from "react";
+import {
+useRef,
+useState,
+} from "react";
 
-function useLocationSearch() {
-const [locations, setLocations] = useState([]);
-const [locationLoading, setLocationLoading] = useState(false);
-const [locationError, setLocationError] = useState("");
+import { supabase } from "../lib/supabaseClient";
 
-const searchLocations = async (query) => {
-if (!query || query.length < 2) {
-    setLocations([]);
-    return;
+async function readErrorPayload(
+response
+) {
+if (
+    !(
+    response instanceof
+    Response
+    )
+) {
+    return null;
 }
-
-setLocationLoading(true);
-setLocationError("");
 
 try {
-    const apiKey = import.meta.env.VITE_WEATHER_API_KEY;
+    return await response
+    .clone()
+    .json();
+} catch {
+    try {
+    const text =
+        await response
+        .clone()
+        .text();
 
-    if (!apiKey) {
-    throw new Error("Missing WeatherAPI key.");
+    return text
+        ? {
+            error: text,
+        }
+        : null;
+    } catch {
+    return null;
     }
+}
+}
 
-    const response = await fetch(
-    `https://api.weatherapi.com/v1/search.json?key=${apiKey}&q=${encodeURIComponent(
-        query
-    )}`
+async function getFunctionErrorMessage(
+error
+) {
+const payload =
+    await readErrorPayload(
+    error?.context
     );
 
-    const data = await response.json();
+if (
+    typeof payload?.error ===
+    "string" &&
+    payload.error.trim()
+) {
+    return payload.error;
+}
 
-    if (data.error) {
-    throw new Error(data.error.message);
+if (
+    typeof error?.message ===
+    "string" &&
+    error.message.trim()
+) {
+    return error.message;
+}
+
+return "Could not search locations.";
+}
+
+function useLocationSearch() {
+const [
+    locations,
+    setLocations,
+] = useState([]);
+
+const [
+    locationLoading,
+    setLocationLoading,
+] = useState(false);
+
+const [
+    locationError,
+    setLocationError,
+] = useState("");
+
+const requestIdRef =
+    useRef(0);
+
+const searchLocations =
+    async (query) => {
+    const normalizedQuery =
+        query?.trim() || "";
+
+    const requestId =
+        requestIdRef.current +
+        1;
+
+    requestIdRef.current =
+        requestId;
+
+    if (
+        normalizedQuery.length <
+        2
+    ) {
+        setLocations([]);
+        setLocationError("");
+        setLocationLoading(
+        false
+        );
+
+        return;
     }
 
-    setLocations(data);
-} catch (err) {
-    setLocationError(err.message || "Could not search locations.");
-    setLocations([]);
-} finally {
-    setLocationLoading(false);
-}
-};
+    setLocationLoading(
+        true
+    );
+
+    setLocationError("");
+
+    try {
+        const {
+        data,
+        error,
+        } =
+        await supabase.functions.invoke(
+            "get-weather",
+            {
+            body: {
+                action:
+                "search",
+                query:
+                normalizedQuery,
+            },
+            }
+        );
+
+        if (
+        requestId !==
+        requestIdRef.current
+        ) {
+        return;
+        }
+
+        if (error) {
+        throw new Error(
+            await getFunctionErrorMessage(
+            error
+            )
+        );
+        }
+
+        if (
+        !data?.success ||
+        !Array.isArray(
+            data.locations
+        )
+        ) {
+        throw new Error(
+            data?.error ||
+            "Could not search locations."
+        );
+        }
+
+        setLocations(
+        data.locations
+        );
+    } catch (error) {
+        if (
+        requestId !==
+        requestIdRef.current
+        ) {
+        return;
+        }
+
+        setLocationError(
+        error.message ||
+            "Could not search locations."
+        );
+
+        setLocations([]);
+    } finally {
+        if (
+        requestId ===
+        requestIdRef.current
+        ) {
+        setLocationLoading(
+            false
+        );
+        }
+    }
+    };
 
 return {
-locations,
-locationLoading,
-locationError,
-searchLocations,
-setLocations,
+    locations,
+    locationLoading,
+    locationError,
+    searchLocations,
+    setLocations,
 };
 }
 

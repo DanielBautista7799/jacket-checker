@@ -33,7 +33,7 @@ const recommendation = {
 primaryItem: closetItem.name,
 jacketType: closetItem.type,
 summary:
-    "This is the best match from your closet for the selected forecast.",
+    "This owned jacket matches the selected forecast and your saved preferences.",
 closetMatch,
 rankedClosetMatches,
 weatherNeeds,
@@ -44,6 +44,7 @@ recommendation,
 weather,
 profile,
 closetItem,
+forecastAnalysis: recommendationBase.forecastAnalysis,
 });
 
 return {
@@ -66,17 +67,17 @@ windowId,
 
 const profileResult = calculateProfileModifier(
 profile,
-weather
+weather,
+baseResult.forecastAnalysis
 );
 
 const personalizedScore =
 baseResult.score + profileResult.modifier;
 
-const mappedRecommendation =
-mapScoreToRecommendation(
-    personalizedScore,
-    weather,
-    baseResult.forecastAnalysis
+const mappedRecommendation = mapScoreToRecommendation(
+personalizedScore,
+weather,
+baseResult.forecastAnalysis
 );
 
 const recommendationBase = {
@@ -88,10 +89,10 @@ reasons: [
     ...baseResult.reasons,
     ...profileResult.profileReasons,
 ],
-forecastAnalysis:
-    baseResult.forecastAnalysis,
-profileReasons:
-    profileResult.profileReasons,
+forecastAnalysis: baseResult.forecastAnalysis,
+selectedConditions: baseResult.selectedConditions,
+confidence: baseResult.confidence,
+profileReasons: profileResult.profileReasons,
 };
 
 if (mappedRecommendation.decision !== "YES") {
@@ -108,8 +109,7 @@ return {
 const closetRanking = rankClosetItems({
 closetItems,
 weather,
-forecastAnalysis:
-    baseResult.forecastAnalysis,
+forecastAnalysis: baseResult.forecastAnalysis,
 profile,
 preferenceModel,
 });
@@ -118,16 +118,13 @@ return buildRecommendationForClosetMatch({
 recommendationBase: {
     ...recommendationBase,
     weatherNeeds: closetRanking.weatherNeeds,
-    rankedClosetMatches:
-    closetRanking.topMatches,
-    allRankedClosetMatches:
-    closetRanking.rankedItems,
+    rankedClosetMatches: closetRanking.topMatches,
+    allRankedClosetMatches: closetRanking.rankedItems,
 },
 closetMatch: closetRanking.bestMatch,
 weather,
 profile,
-rankedClosetMatches:
-    closetRanking.topMatches,
+rankedClosetMatches: closetRanking.topMatches,
 weatherNeeds: closetRanking.weatherNeeds,
 });
 }
