@@ -2,7 +2,6 @@ import {
 Archive,
 ArchiveRestore,
 Heart,
-ImageOff,
 Images,
 Pencil,
 Sparkles,
@@ -10,6 +9,7 @@ Trash2,
 } from "lucide-react";
 
 import { formatWardrobeLabel } from "../data/wardrobeOptions";
+import WardrobeImage from "./WardrobeImage";
 
 function RatingTile({ label, value }) {
 return (
@@ -55,17 +55,16 @@ return (
     }`}
     >
     <div className="relative">
-        {item.image_url ? (
-        <img
-            src={item.image_url}
-            alt={item.name}
+        <div className="h-56 w-full overflow-hidden bg-white/[0.03]">
+        <WardrobeImage
+            item={item}
+            alt={`${item.name} primary wardrobe photo`}
             className="h-56 w-full object-cover"
+            fallbackClassName="flex h-56 w-full items-center justify-center bg-white/[0.03] text-slate-600"
+            iconSize={36}
+            showLabel
         />
-        ) : (
-        <div className="flex h-40 items-center justify-center bg-white/[0.03] text-slate-600">
-            <ImageOff size={36} />
         </div>
-        )}
 
         {imageCount > 0 && (
         <span className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-slate-950/85 px-3 py-1.5 text-xs font-black text-white shadow-lg backdrop-blur">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import HistoryCard from "../components/HistoryCard";
 
@@ -11,8 +11,14 @@ good: 1,
 not_it: -1,
 };
 
+function getHistoryWardrobeItemId(entry) {
+return entry?.wardrobe_item_id || entry?.closet_item_id || null;
+}
+
 function HistoryPage() {
 const {
+wardrobeItems,
+wardrobeLoading,
 adjustPreferenceScore,
 wardrobeError,
 } = useWardrobeItems();
@@ -29,10 +35,24 @@ deleteHistoryItem,
 const [deletingId, setDeletingId] = useState(null);
 const [localError, setLocalError] = useState("");
 
+const wardrobeItemById = useMemo(
+() =>
+    new Map(
+    wardrobeItems.map((item) => [item.id, item])
+    ),
+[wardrobeItems]
+);
+
 const getFeedback = (historyId) =>
 feedback.find(
     (entry) => entry.recommendation_id === historyId
 ) || null;
+
+const getWardrobeItem = (historyEntry) => {
+const itemId = getHistoryWardrobeItemId(historyEntry);
+
+return itemId ? wardrobeItemById.get(itemId) || null : null;
+};
 
 const handleDelete = async (historyId) => {
 if (deletingId) {
@@ -125,8 +145,9 @@ return (
         </h1>
 
         <p className="mt-2 text-slate-400">
-        Deleting a rated recommendation also reverses its
-        preference score.
+        History uses each item&apos;s current primary wardrobe photo.
+        Deleting a rated recommendation also reverses its preference
+        score.
         </p>
     </div>
 
@@ -158,6 +179,10 @@ return (
             key={entry.id}
             entry={entry}
             feedback={getFeedback(entry.id)}
+            wardrobeItem={getWardrobeItem(entry)}
+            wardrobeLoading={
+            wardrobeLoading && wardrobeItems.length === 0
+            }
             onDelete={handleDelete}
             deleting={deletingId === entry.id}
         />

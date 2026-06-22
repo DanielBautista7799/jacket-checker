@@ -60,6 +60,13 @@ export function validateWardrobeImage(file) {
     };
   }
 
+  if (file.size <= 0) {
+    return {
+      valid: false,
+      error: "The selected image is empty.",
+    };
+  }
+
   if (!ALLOWED_WARDROBE_IMAGE_TYPES.has(file.type)) {
     return {
       valid: false,
@@ -204,6 +211,12 @@ export async function uploadWardrobeImages({
   }
 }
 
+function wait(milliseconds) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
+
 export async function deleteWardrobeImagePaths(paths) {
   const uniquePaths = [
     ...new Set(
@@ -217,13 +230,25 @@ export async function deleteWardrobeImagePaths(paths) {
     return;
   }
 
-  const { error } = await supabase.storage
-    .from(WARDROBE_IMAGE_BUCKET)
-    .remove(uniquePaths);
+  let finalError = null;
 
-  if (error) {
-    throw error;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const { error } = await supabase.storage
+      .from(WARDROBE_IMAGE_BUCKET)
+      .remove(uniquePaths);
+
+    if (!error) {
+      return;
+    }
+
+    finalError = error;
+
+    if (attempt < 3) {
+      await wait(attempt * 250);
+    }
   }
+
+  throw finalError || new Error("Could not delete wardrobe image files.");
 }
 
 export async function createWardrobeImageUrl(

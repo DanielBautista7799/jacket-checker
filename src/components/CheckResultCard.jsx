@@ -11,6 +11,7 @@ XCircle,
 } from "lucide-react";
 
 import RecommendationFeedback from "./RecommendationFeedback";
+import WardrobeImage from "./WardrobeImage";
 
 function formatLabel(value = "") {
 return String(value)
@@ -137,7 +138,11 @@ const visibleBringAlongSuggestions = bringAlongSuggestions.filter(
 );
 
 const visibleRankedMatches = rankedMatches
-    .filter(isActiveJacketMatch)
+    .map((match, originalIndex) => ({
+    match,
+    originalIndex,
+    }))
+    .filter(({ match }) => isActiveJacketMatch(match))
     .slice(0, 3);
 
 const topReasons = recommendation.reasons?.slice(0, 3) || [];
@@ -228,37 +233,38 @@ return (
         </p>
 
         <div className="space-y-3">
-            {visibleRankedMatches.map((match, index) => {
-            const active = index === selectedRankIndex;
+            {visibleRankedMatches.map(
+            ({ match, originalIndex }, displayIndex) => {
+                const active =
+                originalIndex === selectedRankIndex ||
+                match.item.id === wardrobeMatch?.item?.id;
 
-            return (
+                return (
                 <button
                 key={match.item.id}
                 type="button"
-                onClick={() => onSelectRank?.(index)}
+                onClick={() => onSelectRank?.(originalIndex)}
                 className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
                     active
                     ? "border-purple-400/60 bg-purple-500/20"
                     : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
                 }`}
                 >
-                {match.item.image_url ? (
-                    <img
-                    src={match.item.image_url}
-                    alt={match.item.name}
-                    className="h-16 w-16 rounded-xl object-cover"
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl">
+                    <WardrobeImage
+                    item={match.item}
+                    alt={`${match.item.name} primary wardrobe photo`}
+                    className="h-16 w-16 object-cover"
+                    fallbackClassName="flex h-16 w-16 items-center justify-center bg-white/10 text-slate-500"
+                    iconSize={22}
                     />
-                ) : (
-                    <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-white/10 text-slate-500">
-                    <Shirt size={22} />
-                    </div>
-                )}
+                </div>
 
                 <div className="min-w-0 flex-1">
                     <p className="text-xs font-black uppercase tracking-wide text-purple-300">
-                    {index === 0
+                    {displayIndex === 0
                         ? "Best match"
-                        : `Option ${index + 1}`}
+                        : `Option ${displayIndex + 1}`}
                     </p>
 
                     <p className="truncate font-black text-white">
@@ -278,21 +284,26 @@ return (
                     />
                 )}
                 </button>
-            );
-            })}
+                );
+            }
+            )}
         </div>
         </div>
     )}
 
     {shouldShowWardrobe && wardrobeMatch && (
         <div className="mb-5 overflow-hidden rounded-3xl border border-sky-400/20 bg-sky-400/10">
-        {wardrobeMatch.item.image_url && (
-            <img
-            src={wardrobeMatch.item.image_url}
-            alt={wardrobeMatch.item.name}
+        <div className="h-56 w-full overflow-hidden bg-slate-900/60">
+            <WardrobeImage
+            item={wardrobeMatch.item}
+            alt={`${wardrobeMatch.item.name} primary wardrobe photo`}
             className="h-56 w-full object-cover"
+            fallbackClassName="flex h-56 w-full items-center justify-center bg-white/[0.04] text-slate-500"
+            iconSize={34}
+            showLabel
+            loading="eager"
             />
-        )}
+        </div>
 
         <div className="p-5">
             <div className="mb-3 flex items-center gap-2 text-sky-200">
