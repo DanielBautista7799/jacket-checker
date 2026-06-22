@@ -1,8 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-Search,
-SlidersHorizontal,
-} from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
 
 import WardrobeItemCard from "../components/WardrobeItemCard";
 import WardrobeItemForm from "../components/WardrobeItemForm";
@@ -23,6 +20,8 @@ wardrobeItems,
 wardrobeLoading,
 wardrobeRefreshing,
 wardrobeError,
+wardrobeImageLoading,
+wardrobeImageError,
 saveWardrobeItem,
 updateWardrobeItem,
 deleteWardrobeItem,
@@ -30,116 +29,82 @@ toggleWardrobeFavorite,
 setWardrobeArchived,
 } = useWardrobeItems();
 
-const [editingItem, setEditingItem] =
-useState(null);
+const [editingItemId, setEditingItemId] = useState(null);
+const [searchTerm, setSearchTerm] = useState("");
+const [categoryFilter, setCategoryFilter] = useState("all");
+const [archiveFilter, setArchiveFilter] = useState("active");
+const [sortOption, setSortOption] = useState("newest");
+const [favoritesOnly, setFavoritesOnly] = useState(false);
 
-const [searchTerm, setSearchTerm] =
-useState("");
-
-const [categoryFilter, setCategoryFilter] =
-useState("all");
-
-const [archiveFilter, setArchiveFilter] =
-useState("active");
-
-const [sortOption, setSortOption] =
-useState("newest");
-
-const [favoritesOnly, setFavoritesOnly] =
-useState(false);
+const editingItem = useMemo(
+() =>
+    wardrobeItems.find((item) => item.id === editingItemId) || null,
+[wardrobeItems, editingItemId]
+);
 
 const filteredItems = useMemo(() => {
-const normalizedSearch = searchTerm
-    .trim()
-    .toLowerCase();
+const normalizedSearch = searchTerm.trim().toLowerCase();
 
-const matches = wardrobeItems.filter(
-    (item) => {
+const matches = wardrobeItems.filter((item) => {
     const searchableValues = [
-        item.name,
-        item.category,
-        item.subtype,
-        item.type,
-        item.primary_color,
-        item.color,
-        item.secondary_color,
-        item.description,
-        ...(item.materials || []),
-        ...(item.style_tags || []),
-        ...(item.weather_use || []),
+    item.name,
+    item.category,
+    item.subtype,
+    item.type,
+    item.primary_color,
+    item.color,
+    item.secondary_color,
+    item.description,
+    ...(item.materials || []),
+    ...(item.style_tags || []),
+    ...(item.weather_use || []),
     ].filter(Boolean);
 
     const matchesSearch =
-        !normalizedSearch ||
-        searchableValues.some((value) =>
-        String(value)
-            .toLowerCase()
-            .includes(normalizedSearch)
-        );
+    !normalizedSearch ||
+    searchableValues.some((value) =>
+        String(value).toLowerCase().includes(normalizedSearch)
+    );
 
     const matchesCategory =
-        categoryFilter === "all" ||
-        item.category === categoryFilter;
+    categoryFilter === "all" || item.category === categoryFilter;
 
     const matchesArchive =
-        archiveFilter === "all" ||
-        (archiveFilter === "archived"
-        ? item.archived
-        : !item.archived);
+    archiveFilter === "all" ||
+    (archiveFilter === "archived" ? item.archived : !item.archived);
 
-    const matchesFavorite =
-        !favoritesOnly || item.favorite;
+    const matchesFavorite = !favoritesOnly || item.favorite;
 
     return (
-        matchesSearch &&
-        matchesCategory &&
-        matchesArchive &&
-        matchesFavorite
+    matchesSearch &&
+    matchesCategory &&
+    matchesArchive &&
+    matchesFavorite
     );
-    }
-);
+});
 
-return [...matches].sort(
-    (first, second) => {
+return [...matches].sort((first, second) => {
     if (sortOption === "oldest") {
-        return (
-        new Date(first.created_at) -
-        new Date(second.created_at)
-        );
+    return new Date(first.created_at) - new Date(second.created_at);
     }
 
     if (sortOption === "name_asc") {
-        return String(
-        first.name
-        ).localeCompare(
-        String(second.name)
-        );
+    return String(first.name).localeCompare(String(second.name));
     }
 
     if (sortOption === "name_desc") {
-        return String(
-        second.name
-        ).localeCompare(
-        String(first.name)
-        );
+    return String(second.name).localeCompare(String(first.name));
     }
 
     if (
-        sortOption === "favorites" &&
-        first.favorite !== second.favorite
+    sortOption === "favorites" &&
+    first.favorite !== second.favorite
     ) {
-        return (
-        Number(second.favorite) -
-        Number(first.favorite)
-        );
+    return Number(second.favorite) - Number(first.favorite);
     }
 
-    return (
-        new Date(second.created_at) -
-        new Date(first.created_at)
-    );
-    }
-);
+    return new Date(second.created_at) - new Date(first.created_at);
+});
 }, [
 wardrobeItems,
 searchTerm,
@@ -149,33 +114,16 @@ sortOption,
 favoritesOnly,
 ]);
 
-const handleSave = async (
-payload,
-imageFile
-) => {
+const handleSave = async (payload, primaryImageFile) => {
 if (editingItem) {
-    const updatedItem =
-    await updateWardrobeItem(
-        editingItem.id,
-        payload,
-        imageFile
-    );
-
-    if (updatedItem) {
-    setEditingItem(null);
-    }
-
-    return updatedItem;
+    return updateWardrobeItem(editingItem.id, payload, primaryImageFile);
 }
 
-return saveWardrobeItem(
-    payload,
-    imageFile
-);
+return saveWardrobeItem(payload, primaryImageFile);
 };
 
 const handleEdit = (item) => {
-setEditingItem(item);
+setEditingItemId(item.id);
 
 window.scrollTo({
     top: 0,
@@ -183,18 +131,33 @@ window.scrollTo({
 });
 };
 
-const activeCount =
-wardrobeItems.filter(
-    (item) => !item.archived
-).length;
+const handleDeleteItem = async (itemId) => {
+const deleted = await deleteWardrobeItem(itemId);
 
-const archivedCount =
-wardrobeItems.length - activeCount;
+if (deleted && editingItemId === itemId) {
+    setEditingItemId(null);
+}
 
-const favoriteCount =
-wardrobeItems.filter(
-    (item) => item.favorite
-).length;
+return deleted;
+};
+
+const handleSaveComplete = (savedItem, { imageWarning = false } = {}) => {
+if (imageWarning && savedItem?.id) {
+    setEditingItemId(savedItem.id);
+    return;
+}
+
+setEditingItemId(null);
+};
+
+const activeCount = wardrobeItems.filter((item) => !item.archived).length;
+const archivedCount = wardrobeItems.length - activeCount;
+const favoriteCount = wardrobeItems.filter((item) => item.favorite).length;
+const imageCount = wardrobeItems.reduce(
+(total, item) => total + (Number(item.image_count) || item.images?.length || 0),
+0
+);
+const actionLoading = wardrobeLoading || wardrobeImageLoading;
 
 return (
 <section>
@@ -209,15 +172,13 @@ return (
         </h1>
 
         <p className="mt-2 max-w-2xl text-slate-400">
-        Save jackets, tops, layers, bottoms,
-        shoes, and accessories in one place.
+        Save jackets, tops, layers, bottoms, shoes, and accessories with up
+        to eight photos per item.
         </p>
     </div>
 
-    {wardrobeRefreshing && (
-        <p className="text-xs font-semibold text-slate-500">
-        Syncing…
-        </p>
+    {(wardrobeRefreshing || wardrobeImageLoading) && (
+        <p className="text-xs font-semibold text-slate-500">Syncing…</p>
     )}
     </div>
 
@@ -227,56 +188,52 @@ return (
     </div>
     )}
 
-    <div className="mb-6 grid gap-3 sm:grid-cols-3">
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <p className="text-sm text-slate-400">
-        Active items
-        </p>
+    {wardrobeImageError && (
+    <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
+        {wardrobeImageError}
+    </div>
+    )}
 
-        <p className="mt-1 text-2xl font-black text-white">
-        {activeCount}
-        </p>
+    <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p className="text-sm text-slate-400">Active items</p>
+        <p className="mt-1 text-2xl font-black text-white">{activeCount}</p>
     </div>
 
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <p className="text-sm text-slate-400">
-        Favorites
-        </p>
+        <p className="text-sm text-slate-400">Saved photos</p>
+        <p className="mt-1 text-2xl font-black text-sky-300">{imageCount}</p>
+    </div>
 
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p className="text-sm text-slate-400">Favorites</p>
         <p className="mt-1 text-2xl font-black text-pink-300">
         {favoriteCount}
         </p>
     </div>
 
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <p className="text-sm text-slate-400">
-        Archived
-        </p>
-
+        <p className="text-sm text-slate-400">Archived</p>
         <p className="mt-1 text-2xl font-black text-amber-200">
         {archivedCount}
         </p>
     </div>
     </div>
 
-    <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+    <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
     <WardrobeItemForm
         onSave={handleSave}
         loading={wardrobeLoading}
         editingItem={editingItem}
-        onCancelEdit={() =>
-        setEditingItem(null)
-        }
+        onCancelEdit={() => setEditingItemId(null)}
+        onSaveComplete={handleSaveComplete}
     />
 
     <div>
         <div className="mb-5 rounded-3xl border border-white/10 bg-slate-950/60 p-4">
         <div className="mb-3 flex items-center gap-2 text-slate-300">
             <SlidersHorizontal size={18} />
-
-            <p className="font-bold">
-            Filter wardrobe
-            </p>
+            <p className="font-bold">Filter wardrobe</p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -288,11 +245,7 @@ return (
 
             <input
                 value={searchTerm}
-                onChange={(event) =>
-                setSearchTerm(
-                    event.target.value
-                )
-                }
+                onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Search name, color, type, material..."
                 className={`${controlClass} w-full pl-11`}
             />
@@ -300,109 +253,66 @@ return (
 
             <select
             value={categoryFilter}
-            onChange={(event) =>
-                setCategoryFilter(
-                event.target.value
-                )
-            }
+            onChange={(event) => setCategoryFilter(event.target.value)}
             className={controlClass}
             >
-            <option value="all">
-                All categories
-            </option>
+            <option value="all">All categories</option>
 
-            {WARDROBE_CATEGORIES.map(
-                (category) => (
-                <option
-                    key={category.value}
-                    value={category.value}
-                >
-                    {category.label}
+            {WARDROBE_CATEGORIES.map((category) => (
+                <option key={category.value} value={category.value}>
+                {category.label}
                 </option>
-                )
-            )}
+            ))}
             </select>
 
             <select
             value={archiveFilter}
-            onChange={(event) =>
-                setArchiveFilter(
-                event.target.value
-                )
-            }
+            onChange={(event) => setArchiveFilter(event.target.value)}
             className={controlClass}
             >
-            <option value="active">
-                Active items
-            </option>
-
-            <option value="archived">
-                Archived items
-            </option>
-
-            <option value="all">
-                Active and archived
-            </option>
+            <option value="active">Active items</option>
+            <option value="archived">Archived items</option>
+            <option value="all">Active and archived</option>
             </select>
 
             <select
             value={sortOption}
-            onChange={(event) =>
-                setSortOption(
-                event.target.value
-                )
-            }
+            onChange={(event) => setSortOption(event.target.value)}
             className={controlClass}
             >
-            {WARDROBE_SORT_OPTIONS.map(
-                (option) => (
-                <option
-                    key={option.value}
-                    value={option.value}
-                >
-                    {option.label}
+            {WARDROBE_SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                {option.label}
                 </option>
-                )
-            )}
+            ))}
             </select>
 
             <button
             type="button"
-            onClick={() =>
-                setFavoritesOnly(
-                (current) => !current
-                )
-            }
+            onClick={() => setFavoritesOnly((current) => !current)}
             className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${
                 favoritesOnly
                 ? "border-pink-400/50 bg-pink-500/20 text-pink-200"
                 : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"
             }`}
             >
-            {favoritesOnly
-                ? "Showing favorites"
-                : "Favorites only"}
+            {favoritesOnly ? "Showing favorites" : "Favorites only"}
             </button>
         </div>
         </div>
 
         <p className="mb-4 text-sm font-semibold text-slate-400">
-        {filteredItems.length} item
-        {filteredItems.length === 1
-            ? ""
-            : "s"}
+        {filteredItems.length} item{filteredItems.length === 1 ? "" : "s"}
         </p>
 
         <div className="space-y-4">
-        {wardrobeLoading &&
-        wardrobeItems.length === 0 ? (
+        {wardrobeLoading && wardrobeItems.length === 0 ? (
             <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-8 text-center text-slate-300">
             Loading wardrobe...
             </div>
         ) : filteredItems.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/10 bg-slate-950/40 p-8 text-center text-slate-400">
-            No wardrobe items match these
-            filters.
+            No wardrobe items match these filters.
             </div>
         ) : (
             filteredItems.map((item) => (
@@ -410,14 +320,10 @@ return (
                 key={item.id}
                 item={item}
                 onEdit={handleEdit}
-                onDelete={deleteWardrobeItem}
-                onToggleFavorite={
-                toggleWardrobeFavorite
-                }
-                onArchive={
-                setWardrobeArchived
-                }
-                loading={wardrobeLoading}
+                onDelete={handleDeleteItem}
+                onToggleFavorite={toggleWardrobeFavorite}
+                onArchive={setWardrobeArchived}
+                loading={actionLoading}
             />
             ))
         )}

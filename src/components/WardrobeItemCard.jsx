@@ -3,6 +3,7 @@ Archive,
 ArchiveRestore,
 Heart,
 ImageOff,
+Images,
 Pencil,
 Sparkles,
 Trash2,
@@ -15,9 +16,7 @@ return (
     <div className="rounded-2xl bg-white/[0.04] p-3">
     <p className="text-slate-400">{label}</p>
 
-    <p className="font-black text-white">
-        {Number(value) || 1}/5
-    </p>
+    <p className="font-black text-white">{Number(value) || 1}/5</p>
     </div>
 );
 }
@@ -41,14 +40,11 @@ const handleDelete = () => {
 };
 
 const categoryLabel = formatWardrobeLabel(item.category);
-
-const subtypeLabel = formatWardrobeLabel(
-    item.subtype || item.type
-);
-
+const subtypeLabel = formatWardrobeLabel(item.subtype || item.type);
 const colorLabel = formatWardrobeLabel(
     item.primary_color || item.color
 );
+const imageCount = Number(item.image_count) || item.images?.length || 0;
 
 return (
     <article
@@ -58,17 +54,26 @@ return (
         : "border-white/10"
     }`}
     >
-    {item.image_url ? (
+    <div className="relative">
+        {item.image_url ? (
         <img
-        src={item.image_url}
-        alt={item.name}
-        className="h-56 w-full object-cover"
+            src={item.image_url}
+            alt={item.name}
+            className="h-56 w-full object-cover"
         />
-    ) : (
+        ) : (
         <div className="flex h-40 items-center justify-center bg-white/[0.03] text-slate-600">
-        <ImageOff size={36} />
+            <ImageOff size={36} />
         </div>
-    )}
+        )}
+
+        {imageCount > 0 && (
+        <span className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-slate-950/85 px-3 py-1.5 text-xs font-black text-white shadow-lg backdrop-blur">
+            <Images size={14} />
+            {imageCount} photo{imageCount === 1 ? "" : "s"}
+        </span>
+        )}
+    </div>
 
     <div className="p-5">
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -104,9 +109,7 @@ return (
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
             <button
             type="button"
-            onClick={() =>
-                onToggleFavorite(item.id)
-            }
+            onClick={() => onToggleFavorite(item.id)}
             disabled={loading}
             className={`rounded-xl p-2 transition disabled:opacity-50 ${
                 item.favorite
@@ -121,11 +124,7 @@ return (
             >
             <Heart
                 size={17}
-                fill={
-                item.favorite
-                    ? "currentColor"
-                    : "none"
-                }
+                fill={item.favorite ? "currentColor" : "none"}
             />
             </button>
 
@@ -141,12 +140,7 @@ return (
 
             <button
             type="button"
-            onClick={() =>
-                onArchive(
-                item.id,
-                !item.archived
-                )
-            }
+            onClick={() => onArchive(item.id, !item.archived)}
             disabled={loading}
             className="rounded-xl bg-amber-400/10 p-2 text-amber-200 transition hover:bg-amber-400/20 disabled:opacity-50"
             aria-label={
@@ -181,25 +175,10 @@ return (
         )}
 
         <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-        <RatingTile
-            label="Warmth"
-            value={item.warmth_rating}
-        />
-
-        <RatingTile
-            label="Rain"
-            value={item.rain_rating}
-        />
-
-        <RatingTile
-            label="Wind"
-            value={item.wind_rating}
-        />
-
-        <RatingTile
-            label="Formality"
-            value={item.formality_rating}
-        />
+        <RatingTile label="Warmth" value={item.warmth_rating} />
+        <RatingTile label="Rain" value={item.rain_rating} />
+        <RatingTile label="Wind" value={item.wind_rating} />
+        <RatingTile label="Formality" value={item.formality_rating} />
         </div>
 
         {item.materials?.length > 0 && (
