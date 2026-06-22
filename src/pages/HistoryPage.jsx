@@ -1,6 +1,5 @@
 import HistoryCard from "../components/HistoryCard";
 
-import useAuth from "../hooks/useAuth";
 import useClosetItems from "../hooks/useClosetItems";
 import useRecommendationLearning from "../hooks/useRecommendationLearning";
 
@@ -11,11 +10,7 @@ not_it: -1,
 };
 
 function HistoryPage() {
-const { user } = useAuth();
-
-const {
-adjustTimesRecommended,
-} = useClosetItems(user);
+const { adjustTimesRecommended } = useClosetItems();
 
 const {
 history,
@@ -24,52 +19,42 @@ learningLoading,
 learningRefreshing,
 learningError,
 deleteHistoryItem,
-} = useRecommendationLearning(user);
+} = useRecommendationLearning();
 
-const getFeedback = (
-historyId
-) => {
-return (
-    feedback.find(
-    (entry) =>
-        entry.recommendation_id ===
-        historyId
-    ) || null
-);
-};
+const getFeedback = (historyId) =>
+feedback.find(
+    (entry) => entry.recommendation_id === historyId
+) || null;
 
-const handleDelete = async (
-historyId
-) => {
-const confirmed =
-    window.confirm(
+const handleDelete = async (historyId) => {
+const confirmed = window.confirm(
     "Delete this recommendation from history and reverse its preference score?"
-    );
+);
 
 if (!confirmed) {
     return;
 }
 
-const feedbackEntry =
-    getFeedback(historyId);
+const historyEntry = history.find(
+    (entry) => entry.id === historyId
+);
+
+const feedbackEntry = getFeedback(historyId);
 
 const scoreWeight =
-    FEEDBACK_WEIGHTS[
-    feedbackEntry?.rating
-    ] || 0;
+    FEEDBACK_WEIGHTS[feedbackEntry?.rating] || 0;
 
-const closetItemId =
+const wardrobeItemId =
+    feedbackEntry?.wardrobe_item_id ||
     feedbackEntry?.closet_item_id ||
+    historyEntry?.wardrobe_item_id ||
+    historyEntry?.closet_item_id ||
     null;
 
-if (
-    closetItemId &&
-    scoreWeight !== 0
-) {
-    const reversed =
-    await adjustTimesRecommended(
-        closetItemId,
-        -scoreWeight
+if (wardrobeItemId && scoreWeight !== 0) {
+    const reversed = await adjustTimesRecommended(
+    wardrobeItemId,
+    -scoreWeight
     );
 
     if (!reversed) {
@@ -77,18 +62,11 @@ if (
     }
 }
 
-const deleted =
-    await deleteHistoryItem(
-    historyId
-    );
+const deleted = await deleteHistoryItem(historyId);
 
-if (
-    !deleted &&
-    closetItemId &&
-    scoreWeight !== 0
-) {
+if (!deleted && wardrobeItemId && scoreWeight !== 0) {
     await adjustTimesRecommended(
-    closetItemId,
+    wardrobeItemId,
     scoreWeight
     );
 }
@@ -107,7 +85,8 @@ return (
         </h1>
 
         <p className="mt-2 text-slate-400">
-        Deleting a rated recommendation also reverses its preference score.
+        Deleting a rated recommendation also reverses its
+        preference score.
         </p>
     </div>
 
@@ -124,8 +103,7 @@ return (
     </div>
     )}
 
-    {learningLoading &&
-    history.length === 0 ? (
+    {learningLoading && history.length === 0 ? (
     <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-8 text-center text-slate-300">
         Loading history...
     </div>
@@ -139,15 +117,9 @@ return (
         <HistoryCard
             key={entry.id}
             entry={entry}
-            feedback={getFeedback(
-            entry.id
-            )}
-            onDelete={
-            handleDelete
-            }
-            deleting={
-            learningLoading
-            }
+            feedback={getFeedback(entry.id)}
+            onDelete={handleDelete}
+            deleting={learningLoading}
         />
         ))}
     </div>

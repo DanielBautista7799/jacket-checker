@@ -1,16 +1,7 @@
-import { useContext } from "react";
-import { ClosetContext } from "../context/ClosetContext";
+import useWardrobeItems from "./useWardrobeItems";
 
 function useClosetItems() {
-const context = useContext(ClosetContext);
-
-if (!context) {
-throw new Error(
-    "useClosetItems must be used inside a ClosetProvider."
-);
-}
-
-return context;
+    return useWardrobeItems();
 }
 
 export default useClosetItems;

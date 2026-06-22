@@ -11,15 +11,37 @@ import { supabase } from "../lib/supabaseClient";
 import useAuth from "../hooks/useAuth";
 import { buildPreferenceModel } from "../utils/buildPreferenceModel";
 
-export const RecommendationLearningContext =
-  createContext(null);
+export const RecommendationLearningContext = createContext(null);
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const CACHE_TTL_MS = 3 * 60 * 1000;
+
 const inFlightLearningRequests = new Map();
 
 function getCacheKey(userId) {
   return `jacket-check:learning:v${CACHE_VERSION}:${userId}`;
+}
+
+function normalizeHistoryEntry(entry) {
+  const wardrobeItemId =
+    entry?.wardrobe_item_id || entry?.closet_item_id || null;
+
+  return {
+    ...entry,
+    wardrobe_item_id: wardrobeItemId,
+    closet_item_id: wardrobeItemId,
+  };
+}
+
+function normalizeFeedbackEntry(entry) {
+  const wardrobeItemId =
+    entry?.wardrobe_item_id || entry?.closet_item_id || null;
+
+  return {
+    ...entry,
+    wardrobe_item_id: wardrobeItemId,
+    closet_item_id: wardrobeItemId,
+  };
 }
 
 function readCache(userId) {
@@ -38,11 +60,13 @@ function readCache(userId) {
 
     return {
       history: Array.isArray(parsed.history)
-        ? parsed.history
+        ? parsed.history.map(normalizeHistoryEntry)
         : [],
+
       feedback: Array.isArray(parsed.feedback)
-        ? parsed.feedback
+        ? parsed.feedback.map(normalizeFeedbackEntry)
         : [],
+
       savedAt: Number(parsed.savedAt) || 0,
     };
   } catch (error) {
@@ -136,8 +160,13 @@ async function requestLearningData(userId) {
       }
 
       return {
-        history: historyResponse.data || [],
-        feedback: feedbackResponse.data || [],
+        history: (historyResponse.data || []).map(
+          normalizeHistoryEntry
+        ),
+
+        feedback: (feedbackResponse.data || []).map(
+          normalizeFeedbackEntry
+        ),
       };
     })
     .finally(() => {
@@ -149,9 +178,7 @@ async function requestLearningData(userId) {
   return request;
 }
 
-export function RecommendationLearningProvider({
-  children,
-}) {
+export function RecommendationLearningProvider({ children }) {
   const { user, authLoading } = useAuth();
 
   const initialCache = readCache(user?.id);
@@ -164,8 +191,9 @@ export function RecommendationLearningProvider({
     initialCache?.feedback || []
   );
 
-  const [learningLoading, setLearningLoading] =
-    useState(Boolean(user) && !initialCache);
+  const [learningLoading, setLearningLoading] = useState(
+    Boolean(user) && !initialCache
+  );
 
   const [learningRefreshing, setLearningRefreshing] =
     useState(false);
@@ -222,6 +250,7 @@ export function RecommendationLearningProvider({
       }
 
       const cached = readCache(user.id);
+
       const cacheIsFresh =
         cached &&
         Date.now() - cached.savedAt < CACHE_TTL_MS;
@@ -255,6 +284,7 @@ export function RecommendationLearningProvider({
         }
 
         commitLearning(result.history, result.feedback);
+
         return result;
       } catch (error) {
         console.error(
@@ -284,32 +314,39 @@ export function RecommendationLearningProvider({
   );
 
   const saveRecommendation = useCallback(
-    async ({
-      recommendation,
-      weather,
-      timeWindow,
-    }) => {
+    async ({ recommendation, weather, timeWindow }) => {
       if (!user?.id || !recommendation) {
         return null;
       }
 
       setLearningError("");
 
-      const closetItem =
+      const wardrobeItem =
         recommendation.closetMatch?.item || null;
 
       const payload = {
         user_id: user.id,
-        closet_item_id: closetItem?.id || null,
+
+        wardrobe_item_id: wardrobeItem?.id || null,
+
         decision: recommendation.decision,
+
         jacket_name:
           recommendation.primaryItem || "No jacket",
-        jacket_color: closetItem?.color || null,
+
+        jacket_color:
+          wardrobeItem?.primary_color ||
+          wardrobeItem?.color ||
+          null,
+
         summary: recommendation.summary || null,
+
         time_window: timeWindow,
+
         outfit_json: createOutfitSnapshot(
           recommendation.styleSuggestion
         ),
+
         weather_snapshot: createWeatherSnapshot(weather),
       };
 
@@ -324,12 +361,14 @@ export function RecommendationLearningProvider({
           throw error;
         }
 
+        const normalizedEntry = normalizeHistoryEntry(data);
+
         commitLearning(
-          [data, ...historyRef.current],
+          [normalizedEntry, ...historyRef.current],
           feedbackRef.current
         );
 
-        return data;
+        return normalizedEntry;
       } catch (error) {
         console.error(
           "Could not save recommendation:",
@@ -359,19 +398,29 @@ export function RecommendationLearningProvider({
 
       setLearningError("");
 
-      const closetItem =
+      const wardrobeItem =
         recommendation?.closetMatch?.item || null;
 
       const payload = {
         user_id: user.id,
+
         recommendation_id: recommendationId,
-        closet_item_id: closetItem?.id || null,
+
+        wardrobe_item_id: wardrobeItem?.id || null,
+
         rating,
-        jacket_color: closetItem?.color || null,
-        style_tags: closetItem?.style_tags || [],
+
+        jacket_color:
+          wardrobeItem?.primary_color ||
+          wardrobeItem?.color ||
+          null,
+
+        style_tags: wardrobeItem?.style_tags || [],
+
         outfit_json: createOutfitSnapshot(
           recommendation?.styleSuggestion
         ),
+
         updated_at: new Date().toISOString(),
       };
 
@@ -388,7 +437,10 @@ export function RecommendationLearningProvider({
           throw error;
         }
 
+        const normalizedEntry = normalizeFeedbackEntry(data);
+
         const currentFeedback = feedbackRef.current;
+
         const exists = currentFeedback.some(
           (entry) =>
             entry.recommendation_id === recommendationId
@@ -397,14 +449,14 @@ export function RecommendationLearningProvider({
         const nextFeedback = exists
           ? currentFeedback.map((entry) =>
               entry.recommendation_id === recommendationId
-                ? data
+                ? normalizedEntry
                 : entry
             )
-          : [data, ...currentFeedback];
+          : [normalizedEntry, ...currentFeedback];
 
         commitLearning(historyRef.current, nextFeedback);
 
-        return data;
+        return normalizedEntry;
       } catch (error) {
         console.error(
           "Could not save style feedback:",
@@ -445,8 +497,7 @@ export function RecommendationLearningProvider({
         );
 
         const nextFeedback = feedbackRef.current.filter(
-          (entry) =>
-            entry.recommendation_id !== historyId
+          (entry) => entry.recommendation_id !== historyId
         );
 
         commitLearning(nextHistory, nextFeedback);
@@ -470,14 +521,11 @@ export function RecommendationLearningProvider({
   );
 
   const getFeedbackForRecommendation = useCallback(
-    (recommendationId) => {
-      return (
-        feedbackRef.current.find(
-          (entry) =>
-            entry.recommendation_id === recommendationId
-        ) || null
-      );
-    },
+    (recommendationId) =>
+      feedbackRef.current.find(
+        (entry) =>
+          entry.recommendation_id === recommendationId
+      ) || null,
     []
   );
 
