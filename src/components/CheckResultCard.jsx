@@ -13,7 +13,7 @@ XCircle,
 import RecommendationFeedback from "./RecommendationFeedback";
 
 function formatLabel(value = "") {
-return value
+return String(value)
     .replaceAll("_", " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
@@ -47,6 +47,22 @@ return {
     toFiniteNumber(weather?.rainChance, 0)
     ),
 };
+}
+
+function getItemColor(item) {
+return item?.primary_color || item?.color || "other";
+}
+
+function getItemSubtype(item) {
+return item?.subtype || item?.type || "other";
+}
+
+function isActiveJacketMatch(match) {
+return Boolean(
+    match?.item &&
+    match.item.category === "jacket" &&
+    match.item.archived !== true
+);
 }
 
 function CheckResultCard({
@@ -85,7 +101,9 @@ if (weather && !recommendation) {
 }
 
 const isYes = recommendation.decision === "YES";
-const shouldShowCloset = isPersonalized && isYes;
+const protectionBasis = recommendation.recommendationBasis || null;
+const isProtectionRecommendation = Boolean(protectionBasis);
+const shouldShowWardrobe = isPersonalized && isYes;
 
 const forecastAlerts =
     recommendation.forecastAnalysis?.alerts || [];
@@ -95,7 +113,33 @@ const bringAlongSuggestions =
 
 const optionalLayer = recommendation.optionalLayer || null;
 const styleSuggestion = recommendation.styleSuggestion;
-const closetMatch = recommendation.closetMatch;
+const wardrobeMatch = isActiveJacketMatch(
+    recommendation.closetMatch
+)
+    ? recommendation.closetMatch
+    : null;
+
+const visibleBringAlongSuggestions = bringAlongSuggestions.filter(
+    (suggestion) => {
+    if (!isProtectionRecommendation) {
+        return true;
+    }
+
+    const item = String(suggestion?.item || "").toLowerCase();
+
+    return ![
+        "rain shell",
+        "rain layer",
+        "windbreaker",
+        "light layer",
+    ].some((term) => item.includes(term));
+    }
+);
+
+const visibleRankedMatches = rankedMatches
+    .filter(isActiveJacketMatch)
+    .slice(0, 3);
+
 const topReasons = recommendation.reasons?.slice(0, 3) || [];
 
 const selectedConditions = getSelectedConditions(
@@ -137,7 +181,11 @@ return (
 
     <div className="mb-5 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
         <p className="text-sm text-slate-400">
-        {isYes ? "Wear" : "Decision"}
+        {isYes
+            ? isProtectionRecommendation
+            ? "Wear or bring"
+            : "Wear"
+            : "Decision"}
         </p>
 
         <p className="mt-1 text-2xl font-black text-white">
@@ -167,14 +215,20 @@ return (
         </div>
     )}
 
-    {shouldShowCloset && rankedMatches.length > 0 && (
+    {shouldShowWardrobe && visibleRankedMatches.length > 0 && (
         <div className="mb-5 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-5">
         <p className="mb-4 font-bold text-purple-200">
-            Top jacket matches
+            {protectionBasis === "rain_protection"
+            ? "Top rain-protection matches"
+            : protectionBasis === "wind_protection"
+                ? "Top wind-protection matches"
+                : protectionBasis === "rain_wind_protection"
+                ? "Top weather-protection matches"
+                : "Top jacket matches"}
         </p>
 
         <div className="space-y-3">
-            {rankedMatches.map((match, index) => {
+            {visibleRankedMatches.map((match, index) => {
             const active = index === selectedRankIndex;
 
             return (
@@ -202,7 +256,9 @@ return (
 
                 <div className="min-w-0 flex-1">
                     <p className="text-xs font-black uppercase tracking-wide text-purple-300">
-                    {index === 0 ? "Best match" : `Option ${index + 1}`}
+                    {index === 0
+                        ? "Best match"
+                        : `Option ${index + 1}`}
                     </p>
 
                     <p className="truncate font-black text-white">
@@ -210,8 +266,8 @@ return (
                     </p>
 
                     <p className="text-xs text-slate-400">
-                    {formatLabel(match.item.color)}{" "}
-                    {formatLabel(match.item.type)}
+                    {formatLabel(getItemColor(match.item))}{" "}
+                    {formatLabel(getItemSubtype(match.item))}
                     </p>
                 </div>
 
@@ -228,12 +284,12 @@ return (
         </div>
     )}
 
-    {shouldShowCloset && closetMatch && (
+    {shouldShowWardrobe && wardrobeMatch && (
         <div className="mb-5 overflow-hidden rounded-3xl border border-sky-400/20 bg-sky-400/10">
-        {closetMatch.item.image_url && (
+        {wardrobeMatch.item.image_url && (
             <img
-            src={closetMatch.item.image_url}
-            alt={closetMatch.item.name}
+            src={wardrobeMatch.item.image_url}
+            alt={wardrobeMatch.item.name}
             className="h-56 w-full object-cover"
             />
         )}
@@ -242,28 +298,30 @@ return (
             <div className="mb-3 flex items-center gap-2 text-sky-200">
             <Shirt size={18} />
 
-            <p className="font-bold">Selected Closet Match</p>
+            <p className="font-bold">Selected Wardrobe Match</p>
             </div>
 
             <p className="text-xl font-black text-white">
-            {closetMatch.item.name}
+            {wardrobeMatch.item.name}
             </p>
 
             <p className="mt-1 text-sm text-slate-300">
-            {formatLabel(closetMatch.item.color)}{" "}
-            {formatLabel(closetMatch.item.type)}
+            {formatLabel(getItemColor(wardrobeMatch.item))}{" "}
+            {formatLabel(getItemSubtype(wardrobeMatch.item))}
             </p>
 
             <ul className="mt-3 space-y-2 text-sm leading-5 text-slate-300">
-            {closetMatch.reasons.slice(0, 4).map((reason, index) => (
-                <li key={index}>• {reason}</li>
-            ))}
+            {wardrobeMatch.reasons
+                .slice(0, 4)
+                .map((reason, index) => (
+                <li key={`${reason}-${index}`}>• {reason}</li>
+                ))}
             </ul>
         </div>
         </div>
     )}
 
-    {shouldShowCloset && styleSuggestion && (
+    {shouldShowWardrobe && styleSuggestion && wardrobeMatch && (
         <div className="mb-5 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
         <div className="mb-3 flex items-center gap-2 text-emerald-200">
             <Shirt size={18} />
@@ -276,9 +334,9 @@ return (
         </p>
 
         <div className="flex flex-wrap gap-2">
-            {styleSuggestion.pieces?.map((piece) => (
+            {styleSuggestion.pieces?.map((piece, index) => (
             <span
-                key={piece}
+                key={`${piece}-${index}`}
                 className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200"
             >
                 {piece}
@@ -296,7 +354,7 @@ return (
         </div>
     )}
 
-    {isYes && bringAlongSuggestions.length > 0 && (
+    {isYes && visibleBringAlongSuggestions.length > 0 && (
         <div className="mb-5 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
         <div className="mb-3 flex items-center gap-2 text-amber-200">
             <AlertTriangle size={18} />
@@ -305,16 +363,18 @@ return (
         </div>
 
         <div className="space-y-3">
-            {bringAlongSuggestions.slice(0, 2).map((suggestion, index) => (
-            <div key={`${suggestion.item}-${index}`}>
+            {visibleBringAlongSuggestions
+            .slice(0, 2)
+            .map((suggestion, index) => (
+                <div key={`${suggestion.item}-${index}`}>
                 <p className="font-bold text-white">
-                {suggestion.item}
+                    {suggestion.item}
                 </p>
 
                 <p className="mt-1 text-sm leading-5 text-slate-300">
-                {suggestion.reason}
+                    {suggestion.reason}
                 </p>
-            </div>
+                </div>
             ))}
         </div>
         </div>
@@ -330,7 +390,9 @@ return (
 
         <ul className="space-y-2 text-sm leading-5 text-slate-300">
             {forecastAlerts.slice(0, 2).map((alert, index) => (
-            <li key={`${alert.type}-${index}`}>• {alert.message}</li>
+            <li key={`${alert.type}-${index}`}>
+                • {alert.message}
+            </li>
             ))}
         </ul>
         </div>
@@ -342,13 +404,13 @@ return (
 
         <ul className="space-y-2 text-sm leading-5 text-slate-300">
             {topReasons.map((reason, index) => (
-            <li key={index}>• {reason}</li>
+            <li key={`${reason}-${index}`}>• {reason}</li>
             ))}
         </ul>
         </div>
     )}
 
-    {shouldShowCloset && closetMatch && onFeedback && (
+    {shouldShowWardrobe && wardrobeMatch && onFeedback && (
         <div className="mb-5">
         <RecommendationFeedback
             value={feedbackValue}

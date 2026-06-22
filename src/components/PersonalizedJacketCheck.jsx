@@ -1,5 +1,5 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
 
 import {
 MapPin,
@@ -8,8 +8,8 @@ Shirt,
 Sparkles,
 } from "lucide-react";
 
-import useClosetItems from "../hooks/useClosetItems";
 import useRecommendationLearning from "../hooks/useRecommendationLearning";
+import useWardrobeItems from "../hooks/useWardrobeItems";
 import useWeather from "../hooks/useWeather";
 
 import {
@@ -19,9 +19,9 @@ calculatePersonalizedRecommendation,
 
 import { rankClosetItems } from "../utils/rankClosetItems";
 
+import CheckResultCard from "./CheckResultCard";
 import LocationSearch from "./LocationSearch";
 import TimeWindowSelect from "./TimeWindowSelect";
-import CheckResultCard from "./CheckResultCard";
 
 const FEEDBACK_WEIGHTS = {
 fire: 2,
@@ -49,12 +49,119 @@ lon: profile.default_location_lon,
 };
 }
 
+function getPreferenceScore(item) {
+const value =
+item?.preference_score ?? item?.times_recommended ?? 0;
+
+const number = Number(value);
+return Number.isFinite(number) ? number : 0;
+}
+
+function syncRecommendationWithWardrobe({
+recommendation,
+activeJacketItems,
+weather,
+profile,
+}) {
+if (!recommendation) {
+return null;
+}
+
+const itemById = new Map(
+activeJacketItems.map((item) => [item.id, item])
+);
+
+const refreshMatch = (match) => {
+if (!match?.item?.id) {
+    return match;
+}
+
+const currentItem = itemById.get(match.item.id);
+
+if (!currentItem) {
+    return null;
+}
+
+if (currentItem === match.item) {
+    return match;
+}
+
+return {
+    ...match,
+    item: currentItem,
+};
+};
+
+const nextWardrobeMatch = refreshMatch(
+recommendation.closetMatch
+);
+
+const nextRankedMatches = (
+recommendation.rankedClosetMatches || []
+)
+.map(refreshMatch)
+.filter(Boolean)
+.slice(0, 3);
+
+const nextAllRankedMatches = (
+recommendation.allRankedClosetMatches || []
+)
+.map(refreshMatch)
+.filter(Boolean);
+
+const currentMatchWasRemoved =
+Boolean(recommendation.closetMatch?.item?.id) &&
+!nextWardrobeMatch;
+
+if (currentMatchWasRemoved) {
+const fallbackMatch = nextRankedMatches[0] || null;
+
+if (!fallbackMatch) {
+    return {
+    ...recommendation,
+    closetMatch: null,
+    rankedClosetMatches: [],
+    allRankedClosetMatches: [],
+    styleSuggestion: null,
+    historyId: null,
+    primaryItem: recommendation.jacketType || "Jacket",
+    };
+}
+
+return {
+    ...buildRecommendationForClosetMatch({
+    recommendationBase: {
+        ...recommendation,
+        historyId: null,
+        closetMatch: null,
+        styleSuggestion: null,
+        rankedClosetMatches: nextRankedMatches,
+        allRankedClosetMatches: nextAllRankedMatches,
+    },
+    closetMatch: fallbackMatch,
+    weather,
+    profile,
+    rankedClosetMatches: nextRankedMatches,
+    weatherNeeds: recommendation.weatherNeeds,
+    }),
+    historyId: null,
+};
+}
+
+return {
+...recommendation,
+closetMatch: nextWardrobeMatch,
+rankedClosetMatches: nextRankedMatches,
+allRankedClosetMatches: nextAllRankedMatches,
+};
+}
+
 function PersonalizedJacketCheck({ profile }) {
 const {
-closetItems,
-closetLoading,
-adjustTimesRecommended,
-} = useClosetItems();
+activeJacketItems,
+wardrobeLoading,
+adjustPreferenceScore,
+} = useWardrobeItems();
 
 const {
 preferenceModel,
@@ -72,23 +179,21 @@ fetchWeather,
 
 const defaultLocation = useMemo(
 () => buildDefaultLocation(profile),
-[
-    profile?.default_location_name,
-    profile?.default_location_region,
-    profile?.default_location_country,
-    profile?.default_location_lat,
-    profile?.default_location_lon,
-]
+[profile]
 );
 
-const [selectedLocation, setSelectedLocation] =
-useState(defaultLocation);
+const [selectedLocationOverride, setSelectedLocationOverride] =
+useState(undefined);
+
+const selectedLocation =
+selectedLocationOverride === undefined
+    ? defaultLocation
+    : selectedLocationOverride;
 
 const [recommendation, setRecommendation] =
 useState(null);
 
-const [resultWeather, setResultWeather] =
-useState(null);
+const [resultWeather, setResultWeather] = useState(null);
 
 const [timeWindow, setTimeWindow] =
 useState("rest_of_day");
@@ -102,101 +207,44 @@ useState([]);
 const [feedbackSaving, setFeedbackSaving] =
 useState(false);
 
-const [localError, setLocalError] =
-useState("");
+const [localError, setLocalError] = useState("");
 
-useEffect(() => {
-setSelectedLocation((current) => {
-    if (current) {
-    return current;
-    }
-
-    return defaultLocation;
-});
-}, [defaultLocation]);
-
-useEffect(() => {
-if (!recommendation || closetItems.length === 0) {
-    return;
-}
-
-const itemById = new Map(
-    closetItems.map((item) => [item.id, item])
+const activeRecommendation = useMemo(
+() =>
+    syncRecommendationWithWardrobe({
+    recommendation,
+    activeJacketItems,
+    weather: resultWeather,
+    profile,
+    }),
+[
+    recommendation,
+    activeJacketItems,
+    resultWeather,
+    profile,
+]
 );
 
-const refreshMatch = (match) => {
-    if (!match?.item?.id) {
-    return match;
-    }
+const displayedRankIndex = useMemo(() => {
+const currentItemId =
+    activeRecommendation?.closetMatch?.item?.id;
 
-    const currentItem = itemById.get(match.item.id);
+if (!currentItemId) {
+    return 0;
+}
 
-    if (!currentItem || currentItem === match.item) {
-    return match;
-    }
+const index = (
+    activeRecommendation.rankedClosetMatches || []
+).findIndex((match) => match.item.id === currentItemId);
 
-    return {
-    ...match,
-    item: currentItem,
-    };
-};
+return index >= 0 ? index : selectedRankIndex;
+}, [activeRecommendation, selectedRankIndex]);
 
-setRecommendation((current) => {
-    if (!current) {
-    return current;
-    }
-
-    const nextClosetMatch = refreshMatch(
-    current.closetMatch
-    );
-
-    const nextRankedMatches = (
-    current.rankedClosetMatches || []
-    ).map(refreshMatch);
-
-    const nextAllRankedMatches = (
-    current.allRankedClosetMatches || []
-    ).map(refreshMatch);
-
-    const closetMatchChanged =
-    nextClosetMatch !== current.closetMatch;
-
-    const rankedChanged = nextRankedMatches.some(
-    (match, index) =>
-        match !== current.rankedClosetMatches?.[index]
-    );
-
-    const allRankedChanged =
-    nextAllRankedMatches.some(
-        (match, index) =>
-        match !==
-        current.allRankedClosetMatches?.[index]
-    );
-
-    if (
-    !closetMatchChanged &&
-    !rankedChanged &&
-    !allRankedChanged
-    ) {
-    return current;
-    }
-
-    return {
-    ...current,
-    closetMatch: nextClosetMatch,
-    rankedClosetMatches: nextRankedMatches,
-    allRankedClosetMatches:
-        nextAllRankedMatches,
-    };
-});
-}, [closetItems, recommendation?.closetMatch?.item?.id]);
-
-const savedFeedback =
-recommendation?.historyId
-    ? getFeedbackForRecommendation(
-        recommendation.historyId
+const savedFeedback = activeRecommendation?.historyId
+? getFeedbackForRecommendation(
+    activeRecommendation.historyId
     )
-    : null;
+: null;
 
 const clearResult = () => {
 setRecommendation(null);
@@ -207,7 +255,7 @@ setLocalError("");
 };
 
 const handleLocationChange = (location) => {
-setSelectedLocation(location);
+setSelectedLocationOverride(location);
 clearResult();
 };
 
@@ -221,16 +269,16 @@ if (!defaultLocation) {
     return;
 }
 
-setSelectedLocation(defaultLocation);
+setSelectedLocationOverride(undefined);
 clearResult();
 };
 
 const createRecommendationFromMatch = ({
 baseRecommendation,
-closetMatch,
+wardrobeMatch,
 rankedMatches,
-}) => {
-return buildRecommendationForClosetMatch({
+}) =>
+buildRecommendationForClosetMatch({
     recommendationBase: {
     ...baseRecommendation,
     historyId: null,
@@ -238,14 +286,12 @@ return buildRecommendationForClosetMatch({
     styleSuggestion: null,
     rankedClosetMatches: rankedMatches,
     },
-    closetMatch,
+    closetMatch: wardrobeMatch,
     weather: resultWeather,
     profile,
     rankedClosetMatches: rankedMatches,
-    weatherNeeds:
-    baseRecommendation.weatherNeeds,
+    weatherNeeds: baseRecommendation.weatherNeeds,
 });
-};
 
 const handlePersonalizedCheck = async () => {
 if (!selectedLocation) {
@@ -261,25 +307,21 @@ setResultWeather(null);
 setRejectedItemIds([]);
 setSelectedRankIndex(0);
 
-const weatherData = await fetchWeather(
-    selectedLocation,
-    {
+const weatherData = await fetchWeather(selectedLocation, {
     background: false,
-    }
-);
+});
 
 if (!weatherData) {
     return;
 }
 
-const calculated =
-    calculatePersonalizedRecommendation({
+const calculated = calculatePersonalizedRecommendation({
     weather: weatherData,
     profile,
     windowId: timeWindow,
-    closetItems,
+    closetItems: activeJacketItems,
     preferenceModel,
-    });
+});
 
 setResultWeather(weatherData);
 
@@ -290,26 +332,24 @@ setRecommendation({
 };
 
 const selectRankedMatch = (rankIndex) => {
-if (!recommendation || !resultWeather) {
+if (!activeRecommendation || !resultWeather) {
     return;
 }
 
 const rankedMatches =
-    recommendation.rankedClosetMatches || [];
+    activeRecommendation.rankedClosetMatches || [];
 
-const selectedMatch =
-    rankedMatches[rankIndex];
+const selectedMatch = rankedMatches[rankIndex];
 
 if (!selectedMatch) {
     return;
 }
 
-const nextRecommendation =
-    createRecommendationFromMatch({
-    baseRecommendation: recommendation,
-    closetMatch: selectedMatch,
+const nextRecommendation = createRecommendationFromMatch({
+    baseRecommendation: activeRecommendation,
+    wardrobeMatch: selectedMatch,
     rankedMatches,
-    });
+});
 
 setSelectedRankIndex(rankIndex);
 
@@ -320,19 +360,19 @@ setRecommendation({
 };
 
 const rebuildRankings = ({
-updatedClosetItems,
+updatedJacketItems,
 excludedIds,
 keepItemId = null,
 }) => {
-if (!recommendation || !resultWeather) {
+if (!activeRecommendation || !resultWeather) {
     return null;
 }
 
 const ranking = rankClosetItems({
-    closetItems: updatedClosetItems,
+    closetItems: updatedJacketItems,
     weather: resultWeather,
     forecastAnalysis:
-    recommendation.forecastAnalysis,
+    activeRecommendation.forecastAnalysis,
     profile,
     preferenceModel,
     excludedItemIds: excludedIds,
@@ -344,14 +384,14 @@ if (!rankedMatches.length) {
     return {
     ranking,
     recommendation: {
-        ...recommendation,
+        ...activeRecommendation,
         closetMatch: null,
         rankedClosetMatches: [],
         allRankedClosetMatches: [],
+        styleSuggestion: null,
         historyId: null,
         primaryItem:
-        recommendation.jacketType ||
-        "No jacket",
+        activeRecommendation.jacketType || "Jacket",
     },
     selectedIndex: 0,
     };
@@ -360,10 +400,8 @@ if (!rankedMatches.length) {
 let selectedIndex = 0;
 
 if (keepItemId) {
-    const matchingIndex =
-    rankedMatches.findIndex(
-        (match) =>
-        match.item.id === keepItemId
+    const matchingIndex = rankedMatches.findIndex(
+    (match) => match.item.id === keepItemId
     );
 
     if (matchingIndex >= 0) {
@@ -371,21 +409,17 @@ if (keepItemId) {
     }
 }
 
-const selectedMatch =
-    rankedMatches[selectedIndex];
+const selectedMatch = rankedMatches[selectedIndex];
 
-const nextRecommendation =
-    createRecommendationFromMatch({
+const nextRecommendation = createRecommendationFromMatch({
     baseRecommendation: {
-        ...recommendation,
-        weatherNeeds:
-        ranking.weatherNeeds,
-        allRankedClosetMatches:
-        ranking.rankedItems,
+    ...activeRecommendation,
+    weatherNeeds: ranking.weatherNeeds,
+    allRankedClosetMatches: ranking.rankedItems,
     },
-    closetMatch: selectedMatch,
+    wardrobeMatch: selectedMatch,
     rankedMatches,
-    });
+});
 
 return {
     ranking,
@@ -399,8 +433,8 @@ return {
 
 const handleFeedback = async (rating) => {
 if (
-    !recommendation ||
-    !recommendation.closetMatch ||
+    !activeRecommendation ||
+    !activeRecommendation.closetMatch ||
     feedbackSaving
 ) {
     return;
@@ -409,31 +443,22 @@ if (
 setFeedbackSaving(true);
 setLocalError("");
 
-const currentItem =
-    recommendation.closetMatch.item;
+const currentItem = activeRecommendation.closetMatch.item;
 
-const previousRating =
-    savedFeedback?.rating || null;
-
-const previousWeight =
-    FEEDBACK_WEIGHTS[previousRating] || 0;
-
-const nextWeight =
-    FEEDBACK_WEIGHTS[rating] || 0;
-
-const scoreDifference =
-    nextWeight - previousWeight;
+const previousRating = savedFeedback?.rating || null;
+const previousWeight = FEEDBACK_WEIGHTS[previousRating] || 0;
+const nextWeight = FEEDBACK_WEIGHTS[rating] || 0;
+const scoreDifference = nextWeight - previousWeight;
 
 try {
-    let historyId = recommendation.historyId;
+    let historyId = activeRecommendation.historyId;
 
     if (!historyId) {
-    const historyEntry =
-        await saveRecommendation({
-        recommendation,
+    const historyEntry = await saveRecommendation({
+        recommendation: activeRecommendation,
         weather: resultWeather,
         timeWindow,
-        });
+    });
 
     if (!historyEntry) {
         setLocalError(
@@ -446,16 +471,14 @@ try {
     }
 
     const recommendationWithHistory = {
-    ...recommendation,
+    ...activeRecommendation,
     historyId,
     };
 
-    const feedbackResult =
-    await submitFeedback({
-        recommendationId: historyId,
-        recommendation:
-        recommendationWithHistory,
-        rating,
+    const feedbackResult = await submitFeedback({
+    recommendationId: historyId,
+    recommendation: recommendationWithHistory,
+    rating,
     });
 
     if (!feedbackResult) {
@@ -463,11 +486,10 @@ try {
     }
 
     if (scoreDifference !== 0) {
-    const updated =
-        await adjustTimesRecommended(
+    const updated = await adjustPreferenceScore(
         currentItem.id,
         scoreDifference
-        );
+    );
 
     if (!updated) {
         setLocalError(
@@ -477,18 +499,20 @@ try {
     }
     }
 
-    const updatedClosetItems =
-    closetItems.map((item) =>
-        item.id === currentItem.id
-        ? {
-            ...item,
-            times_recommended:
-                Number(
-                item.times_recommended || 0
-                ) + scoreDifference,
-            }
-        : item
-    );
+    const updatedJacketItems = activeJacketItems.map((item) => {
+    if (item.id !== currentItem.id) {
+        return item;
+    }
+
+    const nextPreferenceScore =
+        getPreferenceScore(item) + scoreDifference;
+
+    return {
+        ...item,
+        preference_score: nextPreferenceScore,
+        times_recommended: nextPreferenceScore,
+    };
+    });
 
     if (rating === "not_it") {
     const nextRejectedIds = [
@@ -501,19 +525,14 @@ try {
     setRejectedItemIds(nextRejectedIds);
 
     const rebuilt = rebuildRankings({
-        updatedClosetItems,
+        updatedJacketItems,
         excludedIds: nextRejectedIds,
         keepItemId: null,
     });
 
     if (rebuilt?.recommendation) {
-        setRecommendation(
-        rebuilt.recommendation
-        );
-
-        setSelectedRankIndex(
-        rebuilt.selectedIndex
-        );
+        setRecommendation(rebuilt.recommendation);
+        setSelectedRankIndex(rebuilt.selectedIndex);
     }
 
     if (!rebuilt?.ranking?.topMatches.length) {
@@ -523,7 +542,7 @@ try {
     }
     } else {
     const rebuilt = rebuildRankings({
-        updatedClosetItems,
+        updatedJacketItems,
         excludedIds: rejectedItemIds,
         keepItemId: currentItem.id,
     });
@@ -534,9 +553,7 @@ try {
         historyId,
         });
 
-        setSelectedRankIndex(
-        rebuilt.selectedIndex
-        );
+        setSelectedRankIndex(rebuilt.selectedIndex);
     }
     }
 } catch (feedbackError) {
@@ -560,14 +577,11 @@ profile?.cold_tolerance
     : null,
 
 profile?.style_preference
-    ? profile.style_preference.replaceAll(
-        "_",
-        " "
-    )
+    ? profile.style_preference.replaceAll("_", " ")
     : null,
 
-`${closetItems.length} closet item${
-    closetItems.length === 1 ? "" : "s"
+`${activeJacketItems.length} active jacket${
+    activeJacketItems.length === 1 ? "" : "s"
 }`,
 ].filter(Boolean);
 
@@ -595,7 +609,7 @@ return (
         </h1>
     </div>
 
-    {recommendation && (
+    {activeRecommendation && (
         <button
         type="button"
         onClick={clearResult}
@@ -655,10 +669,10 @@ return (
         </Link>
 
         <Link
-            to="/closet"
+            to="/wardrobe"
             className="text-emerald-300 hover:text-emerald-200"
         >
-            Closet →
+            Wardrobe →
         </Link>
 
         <Link
@@ -671,13 +685,14 @@ return (
     </div>
     </div>
 
-    {closetItems.length === 0 && (
+    {activeJacketItems.length === 0 && (
     <div className="mb-5 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
         <div className="flex items-center gap-2">
         <Shirt size={17} />
 
         <span>
-            Add jackets so personalized mode can recommend items you own.
+            Add an active jacket to your wardrobe so personalized
+            mode can recommend an item you own.
         </span>
         </div>
     </div>
@@ -707,9 +722,7 @@ return (
 
             <LocationSearch
             selectedLocation={selectedLocation}
-            onSelectLocation={
-                handleLocationChange
-            }
+            onSelectLocation={handleLocationChange}
             />
         </div>
 
@@ -724,7 +737,7 @@ return (
             disabled={
             !selectedLocation ||
             loading ||
-            closetLoading ||
+            wardrobeLoading ||
             feedbackSaving
             }
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-500 px-4 py-4 font-black text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
@@ -733,8 +746,8 @@ return (
 
             {loading
             ? "Checking..."
-            : closetLoading
-                ? "Loading closet..."
+            : wardrobeLoading
+                ? "Loading wardrobe..."
                 : "Run Personalized Check"}
         </button>
         </div>
@@ -748,17 +761,15 @@ return (
 
     <CheckResultCard
         weather={resultWeather}
-        recommendation={recommendation}
+        recommendation={activeRecommendation}
         mode="personalized"
-        feedbackValue={
-        savedFeedback?.rating || null
-        }
+        feedbackValue={savedFeedback?.rating || null}
         onFeedback={handleFeedback}
         feedbackLoading={feedbackSaving}
         rankedMatches={
-        recommendation?.rankedClosetMatches || []
+        activeRecommendation?.rankedClosetMatches || []
         }
-        selectedRankIndex={selectedRankIndex}
+        selectedRankIndex={displayedRankIndex}
         onSelectRank={selectRankedMatch}
     />
     </div>

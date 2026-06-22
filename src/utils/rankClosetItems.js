@@ -11,6 +11,10 @@ function clamp(value, minimum, maximum) {
 return Math.min(maximum, Math.max(minimum, value));
 }
 
+function includesAny(value, terms) {
+return terms.some((term) => value.includes(term));
+}
+
 function getSelectedConditions(weather, forecastAnalysis) {
 const selected = forecastAnalysis?.selectedConditions || {};
 
@@ -45,7 +49,30 @@ return {
         toFiniteNumber(weather?.windSpeed, 0)
     )
     ),
+
+    condition: String(
+    selected.condition || weather?.condition || ""
+    ).toLowerCase(),
 };
+}
+
+function getItemPrimaryColor(item) {
+return item?.primary_color || item?.color || null;
+}
+
+function getItemPreferenceScore(item) {
+return toFiniteNumber(
+    item?.preference_score ?? item?.times_recommended,
+    0
+);
+}
+
+function isActiveJacket(item) {
+return Boolean(
+    item &&
+    item.category === "jacket" &&
+    item.archived !== true
+);
 }
 
 export function getWeatherNeeds(weather, forecastAnalysis) {
@@ -71,6 +98,21 @@ if (effectiveFeelsLike < 30) {
     warmthNeeded = 2;
 }
 
+const precipitationCondition = includesAny(
+    selectedConditions.condition,
+    [
+    "rain",
+    "drizzle",
+    "shower",
+    "thunderstorm",
+    "storm",
+    "sleet",
+    "snow",
+    "freezing",
+    "ice",
+    ]
+);
+
 let rainNeeded = 1;
 
 if (selectedConditions.rainChance >= 70) {
@@ -79,6 +121,10 @@ if (selectedConditions.rainChance >= 70) {
     rainNeeded = 4;
 } else if (selectedConditions.rainChance >= 30) {
     rainNeeded = 3;
+}
+
+if (precipitationCondition) {
+    rainNeeded = Math.max(rainNeeded, 4);
 }
 
 let windNeeded = 1;
@@ -162,20 +208,47 @@ if (needs.windNeeded <= 2 && windDifference >= 3) {
 return penalty;
 }
 
+function getProtectionDeficitPenalty(item, needs) {
+let penalty = 0;
+
+const rainRating = toFiniteNumber(item.rain_rating, 1);
+const windRating = toFiniteNumber(item.wind_rating, 1);
+
+if (needs.rainNeeded >= 4) {
+    if (rainRating <= 1) {
+    penalty += 18;
+    } else if (rainRating === 2) {
+    penalty += 10;
+    }
+}
+
+if (needs.windNeeded >= 4) {
+    if (windRating <= 1) {
+    penalty += 14;
+    } else if (windRating === 2) {
+    penalty += 8;
+    }
+}
+
+return penalty;
+}
+
 function getProfileStyleScore(item, profile) {
 let score = 0;
 
 const profileStyle = profile?.style_preference;
 const preferredColor = profile?.preferred_color;
+const itemColor = getItemPrimaryColor(item);
 
 if (
     profileStyle &&
-    item.style_tags?.includes(profileStyle)
+    Array.isArray(item.style_tags) &&
+    item.style_tags.includes(profileStyle)
 ) {
     score += 12;
 }
 
-if (preferredColor && item.color === preferredColor) {
+if (preferredColor && itemColor === preferredColor) {
     score += 8;
 }
 
@@ -188,8 +261,9 @@ if (!preferenceModel) {
 }
 
 let rawScore = 0;
+const itemColor = getItemPrimaryColor(item);
 
-rawScore += preferenceModel.colors?.[item.color] || 0;
+rawScore += preferenceModel.colors?.[itemColor] || 0;
 
 if (Array.isArray(item.style_tags)) {
     item.style_tags.forEach((tag) => {
@@ -247,6 +321,7 @@ profileStyleScore,
 preferenceScore,
 learnedAttributeScore,
 overkillPenalty,
+protectionDeficitPenalty,
 }) {
 const reasons = [
     getProtectionReason(
@@ -294,6 +369,12 @@ if (overkillPenalty > 0) {
     );
 }
 
+if (protectionDeficitPenalty > 0) {
+    reasons.push(
+    "Its weather protection is weaker than the selected forecast calls for."
+    );
+}
+
 return reasons;
 }
 
@@ -313,7 +394,11 @@ const weatherNeeds = getWeatherNeeds(
 const excludedSet = new Set(excludedItemIds);
 
 const rankedItems = closetItems
-    .filter((item) => !excludedSet.has(item.id))
+    .filter(
+    (item) =>
+        isActiveJacket(item) &&
+        !excludedSet.has(item.id)
+    )
     .map((item) => {
     const warmthScore = scoreRatingMatch(
         item.warmth_rating,
@@ -335,10 +420,7 @@ const rankedItems = closetItems
         profile
     );
 
-    const preferenceScore = toFiniteNumber(
-        item.times_recommended,
-        0
-    );
+    const preferenceScore = getItemPreferenceScore(item);
 
     const learnedAttributeScore = getLearnedAttributeScore(
         item,
@@ -350,6 +432,9 @@ const rankedItems = closetItems
         weatherNeeds
     );
 
+    const protectionDeficitPenalty =
+        getProtectionDeficitPenalty(item, weatherNeeds);
+
     const score =
         warmthScore +
         rainScore +
@@ -357,7 +442,8 @@ const rankedItems = closetItems
         profileStyleScore +
         preferenceScore +
         learnedAttributeScore -
-        overkillPenalty;
+        overkillPenalty -
+        protectionDeficitPenalty;
 
     return {
         item,
@@ -369,6 +455,7 @@ const rankedItems = closetItems
         preferenceScore,
         learnedAttributeScore,
         overkillPenalty,
+        protectionDeficitPenalty,
         tieBreakValue: getTieBreakValue(
         item,
         weather,
@@ -381,6 +468,7 @@ const rankedItems = closetItems
         preferenceScore,
         learnedAttributeScore,
         overkillPenalty,
+        protectionDeficitPenalty,
         }),
     };
     })

@@ -1,7 +1,9 @@
+import { useState } from "react";
+
 import HistoryCard from "../components/HistoryCard";
 
-import useClosetItems from "../hooks/useClosetItems";
 import useRecommendationLearning from "../hooks/useRecommendationLearning";
+import useWardrobeItems from "../hooks/useWardrobeItems";
 
 const FEEDBACK_WEIGHTS = {
 fire: 2,
@@ -10,7 +12,10 @@ not_it: -1,
 };
 
 function HistoryPage() {
-const { adjustTimesRecommended } = useClosetItems();
+const {
+adjustPreferenceScore,
+wardrobeError,
+} = useWardrobeItems();
 
 const {
 history,
@@ -21,12 +26,19 @@ learningError,
 deleteHistoryItem,
 } = useRecommendationLearning();
 
+const [deletingId, setDeletingId] = useState(null);
+const [localError, setLocalError] = useState("");
+
 const getFeedback = (historyId) =>
 feedback.find(
     (entry) => entry.recommendation_id === historyId
 ) || null;
 
 const handleDelete = async (historyId) => {
+if (deletingId) {
+    return;
+}
+
 const confirmed = window.confirm(
     "Delete this recommendation from history and reverse its preference score?"
 );
@@ -34,6 +46,9 @@ const confirmed = window.confirm(
 if (!confirmed) {
     return;
 }
+
+setDeletingId(historyId);
+setLocalError("");
 
 const historyEntry = history.find(
     (entry) => entry.id === historyId
@@ -51,26 +66,51 @@ const wardrobeItemId =
     historyEntry?.closet_item_id ||
     null;
 
-if (wardrobeItemId && scoreWeight !== 0) {
-    const reversed = await adjustTimesRecommended(
-    wardrobeItemId,
-    -scoreWeight
+let preferenceReversed = false;
+
+try {
+    if (wardrobeItemId && scoreWeight !== 0) {
+    preferenceReversed = await adjustPreferenceScore(
+        wardrobeItemId,
+        -scoreWeight
     );
 
-    if (!reversed) {
-    return;
+    if (!preferenceReversed) {
+        setLocalError(
+        "The recommendation was not deleted because its preference score could not be reversed."
+        );
+        return;
     }
-}
+    }
 
-const deleted = await deleteHistoryItem(historyId);
+    const deleted = await deleteHistoryItem(historyId);
 
-if (!deleted && wardrobeItemId && scoreWeight !== 0) {
-    await adjustTimesRecommended(
-    wardrobeItemId,
-    scoreWeight
+    if (!deleted) {
+    if (preferenceReversed) {
+        const restored = await adjustPreferenceScore(
+        wardrobeItemId,
+        scoreWeight
+        );
+
+        if (!restored) {
+        setLocalError(
+            "The history entry could not be deleted, and its preference score could not be restored automatically."
+        );
+        return;
+        }
+    }
+
+    setLocalError(
+        "The recommendation could not be deleted."
     );
+    }
+} finally {
+    setDeletingId(null);
 }
 };
+
+const displayedError =
+localError || learningError || wardrobeError;
 
 return (
 <section>
@@ -97,9 +137,9 @@ return (
     )}
     </div>
 
-    {learningError && (
+    {displayedError && (
     <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
-        {learningError}
+        {displayedError}
     </div>
     )}
 
@@ -119,7 +159,7 @@ return (
             entry={entry}
             feedback={getFeedback(entry.id)}
             onDelete={handleDelete}
-            deleting={learningLoading}
+            deleting={deletingId === entry.id}
         />
         ))}
     </div>
