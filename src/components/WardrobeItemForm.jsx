@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 
 import {
-  WARDROBE_CATEGORIES,
   WARDROBE_COLORS,
   WARDROBE_FITS,
   WARDROBE_MATERIALS,
@@ -64,7 +63,7 @@ function buildFormFromItem(item) {
 
   return {
     name: item.name || "",
-    category: item.category || "jacket",
+    category: "jacket",
     subtype: item.subtype || item.type || "other",
     primary_color: item.primary_color || item.color || "other",
     secondary_color: item.secondary_color || "",
@@ -83,7 +82,7 @@ function buildFormFromItem(item) {
 function buildFormFromAnalysis(result) {
   return {
     name: result.name,
-    category: result.category,
+    category: "jacket",
     subtype: result.subtype,
     primary_color: result.primaryColor,
     secondary_color: result.secondaryColor || "",
@@ -151,7 +150,7 @@ async function savedImageToFile(image, itemName) {
         ? "webp"
         : "jpg";
 
-  return new File([blob], `${itemName || "wardrobe-item"}.${extension}`, {
+  return new File([blob], `${itemName || "jacket"}.${extension}`, {
     type: mimeType,
   });
 }
@@ -297,14 +296,14 @@ function WardrobeItemFormInner({
   );
 
   const subtypeOptions = useMemo(() => {
-    const options = getSubtypesForCategory(form.category);
+    const options = getSubtypesForCategory("jacket");
 
     if (form.subtype && !options.includes(form.subtype)) {
       return [form.subtype, ...options];
     }
 
     return options;
-  }, [form.category, form.subtype]);
+  }, [form.subtype]);
 
   const colorOptions = useMemo(() => {
     const currentColors = [form.primary_color, form.secondary_color].filter(
@@ -350,14 +349,6 @@ function WardrobeItemFormInner({
           : [...currentValues, value],
       };
     });
-  };
-
-  const handleCategoryChange = (category) => {
-    setForm((current) => ({
-      ...current,
-      category,
-      subtype: getSubtypesForCategory(category)[0],
-    }));
   };
 
   const clearPendingImages = () => {
@@ -606,9 +597,16 @@ function WardrobeItemFormInner({
       return;
     }
 
-    const result = await analyzeImage(sourceFile, form.category);
+    const result = await analyzeImage(sourceFile, "jacket");
 
     if (!result) {
+      return;
+    }
+
+    if (result.category && result.category !== "jacket") {
+      setImageError(
+        "That photo does not appear to be a jacket. Choose a jacket photo or enter the details manually."
+      );
       return;
     }
 
@@ -637,7 +635,7 @@ function WardrobeItemFormInner({
 
     const payload = {
       name: form.name.trim(),
-      category: form.category,
+      category: "jacket",
       subtype: form.subtype,
       primary_color: form.primary_color,
       secondary_color: form.secondary_color || null,
@@ -784,7 +782,7 @@ function WardrobeItemFormInner({
           </p>
 
           <h2 className="text-2xl font-black text-white">
-            {isEditing ? editingItem.name : "Build your wardrobe"}
+            {isEditing ? editingItem.name : "Build your jacket closet"}
           </h2>
         </div>
       </div>
@@ -816,7 +814,7 @@ function WardrobeItemFormInner({
 
             <p className="mt-1 text-sm text-slate-400">
               {totalImageCount}/{maxWardrobeImagesPerItem} images · the primary
-              image appears across recommendations and wardrobe cards.
+              image appears across recommendations and jacket cards.
             </p>
           </div>
 
@@ -840,7 +838,7 @@ function WardrobeItemFormInner({
           >
             <ImagePlus size={30} className="text-sky-300" />
             <span className="mt-3 font-bold text-white">
-              Add up to {maxWardrobeImagesPerItem} item photos
+              Add up to {maxWardrobeImagesPerItem} jacket photos
             </span>
             <span className="mt-1 text-sm text-slate-400">
               JPG, PNG, or WebP · 5 MB maximum per image
@@ -955,7 +953,7 @@ function WardrobeItemFormInner({
                     New images ready to upload
                   </p>
                   <p className="text-xs text-slate-500">
-                    Save the item to upload them
+                    Save the jacket to upload them
                   </p>
                 </div>
 
@@ -975,7 +973,7 @@ function WardrobeItemFormInner({
                         <div className="relative aspect-square">
                           <img
                             src={image.previewUrl}
-                            alt={`New wardrobe image ${index + 1}`}
+                            alt={`New jacket image ${index + 1}`}
                             className="h-full w-full object-cover"
                           />
 
@@ -1143,17 +1141,9 @@ function WardrobeItemFormInner({
             Category
           </label>
 
-          <select
-            value={form.category}
-            onChange={(event) => handleCategoryChange(event.target.value)}
-            className={inputClass}
-          >
-            {WARDROBE_CATEGORIES.map((category) => (
-              <option key={category.value} value={category.value}>
-                {category.label}
-              </option>
-            ))}
-          </select>
+          <div className={`${inputClass} cursor-default text-slate-300`}>
+            Jacket
+          </div>
         </div>
 
         <div>
@@ -1242,7 +1232,7 @@ function WardrobeItemFormInner({
           <textarea
             value={form.description}
             onChange={(event) => updateField("description", event.target.value)}
-            placeholder="Short notes about the item, details, or when you wear it"
+            placeholder="Short notes about the jacket, details, or when you wear it"
             rows="3"
             maxLength="240"
             className={inputClass}
@@ -1316,8 +1306,8 @@ function WardrobeItemFormInner({
           {loading || wardrobeImageLoading || isSubmitting
             ? "Saving..."
             : isEditing
-              ? "Save item and new images"
-              : "Save wardrobe item"}
+              ? "Save jacket and new images"
+              : "Save jacket"}
         </button>
 
         {isEditing ? (
@@ -1347,7 +1337,7 @@ function WardrobeItemFormInner({
 }
 
 function WardrobeItemForm(props) {
-  const formKey = props.editingItem?.id || "new-wardrobe-item";
+  const formKey = props.editingItem?.id || "new-jacket";
 
   return <WardrobeItemFormInner key={formKey} {...props} />;
 }

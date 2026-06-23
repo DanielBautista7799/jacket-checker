@@ -162,7 +162,7 @@ function buildWardrobePayload(itemData, existingItem = null) {
   return {
     name: String(source.name ?? existing.name ?? "").trim(),
 
-    category: source.category ?? existing.category ?? "jacket",
+    category: "jacket",
 
     subtype:
       source.subtype ??
@@ -263,7 +263,9 @@ function readCache(userId) {
 
     return {
       items: Array.isArray(parsed.items)
-        ? parsed.items.map(normalizeWardrobeItem)
+        ? parsed.items
+            .map(normalizeWardrobeItem)
+            .filter((item) => item.category === "jacket")
         : [],
       savedAt: Number(parsed.savedAt) || 0,
     };
@@ -452,6 +454,7 @@ async function requestWardrobe(userId) {
       .from("wardrobe_items")
       .select("*")
       .eq("user_id", userId)
+      .eq("category", "jacket")
       .order("created_at", { ascending: false }),
 
     supabase
@@ -553,7 +556,9 @@ export function WardrobeProvider({ children }) {
       const nextValue =
         typeof updater === "function" ? updater(current) : updater;
 
-      const next = nextValue.map(normalizeWardrobeItem);
+      const next = nextValue
+        .map(normalizeWardrobeItem)
+        .filter((item) => item.category === "jacket");
 
       if (activeUserIdRef.current) {
         writeCache(activeUserIdRef.current, next);

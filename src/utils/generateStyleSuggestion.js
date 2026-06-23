@@ -1,237 +1,178 @@
 import {
-findColorPalette,
-findMatchingJacket,
-findStyleProfile,
-} from "../data/styleLibrary";
+  getJacketColorPairing,
+  getProfileColorPairing,
+  getStyleSuggestionTemplate,
+} from "../data/styleSuggestionLibrary";
 
 function toFiniteNumber(value, fallback) {
-if (value === null || value === undefined || value === "") {
+  if (value === null || value === undefined || value === "") {
     return fallback;
+  }
+
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
-const number = Number(value);
-return Number.isFinite(number) ? number : fallback;
+function formatLabel(value = "") {
+  return String(value)
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function formatShoes(shoes) {
-const shoeMap = {
-    jordans: "Jordan 1s",
-    sneakers: "clean sneakers",
-    boots: "boots",
-    loafers: "loafers",
-    running_shoes: "running shoes",
-};
+function joinChoices(values = []) {
+  const unique = [...new Set(values.filter(Boolean))];
 
-return shoeMap[shoes] || "sneakers";
-}
+  if (unique.length === 0) {
+    return "neutral";
+  }
 
-function formatBottoms(bottoms) {
-const bottomsMap = {
-    cargos: "cargos",
-    jeans: "straight-leg jeans",
-    chinos: "chinos",
-    joggers: "joggers",
-    trousers: "trousers",
-};
+  if (unique.length === 1) {
+    return unique[0];
+  }
 
-return bottomsMap[bottoms] || "pants";
+  return `${unique[0]} or ${unique[1]}`;
 }
 
 function getSelectedWeather(weather, forecastAnalysis) {
-const selected = forecastAnalysis?.selectedConditions || {};
+  const selected = forecastAnalysis?.selectedConditions || {};
 
-return {
+  return {
     feelsLike: toFiniteNumber(
-    selected.feelsLike,
-    toFiniteNumber(weather?.feelsLike, 65)
+      selected.feelsLike,
+      toFiniteNumber(weather?.feelsLike, 65)
     ),
-
     rainChance: toFiniteNumber(
-    selected.rainChance,
-    toFiniteNumber(weather?.rainChance, 0)
+      selected.rainChance,
+      toFiniteNumber(
+        forecastAnalysis?.highestWindowRainChance,
+        toFiniteNumber(weather?.rainChance, 0)
+      )
     ),
-
     windSpeed: toFiniteNumber(
-    selected.windSpeed,
-    toFiniteNumber(weather?.windSpeed, 0)
+      selected.windSpeed,
+      toFiniteNumber(
+        forecastAnalysis?.highestWindowWind,
+        toFiniteNumber(weather?.windSpeed, 0)
+      )
     ),
-};
+  };
 }
 
-function getTopLayer({
-feelsLike,
-stylePreference,
-fitPreference,
-preferredColor,
-}) {
-const color =
-    preferredColor === "earth_tones"
-    ? "cream"
-    : preferredColor === "bold"
-        ? "plain black"
-        : preferredColor;
+function getTemperatureBand(feelsLike) {
+  if (feelsLike >= 72) {
+    return "warm";
+  }
 
-if (feelsLike < 45) {
-    if (
-    stylePreference === "streetwear" ||
-    stylePreference === "skater"
-    ) {
-    return `${color} hoodie`;
-    }
+  if (feelsLike < 50) {
+    return "cold";
+  }
 
-    if (
-    stylePreference === "smart_casual" ||
-    stylePreference === "minimal"
-    ) {
-    return `${color} knit or thermal`;
-    }
-
-    return `${color} warm base layer`;
+  return "mild";
 }
 
-if (feelsLike < 60) {
-    if (fitPreference === "layered") {
-    return `${color} tee with a light hoodie`;
-    }
+function getFitPhrase(fitPreference) {
+  const phrases = {
+    relaxed: "Keep the shapes relaxed",
+    fitted: "Keep the fit clean and slightly fitted",
+    oversized: "Lean into an oversized silhouette",
+    layered: "Keep the layers simple and balanced",
+  };
 
-    if (stylePreference === "smart_casual") {
-    return `${color} long sleeve`;
-    }
-
-    return `${color} tee or crewneck`;
+  return phrases[fitPreference] || "Keep the proportions balanced";
 }
 
-if (
-    stylePreference === "minimal" ||
-    stylePreference === "smart_casual"
-) {
-    return `${color} plain tee`;
+function getWeatherNote(selectedWeather) {
+  if (
+    selectedWeather.rainChance >= 55 &&
+    selectedWeather.windSpeed >= 20
+  ) {
+    return "Rain and wind are both in play, so keep the shoes weather-friendly and avoid bulky layers under the jacket.";
+  }
+
+  if (selectedWeather.rainChance >= 55) {
+    return "Rain is likely, so keep the shoes weather-friendly and add a compact umbrella if needed.";
+  }
+
+  if (selectedWeather.windSpeed >= 20) {
+    return "It may get windy, so keep the layers close and avoid anything overly loose.";
+  }
+
+  if (selectedWeather.feelsLike < 45) {
+    return "It will feel cold, so use a warmer base or knit without changing the overall look.";
+  }
+
+  if (selectedWeather.feelsLike >= 78) {
+    return "Keep the base layer light so the outfit does not feel too warm.";
+  }
+
+  return "Keep the outfit simple and let the proportions and colors do the work.";
 }
 
-return `${color} tee`;
-}
+function buildColorSentence(pairing, jacketColor, hasJacket) {
+  const topColors = joinChoices(pairing.tops);
+  const bottomColors = joinChoices(pairing.bottoms);
+  const shoeColors = joinChoices(pairing.shoes);
 
-function getAccessory(selectedWeather) {
-if (selectedWeather.rainChance >= 50) {
-    return "small umbrella or water-resistant bag";
-}
+  if (hasJacket) {
+    return `With the ${formatLabel(
+      jacketColor
+    ).toLowerCase()} jacket, use a ${topColors} top, ${bottomColors} pants, and ${shoeColors} shoes.`;
+  }
 
-if (selectedWeather.windSpeed >= 18) {
-    return "cap or wind-resistant layer";
-}
-
-if (selectedWeather.feelsLike < 40) {
-    return "beanie";
-}
-
-return null;
-}
-
-function getInfluenceNote(styleInfluence) {
-const notes = {
-    american_streetwear:
-    "leans casual and streetwear-focused",
-    korean_casual:
-    "leans clean, soft, and balanced",
-    japanese_minimal:
-    "leans minimal and intentional",
-    european_clean:
-    "leans polished and simple",
-    skater:
-    "leans loose and casual",
-    outdoor:
-    "leans practical and weather-ready",
-    athletic:
-    "leans comfortable and movement-friendly",
-    techwear:
-    "leans dark, functional, and weather-focused",
-};
-
-return (
-    notes[styleInfluence] ||
-    "matches your saved style influence"
-);
+  return `Try a ${topColors} top, ${bottomColors} pants, and ${shoeColors} shoes.`;
 }
 
 export function generateStyleSuggestion({
-recommendation,
-weather,
-profile,
-closetItem,
-forecastAnalysis = null,
+  recommendation,
+  weather,
+  profile,
+  closetItem = null,
+  forecastAnalysis = null,
 }) {
-if (!recommendation || !profile) {
+  if (!recommendation || !profile) {
     return null;
-}
+  }
 
-const stylePreference =
-    profile.style_preference || "streetwear";
+  const stylePreference = profile.style_preference || "streetwear";
+  const fitPreference = profile.fit_preference || "relaxed";
+  const preferredColor = profile.preferred_color || "black";
 
-const fitPreference =
-    profile.fit_preference || "relaxed";
+  const styleTemplate = getStyleSuggestionTemplate(stylePreference);
+  const selectedWeather = getSelectedWeather(weather, forecastAnalysis);
+  const temperatureBand = getTemperatureBand(selectedWeather.feelsLike);
+  const temperatureTemplate = styleTemplate[temperatureBand];
 
-const preferredColor =
-    profile.preferred_color || "black";
+  const hasJacket =
+    recommendation.decision === "YES" && Boolean(closetItem);
 
-const favoriteShoes =
-    profile.favorite_shoes || "jordans";
+  const jacketColor =
+    closetItem?.primary_color || closetItem?.color || preferredColor;
 
-const defaultBottoms =
-    profile.default_bottoms || "cargos";
+  const colorPairing = hasJacket
+    ? getJacketColorPairing(jacketColor)
+    : getProfileColorPairing(preferredColor);
 
-const styleInfluence =
-    profile.style_influence || "american_streetwear";
+  const baseDirection = `${getFitPhrase(
+    fitPreference
+  )}: ${temperatureTemplate.top}, ${temperatureTemplate.bottoms}, and ${temperatureTemplate.shoes}.`;
 
-const styleProfile = findStyleProfile(stylePreference);
-const colorPalette = findColorPalette(preferredColor);
+  const colorDirection = buildColorSentence(
+    colorPairing,
+    jacketColor,
+    hasJacket
+  );
 
-const selectedWeather = getSelectedWeather(
-    weather,
-    forecastAnalysis
-);
+  const weatherNote = getWeatherNote(selectedWeather);
 
-const jacketMatch = closetItem
-    ? {
-        label: closetItem.name,
-    }
-    : findMatchingJacket(
-        recommendation.primaryItem || recommendation.jacketType,
-        stylePreference
-    );
-
-const top = getTopLayer({
-    feelsLike: selectedWeather.feelsLike,
-    stylePreference,
-    fitPreference,
-    preferredColor: colorPalette.primary,
-});
-
-const bottoms = formatBottoms(defaultBottoms);
-const shoes = formatShoes(favoriteShoes);
-const accessory = getAccessory(selectedWeather);
-
-const outfitTitle = closetItem
-    ? `${styleProfile.label} fit with ${closetItem.name}`
-    : `${styleProfile.label} ${jacketMatch.label.toLowerCase()} fit`;
-
-const pieces = [
-    top,
-    bottoms,
-    shoes,
-    accessory,
-].filter(Boolean);
-
-return {
-    outfitTitle,
-    jacketStyle: jacketMatch.label,
-    pieces,
-    top,
-    bottoms,
-    shoes,
-    accessory,
-    colorNote: colorPalette.note,
-    reason: `This matches your ${styleProfile.label.toLowerCase()} preference, ${fitPreference} fit, and ${getInfluenceNote(
-    styleInfluence
-    )}.`,
-};
+  return {
+    version: 3,
+    type: "style_suggestion",
+    title: `${styleTemplate.label} fit idea`,
+    style: stylePreference,
+    styleLabel: styleTemplate.label,
+    jacketColor: hasJacket ? jacketColor : null,
+    summary: `${colorDirection} ${baseDirection}`,
+    weatherNote,
+    reason: `This stays ${styleTemplate.tone} and follows your saved ${styleTemplate.label.toLowerCase()} preference.`,
+  };
 }

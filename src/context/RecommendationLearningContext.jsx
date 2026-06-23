@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components, react-hooks/set-state-in-effect */
 import {
   createContext,
   useCallback,
@@ -13,7 +14,7 @@ import { buildPreferenceModel } from "../utils/buildPreferenceModel";
 
 export const RecommendationLearningContext = createContext(null);
 
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 4;
 const CACHE_TTL_MS = 3 * 60 * 1000;
 
 const inFlightLearningRequests = new Map();
@@ -114,16 +115,23 @@ function createOutfitSnapshot(styleSuggestion) {
     return null;
   }
 
+  const title =
+    styleSuggestion.title ||
+    styleSuggestion.outfitTitle ||
+    "Style idea";
+
   return {
-    outfitTitle: styleSuggestion.outfitTitle || null,
-    jacketStyle: styleSuggestion.jacketStyle || null,
-    pieces: styleSuggestion.pieces || [],
-    top: styleSuggestion.top || null,
-    bottoms: styleSuggestion.bottoms || null,
-    shoes: styleSuggestion.shoes || null,
-    accessory: styleSuggestion.accessory || null,
-    colorNote: styleSuggestion.colorNote || null,
+    version: 3,
+    type: "style_suggestion",
+    title,
+    outfitTitle: title,
+    summary: styleSuggestion.summary || null,
+    style: styleSuggestion.style || null,
+    styleLabel: styleSuggestion.styleLabel || null,
+    jacketColor: styleSuggestion.jacketColor || null,
+    weatherNote: styleSuggestion.weatherNote || null,
     reason: styleSuggestion.reason || null,
+    pieces: [],
   };
 }
 

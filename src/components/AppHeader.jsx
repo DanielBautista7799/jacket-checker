@@ -66,7 +66,7 @@ return (
             />
 
             <span className="ml-1">
-                Wardrobe
+                Jackets
             </span>
             </NavLink>
 
