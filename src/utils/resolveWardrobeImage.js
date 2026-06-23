@@ -23,30 +23,17 @@ function getOrderedImages(item) {
   });
 }
 
-function resolveImageCandidate(image) {
-  if (!image || typeof image !== "object") {
+function resolveOriginalImageCandidate(image) {
+  if (!image || typeof image !== "object" || !image.image_url) {
     return null;
   }
 
-  if (image.processed_image_url) {
-    return {
-      url: image.processed_image_url,
-      path: image.processed_image_path || image.image_path || null,
-      imageId: image.id || null,
-      processed: true,
-    };
-  }
-
-  if (image.image_url) {
-    return {
-      url: image.image_url,
-      path: image.image_path || null,
-      imageId: image.id || null,
-      processed: false,
-    };
-  }
-
-  return null;
+  return {
+    url: image.image_url,
+    path: image.image_path || null,
+    imageId: image.id || null,
+    processed: false,
+  };
 }
 
 export function resolveWardrobeImage(item) {
@@ -59,13 +46,13 @@ export function resolveWardrobeImage(item) {
   const primaryImage = item.primary_image || markedPrimary || null;
   const firstImage = orderedImages[0] || null;
 
-  const primaryCandidate = resolveImageCandidate(primaryImage);
+  const primaryCandidate = resolveOriginalImageCandidate(primaryImage);
 
   if (primaryCandidate) {
     return primaryCandidate;
   }
 
-  const firstCandidate = resolveImageCandidate(firstImage);
+  const firstCandidate = resolveOriginalImageCandidate(firstImage);
 
   if (firstCandidate) {
     return firstCandidate;
