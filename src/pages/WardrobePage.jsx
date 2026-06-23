@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 
+import JacketEmbeddingBackfill from "../components/JacketEmbeddingBackfill";
 import WardrobeItemCard from "../components/WardrobeItemCard";
 import WardrobeItemForm from "../components/WardrobeItemForm";
 import { WARDROBE_SORT_OPTIONS } from "../data/wardrobeOptions";
@@ -192,6 +193,8 @@ function WardrobePage() {
           {wardrobeImageError}
         </div>
       )}
+
+      <JacketEmbeddingBackfill />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">

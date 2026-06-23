@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components, react-hooks/set-state-in-effect */
 import {
   createContext,
   useCallback,
@@ -10,11 +9,16 @@ import {
 
 import { supabase } from "../lib/supabaseClient";
 import useAuth from "../hooks/useAuth";
+import useWardrobeItems from "../hooks/useWardrobeItems";
 import { buildPreferenceModel } from "../utils/buildPreferenceModel";
+import {
+  createRecommendationLearningContext,
+  getWeatherContextFromConditions,
+} from "../utils/feedbackLearning";
 
 export const RecommendationLearningContext = createContext(null);
 
-const CACHE_VERSION = 4;
+const CACHE_VERSION = 5;
 const CACHE_TTL_MS = 3 * 60 * 1000;
 
 const inFlightLearningRequests = new Map();
@@ -95,42 +99,106 @@ function writeCache(userId, history, feedback) {
   }
 }
 
-function createWeatherSnapshot(weather) {
-  if (!weather) {
-    return {};
-  }
+function getSelectedConditions(recommendation, weather) {
+  const selected =
+    recommendation?.selectedConditions ||
+    recommendation?.forecastAnalysis?.selectedConditions ||
+    {};
 
   return {
-    city: weather.city || null,
-    feelsLike: weather.feelsLike ?? null,
-    temperature: weather.temperature ?? null,
-    windSpeed: weather.windSpeed ?? null,
-    rainChance: weather.rainChance ?? null,
-    condition: weather.condition || null,
+    feelsLike:
+      selected.feelsLike ?? weather?.feelsLike ?? null,
+    lowestFeelsLike:
+      selected.lowestFeelsLike ??
+      recommendation?.forecastAnalysis?.lowestWindowFeelsLike ??
+      selected.feelsLike ??
+      weather?.feelsLike ??
+      null,
+    rainChance:
+      selected.rainChance ??
+      recommendation?.forecastAnalysis?.highestWindowRainChance ??
+      weather?.rainChance ??
+      null,
+    windSpeed:
+      selected.windSpeed ??
+      recommendation?.forecastAnalysis?.highestWindowWind ??
+      weather?.windSpeed ??
+      null,
+    condition:
+      selected.condition || weather?.condition || null,
   };
 }
 
-function createOutfitSnapshot(styleSuggestion) {
-  if (!styleSuggestion) {
+function createWeatherSnapshot({ weather, recommendation, timeWindow }) {
+  if (!weather && !recommendation) {
+    return {};
+  }
+
+  const selectedConditions = getSelectedConditions(
+    recommendation,
+    weather
+  );
+
+  return {
+    city: weather?.city || null,
+    feelsLike: weather?.feelsLike ?? null,
+    temperature: weather?.temperature ?? null,
+    windSpeed: weather?.windSpeed ?? null,
+    rainChance: weather?.rainChance ?? null,
+    condition: weather?.condition || null,
+    selectedFeelsLike: selectedConditions.feelsLike,
+    lowestFeelsLike: selectedConditions.lowestFeelsLike,
+    selectedWindSpeed: selectedConditions.windSpeed,
+    selectedRainChance: selectedConditions.rainChance,
+    selectedCondition: selectedConditions.condition,
+    forecastWindow:
+      timeWindow ||
+      recommendation?.forecastAnalysis?.windowId ||
+      "rest_of_day",
+    weatherContext: getWeatherContextFromConditions(
+      selectedConditions
+    ),
+  };
+}
+
+function createOutfitSnapshot({
+  styleSuggestion,
+  recommendation,
+  wardrobeItem,
+  timeWindow,
+}) {
+  if (!styleSuggestion && !recommendation) {
     return null;
   }
 
   const title =
-    styleSuggestion.title ||
-    styleSuggestion.outfitTitle ||
+    styleSuggestion?.title ||
+    styleSuggestion?.outfitTitle ||
     "Style idea";
 
+  const learningContext = createRecommendationLearningContext({
+    recommendation,
+    wardrobeItem,
+    timeWindow,
+  });
+
   return {
-    version: 3,
+    version: 5,
     type: "style_suggestion",
     title,
     outfitTitle: title,
-    summary: styleSuggestion.summary || null,
-    style: styleSuggestion.style || null,
-    styleLabel: styleSuggestion.styleLabel || null,
-    jacketColor: styleSuggestion.jacketColor || null,
-    weatherNote: styleSuggestion.weatherNote || null,
-    reason: styleSuggestion.reason || null,
+    summary: styleSuggestion?.summary || null,
+    style: styleSuggestion?.style || null,
+    styleLabel: styleSuggestion?.styleLabel || null,
+    jacketColor: styleSuggestion?.jacketColor || null,
+    secondaryColor: styleSuggestion?.secondaryColor || null,
+    temperatureBand: styleSuggestion?.temperatureBand || null,
+    weatherState: styleSuggestion?.weatherState || null,
+    colorStrategy: styleSuggestion?.colorStrategy || null,
+    variantKey: styleSuggestion?.variantKey || null,
+    weatherNote: styleSuggestion?.weatherNote || null,
+    reason: styleSuggestion?.reason || null,
+    learningContext,
     pieces: [],
   };
 }
@@ -188,6 +256,7 @@ async function requestLearningData(userId) {
 
 export function RecommendationLearningProvider({ children }) {
   const { user, authLoading } = useAuth();
+  const { fetchWardrobeItems } = useWardrobeItems();
 
   const initialCache = readCache(user?.id);
 
@@ -207,6 +276,8 @@ export function RecommendationLearningProvider({ children }) {
     useState(false);
 
   const [learningError, setLearningError] = useState("");
+  const [resettingLearning, setResettingLearning] =
+    useState(false);
 
   const activeUserIdRef = useRef(user?.id || null);
   const historyRef = useRef(history);
@@ -221,8 +292,12 @@ export function RecommendationLearningProvider({ children }) {
   }, [feedback]);
 
   const preferenceModel = useMemo(
-    () => buildPreferenceModel(feedback),
-    [feedback]
+    () =>
+      buildPreferenceModel({
+        feedback,
+        history,
+      }),
+    [feedback, history]
   );
 
   const commitLearning = useCallback(
@@ -351,11 +426,18 @@ export function RecommendationLearningProvider({ children }) {
 
         time_window: timeWindow,
 
-        outfit_json: createOutfitSnapshot(
-          recommendation.styleSuggestion
-        ),
+        outfit_json: createOutfitSnapshot({
+          styleSuggestion: recommendation.styleSuggestion,
+          recommendation,
+          wardrobeItem,
+          timeWindow,
+        }),
 
-        weather_snapshot: createWeatherSnapshot(weather),
+        weather_snapshot: createWeatherSnapshot({
+          weather,
+          recommendation,
+          timeWindow,
+        }),
       };
 
       try {
@@ -399,6 +481,7 @@ export function RecommendationLearningProvider({ children }) {
       recommendationId,
       recommendation,
       rating,
+      timeWindow = null,
     }) => {
       if (!user?.id || !recommendationId) {
         return null;
@@ -425,9 +508,12 @@ export function RecommendationLearningProvider({ children }) {
 
         style_tags: wardrobeItem?.style_tags || [],
 
-        outfit_json: createOutfitSnapshot(
-          recommendation?.styleSuggestion
-        ),
+        outfit_json: createOutfitSnapshot({
+          styleSuggestion: recommendation?.styleSuggestion,
+          recommendation,
+          wardrobeItem,
+          timeWindow,
+        }),
 
         updated_at: new Date().toISOString(),
       };
@@ -528,6 +614,78 @@ export function RecommendationLearningProvider({ children }) {
     [user, commitLearning]
   );
 
+  const resetRecommendationLearning = useCallback(async () => {
+    if (!user?.id || resettingLearning) {
+      return false;
+    }
+
+    setResettingLearning(true);
+    setLearningError("");
+
+    try {
+      const [feedbackResponse, wardrobeResponse] =
+        await Promise.all([
+          supabase
+            .from("style_feedback")
+            .delete()
+            .eq("user_id", user.id),
+
+          supabase
+            .from("wardrobe_items")
+            .update({ preference_score: 0 })
+            .eq("user_id", user.id)
+            .eq("category", "jacket"),
+        ]);
+
+      if (feedbackResponse.error) {
+        throw feedbackResponse.error;
+      }
+
+      if (wardrobeResponse.error) {
+        throw wardrobeResponse.error;
+      }
+
+      commitLearning(historyRef.current, []);
+
+      await fetchWardrobeItems({
+        force: true,
+        silent: true,
+      });
+
+      return true;
+    } catch (error) {
+      console.error(
+        "Could not reset recommendation learning:",
+        error
+      );
+
+      setLearningError(
+        error.message ||
+          "Could not reset recommendation learning."
+      );
+
+      await fetchLearningData({
+        force: true,
+        silent: true,
+      });
+
+      await fetchWardrobeItems({
+        force: true,
+        silent: true,
+      });
+
+      return false;
+    } finally {
+      setResettingLearning(false);
+    }
+  }, [
+    user,
+    resettingLearning,
+    commitLearning,
+    fetchLearningData,
+    fetchWardrobeItems,
+  ]);
+
   const getFeedbackForRecommendation = useCallback(
     (recommendationId) =>
       feedbackRef.current.find(
@@ -549,6 +707,7 @@ export function RecommendationLearningProvider({ children }) {
       setLearningLoading(false);
       setLearningRefreshing(false);
       setLearningError("");
+      setResettingLearning(false);
       return;
     }
 
@@ -580,10 +739,12 @@ export function RecommendationLearningProvider({ children }) {
       learningLoading,
       learningRefreshing,
       learningError,
+      resettingLearning,
       fetchLearningData,
       saveRecommendation,
       submitFeedback,
       deleteHistoryItem,
+      resetRecommendationLearning,
       getFeedbackForRecommendation,
     }),
     [
@@ -593,10 +754,12 @@ export function RecommendationLearningProvider({ children }) {
       learningLoading,
       learningRefreshing,
       learningError,
+      resettingLearning,
       fetchLearningData,
       saveRecommendation,
       submitFeedback,
       deleteHistoryItem,
+      resetRecommendationLearning,
       getFeedbackForRecommendation,
     ]
   );

@@ -16,29 +16,21 @@ import { WeatherProvider } from "./context/WeatherContext";
 import AppHeader from "./components/AppHeader";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-const GuestPage = lazy(() =>
-  import("./pages/GuestPage")
-);
-
-const AuthPage = lazy(() =>
-  import("./pages/AuthPage")
-);
-
-const ProfilePage = lazy(() =>
-  import("./pages/ProfilePage")
-);
-
+const GuestPage = lazy(() => import("./pages/GuestPage"));
+const AuthPage = lazy(() => import("./pages/AuthPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const PersonalizedPage = lazy(() =>
   import("./pages/PersonalizedPage")
 );
-
-const WardrobePage = lazy(() =>
-  import("./pages/WardrobePage")
+const WardrobePage = lazy(() => import("./pages/WardrobePage"));
+const HistoryPage = lazy(() => import("./pages/HistoryPage"));
+const DeveloperScoringPage = lazy(() =>
+  import("./pages/DeveloperScoringPage")
 );
 
-const HistoryPage = lazy(() =>
-  import("./pages/HistoryPage")
-);
+const developerScoringEnabled =
+  import.meta.env.DEV ||
+  import.meta.env.VITE_ENABLE_DEV_SCORING === "true";
 
 function PageFallback() {
   return (
@@ -53,9 +45,7 @@ function AppShell() {
     <main className="min-h-screen overflow-hidden bg-slate-950 px-4 py-6 text-white sm:px-6 lg:px-8">
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-sky-500/20 blur-3xl" />
-
         <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-indigo-500/10 blur-3xl" />
-
         <div className="absolute bottom-1/3 left-0 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
       </div>
 
@@ -63,19 +53,10 @@ function AppShell() {
         <AppHeader />
 
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-4 shadow-2xl backdrop-blur-xl sm:p-6 lg:p-8">
-          <Suspense
-            fallback={<PageFallback />}
-          >
+          <Suspense fallback={<PageFallback />}>
             <Routes>
-              <Route
-                path="/"
-                element={<GuestPage />}
-              />
-
-              <Route
-                path="/auth"
-                element={<AuthPage />}
-              />
+              <Route path="/" element={<GuestPage />} />
+              <Route path="/auth" element={<AuthPage />} />
 
               <Route
                 path="/profile"
@@ -97,12 +78,7 @@ function AppShell() {
 
               <Route
                 path="/closet"
-                element={
-                  <Navigate
-                    to="/wardrobe"
-                    replace
-                  />
-                }
+                element={<Navigate to="/wardrobe" replace />}
               />
 
               <Route
@@ -124,14 +100,19 @@ function AppShell() {
               />
 
               <Route
-                path="*"
+                path="/dev/scoring"
                 element={
-                  <Navigate
-                    to="/"
-                    replace
-                  />
+                  developerScoringEnabled ? (
+                    <ProtectedRoute>
+                      <DeveloperScoringPage />
+                    </ProtectedRoute>
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
                 }
               />
+
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
         </div>

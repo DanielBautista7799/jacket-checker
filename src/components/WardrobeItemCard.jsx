@@ -1,23 +1,67 @@
 import {
   Archive,
   ArchiveRestore,
+  CheckCircle2,
   Heart,
   Images,
+  LoaderCircle,
   Pencil,
+  RefreshCw,
   Sparkles,
   Trash2,
+  TriangleAlert,
 } from "lucide-react";
 
 import { formatWardrobeLabel } from "../data/wardrobeOptions";
+import { getJacketEmbeddingStatusLabel } from "../utils/jacketEmbeddingStatus";
+import SimilarJacketsPanel from "./SimilarJacketsPanel";
 import WardrobeImage from "./WardrobeImage";
 
 function RatingTile({ label, value }) {
   return (
     <div className="rounded-2xl bg-white/[0.04] p-3">
       <p className="text-slate-400">{label}</p>
-
       <p className="font-black text-white">{Number(value) || 1}/5</p>
     </div>
+  );
+}
+
+function EmbeddingStatusBadge({ embedding }) {
+  const status = embedding?.status || "missing";
+  const label = getJacketEmbeddingStatusLabel(status);
+
+  if (status === "ready") {
+    return (
+      <span className="flex items-center gap-1 rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200">
+        <CheckCircle2 size={12} />
+        {label}
+      </span>
+    );
+  }
+
+  if (status === "processing" || status === "pending") {
+    return (
+      <span className="flex items-center gap-1 rounded-full bg-sky-400/10 px-3 py-1 text-xs font-bold text-sky-200">
+        <LoaderCircle size={12} className="animate-spin" />
+        {label}
+      </span>
+    );
+  }
+
+  if (status === "failed") {
+    return (
+      <span className="flex items-center gap-1 rounded-full bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-200">
+        <TriangleAlert size={12} />
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1 rounded-full bg-white/5 px-3 py-1 text-xs font-bold text-slate-400">
+      <RefreshCw size={12} />
+      {label}
+    </span>
   );
 }
 
@@ -94,6 +138,8 @@ function WardrobeItemCard({
                   AI assisted
                 </span>
               )}
+
+              <EmbeddingStatusBadge embedding={item.embedding} />
             </div>
 
             <p className="truncate text-lg font-black text-white">
@@ -218,6 +264,8 @@ function WardrobeItemCard({
             ))}
           </div>
         )}
+
+        {!item.archived && <SimilarJacketsPanel item={item} />}
       </div>
     </article>
   );

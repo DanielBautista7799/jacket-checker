@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components, react-hooks/set-state-in-effect */
 import {
   createContext,
   useCallback,
@@ -10,6 +9,7 @@ import {
 
 import { supabase } from "../lib/supabaseClient";
 import useAuth from "../hooks/useAuth";
+import { requestJacketEmbedding } from "../utils/jacketEmbeddingApi";
 
 import {
   MAX_WARDROBE_IMAGES_PER_ITEM,
@@ -22,7 +22,7 @@ import {
 
 export const WardrobeContext = createContext(null);
 
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const SIGNED_URL_TTL_MS = 45 * 60 * 1000;
 const SIGNED_URL_REFRESH_INTERVAL_MS = 35 * 60 * 1000;
@@ -42,6 +42,27 @@ function normalizeArray(value) {
 function normalizeNumber(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+
+function normalizeEmbedding(embedding) {
+  if (!embedding || typeof embedding !== "object") {
+    return null;
+  }
+
+  return {
+    id: embedding.id || null,
+    wardrobe_item_id: embedding.wardrobe_item_id || null,
+    provider: embedding.provider || null,
+    model: embedding.model || null,
+    dimensions: normalizeNumber(embedding.dimensions, 768),
+    source_hash: embedding.source_hash || "",
+    status: embedding.status || "missing",
+    error_message: embedding.error_message || null,
+    attempt_count: normalizeNumber(embedding.attempt_count, 0),
+    generated_at: embedding.generated_at || null,
+    updated_at: embedding.updated_at || null,
+  };
 }
 
 function normalizeWardrobeImage(image) {
@@ -125,6 +146,7 @@ function normalizeWardrobeItem(item) {
     image_count: images.length,
     image_path: primaryImagePath,
     image_url: primaryImageUrl,
+    embedding: normalizeEmbedding(item?.embedding),
 
     type: subtype,
     color: primaryColor,
@@ -242,6 +264,26 @@ function buildWardrobePayload(itemData, existingItem = null) {
       existing.original_ai_json ??
       existing.ai_original_result ??
       null,
+
+    analysis_version:
+      source.analysis_version ??
+      existing.analysis_version ??
+      (aiGenerated ? "phase10-v1" : null),
+
+    analysis_status:
+      source.analysis_status ??
+      existing.analysis_status ??
+      (aiGenerated ? "ready" : "manual"),
+
+    analysis_error:
+      source.analysis_error !== undefined
+        ? source.analysis_error
+        : existing.analysis_error ?? null,
+
+    analyzed_at:
+      source.analyzed_at ??
+      existing.analyzed_at ??
+      (aiGenerated ? new Date().toISOString() : null),
 
     confirmed_by_user: source.confirmed_by_user ?? true,
   };
@@ -444,6 +486,60 @@ function attachImagesToItems(items, images) {
   );
 }
 
+function attachEmbeddingsToItems(items, embeddings) {
+  const newestByItemId = new Map();
+
+  normalizeArray(embeddings).forEach((embedding) => {
+    const normalized = normalizeEmbedding(embedding);
+
+    if (!normalized?.wardrobe_item_id) {
+      return;
+    }
+
+    if (!newestByItemId.has(normalized.wardrobe_item_id)) {
+      newestByItemId.set(normalized.wardrobe_item_id, normalized);
+    }
+  });
+
+  return items.map((item) =>
+    normalizeWardrobeItem({
+      ...item,
+      embedding: newestByItemId.get(item.id) || null,
+    })
+  );
+}
+
+function attachSimilarityPairsToItems(items, pairs) {
+  const pairsByItemId = new Map();
+
+  normalizeArray(pairs).forEach((pair) => {
+    const sourceId = pair?.source_wardrobe_item_id;
+    const targetId = pair?.target_wardrobe_item_id;
+
+    if (!sourceId || !targetId) {
+      return;
+    }
+
+    const current = pairsByItemId.get(sourceId) || [];
+    current.push({
+      jacketId: targetId,
+      similarity: normalizeNumber(pair.similarity, 0),
+      provider: pair.provider || null,
+      model: pair.model || null,
+    });
+    pairsByItemId.set(sourceId, current);
+  });
+
+  return items.map((item) =>
+    normalizeWardrobeItem({
+      ...item,
+      similarity_matches: (pairsByItemId.get(item.id) || []).sort(
+        (first, second) => second.similarity - first.similarity
+      ),
+    })
+  );
+}
+
 async function requestWardrobe(userId) {
   if (inFlightWardrobeRequests.has(userId)) {
     return inFlightWardrobeRequests.get(userId);
@@ -464,8 +560,27 @@ async function requestWardrobe(userId) {
       .order("wardrobe_item_id", { ascending: true })
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: true }),
+
+    supabase
+      .from("jacket_embeddings")
+      .select(
+        "id, wardrobe_item_id, provider, model, dimensions, source_hash, status, error_message, attempt_count, generated_at, updated_at"
+      )
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false }),
+
+    supabase.rpc("get_user_jacket_similarity_pairs", {
+      pair_threshold: 0.8,
+      pair_limit: 500,
+    }),
   ])
-    .then(([itemsResult, imagesResult]) => {
+    .then(
+      ([
+        itemsResult,
+        imagesResult,
+        embeddingsResult,
+        similarityPairsResult,
+      ]) => {
       if (itemsResult.error) {
         throw itemsResult.error;
       }
@@ -480,7 +595,34 @@ async function requestWardrobe(userId) {
         throw error;
       }
 
-      return attachImagesToItems(itemsResult.data || [], imagesResult.data || []);
+      if (embeddingsResult.error) {
+        console.warn(
+          "Visual matching state is unavailable; jacket features will continue without it:",
+          embeddingsResult.error.message
+        );
+      }
+
+      if (similarityPairsResult.error) {
+        console.warn(
+          "Jacket similarity relationships are unavailable; recommendations will continue without diversity adjustments:",
+          similarityPairsResult.error.message
+        );
+      }
+
+      const withImages = attachImagesToItems(
+        itemsResult.data || [],
+        imagesResult.data || []
+      );
+
+      const withEmbeddings = attachEmbeddingsToItems(
+        withImages,
+        embeddingsResult.error ? [] : embeddingsResult.data || []
+      );
+
+      return attachSimilarityPairsToItems(
+        withEmbeddings,
+        similarityPairsResult.error ? [] : similarityPairsResult.data || []
+      );
     })
     .finally(() => {
       inFlightWardrobeRequests.delete(userId);
@@ -491,7 +633,12 @@ async function requestWardrobe(userId) {
 }
 
 async function requestSingleWardrobeItem(userId, itemId) {
-  const [itemResult, imagesResult] = await Promise.all([
+  const [
+    itemResult,
+    imagesResult,
+    embeddingsResult,
+    similarityPairsResult,
+  ] = await Promise.all([
     supabase
       .from("wardrobe_items")
       .select("*")
@@ -506,6 +653,21 @@ async function requestSingleWardrobeItem(userId, itemId) {
       .eq("user_id", userId)
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: true }),
+
+    supabase
+      .from("jacket_embeddings")
+      .select(
+        "id, wardrobe_item_id, provider, model, dimensions, source_hash, status, error_message, attempt_count, generated_at, updated_at"
+      )
+      .eq("wardrobe_item_id", itemId)
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false })
+      .limit(1),
+
+    supabase.rpc("get_user_jacket_similarity_pairs", {
+      pair_threshold: 0.8,
+      pair_limit: 500,
+    }),
   ]);
 
   if (itemResult.error) {
@@ -516,9 +678,39 @@ async function requestSingleWardrobeItem(userId, itemId) {
     throw imagesResult.error;
   }
 
+  if (embeddingsResult.error) {
+    console.warn(
+      "Visual matching state is unavailable for this jacket:",
+      embeddingsResult.error.message
+    );
+  }
+
+  if (similarityPairsResult.error) {
+    console.warn(
+      "Jacket similarity relationships are unavailable for this jacket:",
+      similarityPairsResult.error.message
+    );
+  }
+
+  const itemPairs = normalizeArray(
+    similarityPairsResult.error ? [] : similarityPairsResult.data
+  )
+    .filter((pair) => pair.source_wardrobe_item_id === itemId)
+    .map((pair) => ({
+      jacketId: pair.target_wardrobe_item_id,
+      similarity: normalizeNumber(pair.similarity, 0),
+      provider: pair.provider || null,
+      model: pair.model || null,
+    }))
+    .sort((first, second) => second.similarity - first.similarity);
+
   return normalizeWardrobeItem({
     ...itemResult.data,
     images: imagesResult.data || [],
+    embedding: embeddingsResult.error
+      ? null
+      : embeddingsResult.data?.[0] || null,
+    similarity_matches: itemPairs,
   });
 }
 
@@ -592,6 +784,24 @@ export function WardrobeProvider({ children }) {
       return hydratedItem;
     },
     [user, commitItems]
+  );
+
+  const scheduleEmbeddingRefresh = useCallback(
+    (itemId, { force = false } = {}) => {
+      if (!itemId) {
+        return;
+      }
+
+      void requestJacketEmbedding(itemId, { force })
+        .then(() => refreshSingleWardrobeItem(itemId, false))
+        .catch((error) => {
+          console.warn(
+            "Jacket saved, but visual matching could not refresh:",
+            error?.message || error
+          );
+        });
+    },
+    [refreshSingleWardrobeItem]
   );
 
   const fetchWardrobeItems = useCallback(
@@ -757,7 +967,9 @@ export function WardrobeProvider({ children }) {
           }
         }
 
-        return await refreshSingleWardrobeItem(itemId, true);
+        const refreshedItem = await refreshSingleWardrobeItem(itemId, true);
+        scheduleEmbeddingRefresh(itemId, { force: true });
+        return refreshedItem;
       } catch (error) {
         console.error("Wardrobe save failed:", error);
 
@@ -795,7 +1007,7 @@ export function WardrobeProvider({ children }) {
         setWardrobeLoading(false);
       }
     },
-    [user, refreshSingleWardrobeItem]
+    [user, refreshSingleWardrobeItem, scheduleEmbeddingRefresh]
   );
 
   const updateWardrobeItem = useCallback(
@@ -913,7 +1125,9 @@ export function WardrobeProvider({ children }) {
           }
         }
 
-        return await refreshSingleWardrobeItem(itemId, true);
+        const refreshedItem = await refreshSingleWardrobeItem(itemId, true);
+        scheduleEmbeddingRefresh(itemId, { force: true });
+        return refreshedItem;
       } catch (error) {
         console.error("Wardrobe update failed:", error);
 
@@ -970,7 +1184,7 @@ export function WardrobeProvider({ children }) {
         setWardrobeLoading(false);
       }
     },
-    [user, wardrobeItems, refreshSingleWardrobeItem]
+    [user, wardrobeItems, refreshSingleWardrobeItem, scheduleEmbeddingRefresh]
   );
 
   const deleteWardrobeItem = useCallback(
@@ -1130,7 +1344,9 @@ export function WardrobeProvider({ children }) {
           }
         }
 
-        return await refreshSingleWardrobeItem(itemId, true);
+        const refreshedItem = await refreshSingleWardrobeItem(itemId, true);
+        scheduleEmbeddingRefresh(itemId, { force: true });
+        return refreshedItem;
       } catch (error) {
         console.error("Could not add wardrobe images:", error);
 
@@ -1171,7 +1387,7 @@ export function WardrobeProvider({ children }) {
         setWardrobeImageLoading(false);
       }
     },
-    [user, wardrobeItems, refreshSingleWardrobeItem]
+    [user, wardrobeItems, refreshSingleWardrobeItem, scheduleEmbeddingRefresh]
   );
 
   const setPrimaryWardrobeImage = useCallback(
@@ -1240,7 +1456,9 @@ export function WardrobeProvider({ children }) {
           throw itemError;
         }
 
-        return await refreshSingleWardrobeItem(itemId, true);
+        const refreshedItem = await refreshSingleWardrobeItem(itemId, true);
+        scheduleEmbeddingRefresh(itemId, { force: true });
+        return refreshedItem;
       } catch (error) {
         console.error("Could not set primary wardrobe image:", error);
 
@@ -1288,7 +1506,7 @@ export function WardrobeProvider({ children }) {
         setWardrobeImageLoading(false);
       }
     },
-    [user, wardrobeItems, refreshSingleWardrobeItem]
+    [user, wardrobeItems, refreshSingleWardrobeItem, scheduleEmbeddingRefresh]
   );
 
   const reorderWardrobeImages = useCallback(
@@ -1346,7 +1564,9 @@ export function WardrobeProvider({ children }) {
           throw error;
         }
 
-        return await refreshSingleWardrobeItem(itemId, false);
+        const refreshedItem = await refreshSingleWardrobeItem(itemId, false);
+        scheduleEmbeddingRefresh(itemId);
+        return refreshedItem;
       } catch (error) {
         console.error("Could not reorder wardrobe images:", error);
         setWardrobeImageError(
@@ -1357,7 +1577,7 @@ export function WardrobeProvider({ children }) {
         setWardrobeImageLoading(false);
       }
     },
-    [user, wardrobeItems, refreshSingleWardrobeItem]
+    [user, wardrobeItems, refreshSingleWardrobeItem, scheduleEmbeddingRefresh]
   );
 
   const replaceWardrobeImage = useCallback(
@@ -1436,7 +1656,9 @@ export function WardrobeProvider({ children }) {
           );
         }
 
-        return await refreshSingleWardrobeItem(itemId, true);
+        const refreshedItem = await refreshSingleWardrobeItem(itemId, true);
+        scheduleEmbeddingRefresh(itemId, { force: true });
+        return refreshedItem;
       } catch (error) {
         console.error("Could not replace wardrobe image:", error);
 
@@ -1488,7 +1710,7 @@ export function WardrobeProvider({ children }) {
         setWardrobeImageLoading(false);
       }
     },
-    [user, wardrobeItems, refreshSingleWardrobeItem]
+    [user, wardrobeItems, refreshSingleWardrobeItem, scheduleEmbeddingRefresh]
   );
 
   const deleteWardrobeImage = useCallback(
@@ -1580,7 +1802,9 @@ export function WardrobeProvider({ children }) {
           );
         }
 
-        return await refreshSingleWardrobeItem(itemId, true);
+        const refreshedItem = await refreshSingleWardrobeItem(itemId, true);
+        scheduleEmbeddingRefresh(itemId, { force: true });
+        return refreshedItem;
       } catch (error) {
         console.error("Could not delete wardrobe image:", error);
 
@@ -1629,7 +1853,7 @@ export function WardrobeProvider({ children }) {
         setWardrobeImageLoading(false);
       }
     },
-    [user, wardrobeItems, refreshSingleWardrobeItem]
+    [user, wardrobeItems, refreshSingleWardrobeItem, scheduleEmbeddingRefresh]
   );
 
   const adjustPreferenceScore = useCallback(

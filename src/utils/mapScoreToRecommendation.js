@@ -1,233 +1,244 @@
-function toFiniteNumber(value, fallback) {
-if (value === null || value === undefined || value === "") {
-    return fallback;
-}
+import { RECOMMENDATION_CONFIG } from "../config/recommendationConfig.js";
 
-const number = Number(value);
-return Number.isFinite(number) ? number : fallback;
+function toFiniteNumber(value, fallback) {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function getSelectedConditions(weather, forecastAnalysis) {
-const selected = forecastAnalysis?.selectedConditions || {};
+  const selected = forecastAnalysis?.selectedConditions || {};
 
-return {
+  return {
     feelsLike: toFiniteNumber(
-    selected.feelsLike,
-    toFiniteNumber(weather?.feelsLike, 65)
+      selected.feelsLike,
+      toFiniteNumber(weather?.feelsLike, 65)
     ),
-
     lowestFeelsLike: toFiniteNumber(
-    selected.lowestFeelsLike,
-    toFiniteNumber(
+      selected.lowestFeelsLike,
+      toFiniteNumber(
         forecastAnalysis?.lowestWindowFeelsLike,
         toFiniteNumber(weather?.feelsLike, 65)
-    )
+      )
     ),
-
     rainChance: toFiniteNumber(
-    selected.rainChance,
-    toFiniteNumber(
+      selected.rainChance,
+      toFiniteNumber(
         forecastAnalysis?.highestWindowRainChance,
         toFiniteNumber(weather?.rainChance, 0)
-    )
+      )
     ),
-
     windSpeed: toFiniteNumber(
-    selected.windSpeed,
-    toFiniteNumber(
+      selected.windSpeed,
+      toFiniteNumber(
         forecastAnalysis?.highestWindowWind,
         toFiniteNumber(weather?.windSpeed, 0)
-    )
+      )
     ),
-
     condition: String(
-    selected.condition || weather?.condition || ""
+      selected.condition || weather?.condition || ""
     ).toLowerCase(),
-};
+  };
 }
 
 function findSuggestion(forecastAnalysis, allowedItems) {
-const suggestions =
+  const suggestions =
     forecastAnalysis?.bringAlongSuggestions || [];
 
-const allowed = new Set(
+  const allowed = new Set(
     allowedItems.map((item) => item.toLowerCase())
-);
+  );
 
-return (
+  return (
     suggestions.find((suggestion) =>
-    allowed.has(String(suggestion.item).toLowerCase())
+      allowed.has(String(suggestion.item).toLowerCase())
     ) || null
-);
+  );
 }
 
 function buildOptionalLayer({
-rainy,
-windy,
-selectedConditions,
-forecastAnalysis,
+  rainy,
+  windy,
+  selectedConditions,
+  forecastAnalysis,
 }) {
-if (rainy) {
+  if (rainy) {
     return (
-    findSuggestion(forecastAnalysis, [
+      findSuggestion(forecastAnalysis, [
         "Light rain shell",
         "Packable rain layer",
-    ]) || {
+      ]) || {
         item: "Packable rain layer",
         reason:
-        "Warmth may not be necessary, but rain protection could still be useful.",
-    }
+          "Warmth may not be necessary, but rain protection could still be useful.",
+      }
     );
-}
+  }
 
-if (windy) {
+  if (windy) {
     return (
-    findSuggestion(forecastAnalysis, [
+      findSuggestion(forecastAnalysis, [
         "Light windbreaker",
-    ]) || {
+      ]) || {
         item: "Light windbreaker",
         reason:
-        "A thin wind-resistant layer could make the selected window more comfortable.",
-    }
+          "A thin wind-resistant layer could make the selected window more comfortable.",
+      }
     );
-}
+  }
 
-if (selectedConditions.lowestFeelsLike <= 62) {
+  if (
+    selectedConditions.lowestFeelsLike <=
+    RECOMMENDATION_CONFIG.decision.optionalCoolFeelsLike
+  ) {
     return (
-    findSuggestion(forecastAnalysis, ["Light layer"]) || {
+      findSuggestion(forecastAnalysis, ["Light layer"]) || {
         item: "Light layer",
         reason:
-        "A hoodie, overshirt, or thin layer is optional if you get cold easily.",
-    }
+          "A hoodie, overshirt, or thin layer is optional if you get cold easily.",
+      }
     );
-}
+  }
 
-return null;
+  return null;
 }
 
 export function mapScoreToRecommendation(
-score,
-weather,
-forecastAnalysis
+  score,
+  weather,
+  forecastAnalysis
 ) {
-const selectedConditions = getSelectedConditions(
+  const decisionConfig = RECOMMENDATION_CONFIG.decision;
+  const selectedConditions = getSelectedConditions(
     weather,
     forecastAnalysis
-);
+  );
 
-const rainy =
-    selectedConditions.rainChance >= 50 ||
+  const rainy =
+    selectedConditions.rainChance >=
+      decisionConfig.optionalRainChance ||
     selectedConditions.condition.includes("rain") ||
     selectedConditions.condition.includes("drizzle") ||
     selectedConditions.condition.includes("shower");
 
-const windy = selectedConditions.windSpeed >= 18;
+  const windy =
+    selectedConditions.windSpeed >=
+    decisionConfig.optionalWindSpeed;
 
-const optionalLayer = buildOptionalLayer({
+  const optionalLayer = buildOptionalLayer({
     rainy,
     windy,
     selectedConditions,
     forecastAnalysis,
-});
+  });
 
-if (score <= 0) {
+  if (score <= decisionConfig.clearNoMaximum) {
     let summary =
-    "You should be comfortable without a jacket for the selected window.";
+      "You should be comfortable without a jacket for the selected window.";
 
     if (rainy) {
-    summary =
+      summary =
         "You do not need a jacket for warmth, but a light rain layer may still be useful.";
     } else if (windy) {
-    summary =
+      summary =
         "You do not need a jacket for warmth, but a light wind layer may still be useful.";
     }
 
     return {
-    decision: "NO",
-    jacketType: "No jacket",
-    primaryItem: "No jacket",
-    summary,
-    optionalLayer,
+      decision: "NO",
+      jacketType: "No jacket",
+      primaryItem: "No jacket",
+      summary,
+      optionalLayer,
+      recommendationBasis: "comfort_no",
     };
-}
+  }
 
-if (score <= 2) {
+  if (score <= decisionConfig.backupLayerNoMaximum) {
     return {
-    decision: "NO",
-    jacketType: "No jacket needed",
-    primaryItem: "No jacket",
-    summary:
+      decision: "NO",
+      jacketType: "No jacket needed",
+      primaryItem: "No jacket",
+      summary:
         "You probably do not need a jacket, but a light backup layer could be useful depending on your comfort.",
-    optionalLayer,
+      optionalLayer,
+      recommendationBasis: "borderline_no",
     };
-}
+  }
 
-if (score <= 4) {
+  if (score <= decisionConfig.lightJacketMaximum) {
     return {
-    decision: "YES",
-    jacketType: rainy
+      decision: "YES",
+      jacketType: rainy
         ? "Light rain jacket"
         : windy
-        ? "Windbreaker"
-        : "Light jacket or hoodie",
-    summary: rainy
+          ? "Windbreaker"
+          : "Light jacket or hoodie",
+      summary: rainy
         ? "Wear a light rain jacket because rain is part of the selected forecast."
         : windy
-        ? "A windbreaker makes sense because the selected window may be breezy."
-        : "A light jacket or hoodie should be enough.",
-    primaryItem: rainy
+          ? "A windbreaker makes sense because the selected window may be breezy."
+          : "A light jacket or hoodie should be enough.",
+      primaryItem: rainy
         ? "Light rain jacket"
         : windy
-        ? "Windbreaker"
-        : "Light jacket",
-    optionalLayer: null,
+          ? "Windbreaker"
+          : "Light jacket",
+      optionalLayer: null,
+      recommendationBasis: "light_warmth",
     };
-}
+  }
 
-if (score <= 7) {
+  if (score <= decisionConfig.mediumJacketMaximum) {
     return {
-    decision: "YES",
-    jacketType: rainy
+      decision: "YES",
+      jacketType: rainy
         ? "Water-resistant jacket"
         : windy
-        ? "Wind-resistant jacket"
-        : "Medium jacket",
-    summary: rainy
+          ? "Wind-resistant jacket"
+          : "Medium jacket",
+      summary: rainy
         ? "Wear a water-resistant jacket for the cooler, wetter conditions."
         : windy
-        ? "Wear something with reliable wind protection."
-        : "A real jacket is recommended for the selected window.",
-    primaryItem: rainy
+          ? "Wear something with reliable wind protection."
+          : "A real jacket is recommended for the selected window.",
+      primaryItem: rainy
         ? "Water-resistant jacket"
         : windy
-        ? "Wind-resistant jacket"
-        : "Medium jacket",
-    optionalLayer: null,
+          ? "Wind-resistant jacket"
+          : "Medium jacket",
+      optionalLayer: null,
+      recommendationBasis: "medium_warmth",
     };
-}
+  }
 
-if (score <= 10) {
+  if (score <= decisionConfig.insulatedJacketMaximum) {
     return {
-    decision: "YES",
-    jacketType: rainy
+      decision: "YES",
+      jacketType: rainy
         ? "Insulated waterproof jacket"
         : "Insulated jacket",
-    summary: rainy
+      summary: rainy
         ? "Wear something warm and water-resistant."
         : "You should wear an insulated jacket.",
-    primaryItem: rainy
+      primaryItem: rainy
         ? "Insulated waterproof jacket"
         : "Insulated jacket",
-    optionalLayer: null,
+      optionalLayer: null,
+      recommendationBasis: "insulated_warmth",
     };
-}
+  }
 
-return {
+  return {
     decision: "YES",
     jacketType: "Heavy coat",
     summary:
-    "Bundle up. The selected forecast window is very cold.",
+      "Bundle up. The selected forecast window is very cold.",
     primaryItem: "Heavy coat",
     optionalLayer: null,
-};
+    recommendationBasis: "severe_cold",
+  };
 }

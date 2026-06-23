@@ -1,8 +1,10 @@
 import {
-  getJacketColorPairing,
-  getProfileColorPairing,
+  getColorPlanOptions,
+  getProfileColorPlanOptions,
   getStyleSuggestionTemplate,
-} from "../data/styleSuggestionLibrary";
+  normalizeStyleColor,
+} from "../data/styleSuggestionLibrary.js";
+import { getStyleStrategyPreferenceScore } from "./feedbackLearning.js";
 
 function toFiniteNumber(value, fallback) {
   if (value === null || value === undefined || value === "") {
@@ -19,27 +21,47 @@ function formatLabel(value = "") {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function joinChoices(values = []) {
-  const unique = [...new Set(values.filter(Boolean))];
+function hashString(value) {
+  let hash = 2166136261;
 
-  if (unique.length === 0) {
-    return "neutral";
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
   }
 
-  if (unique.length === 1) {
-    return unique[0];
+  return hash >>> 0;
+}
+
+function selectBySeed(values, seed, offset = 0) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return null;
   }
 
-  return `${unique[0]} or ${unique[1]}`;
+  const index = (seed + Math.imul(offset + 1, 2654435761)) >>> 0;
+  return values[index % values.length];
+}
+
+function includesAny(value, terms) {
+  return terms.some((term) => value.includes(term));
 }
 
 function getSelectedWeather(weather, forecastAnalysis) {
   const selected = forecastAnalysis?.selectedConditions || {};
+  const condition = String(
+    selected.condition || weather?.condition || ""
+  ).toLowerCase();
 
   return {
     feelsLike: toFiniteNumber(
       selected.feelsLike,
       toFiniteNumber(weather?.feelsLike, 65)
+    ),
+    lowestFeelsLike: toFiniteNumber(
+      selected.lowestFeelsLike,
+      toFiniteNumber(
+        forecastAnalysis?.lowestWindowFeelsLike,
+        toFiniteNumber(weather?.feelsLike, 65)
+      )
     ),
     rainChance: toFiniteNumber(
       selected.rainChance,
@@ -55,71 +77,267 @@ function getSelectedWeather(weather, forecastAnalysis) {
         toFiniteNumber(weather?.windSpeed, 0)
       )
     ),
+    condition,
   };
 }
 
-function getTemperatureBand(feelsLike) {
-  if (feelsLike >= 72) {
+function getTemperatureBand(selectedWeather) {
+  const effectiveTemperature = Math.min(
+    selectedWeather.feelsLike,
+    selectedWeather.lowestFeelsLike + 4
+  );
+
+  if (effectiveTemperature >= 80) {
+    return "hot";
+  }
+
+  if (effectiveTemperature >= 70) {
     return "warm";
   }
 
-  if (feelsLike < 50) {
+  if (effectiveTemperature < 50) {
     return "cold";
   }
 
   return "mild";
 }
 
-function getFitPhrase(fitPreference) {
-  const phrases = {
-    relaxed: "Keep the shapes relaxed",
-    fitted: "Keep the fit clean and slightly fitted",
-    oversized: "Lean into an oversized silhouette",
-    layered: "Keep the layers simple and balanced",
-  };
+function getWeatherState(selectedWeather, temperatureBand) {
+  const rainyCondition = includesAny(selectedWeather.condition, [
+    "rain",
+    "drizzle",
+    "shower",
+    "storm",
+    "sleet",
+    "snow",
+    "freezing",
+    "ice",
+  ]);
 
-  return phrases[fitPreference] || "Keep the proportions balanced";
+  const rainy = selectedWeather.rainChance >= 50 || rainyCondition;
+  const windy = selectedWeather.windSpeed >= 18;
+
+  if (rainy && windy) {
+    return "rain_wind";
+  }
+
+  if (rainy) {
+    return "rain";
+  }
+
+  if (windy) {
+    return "wind";
+  }
+
+  if (temperatureBand === "cold") {
+    return "cold";
+  }
+
+  if (temperatureBand === "hot") {
+    return "hot";
+  }
+
+  return "default";
 }
 
-function getWeatherNote(selectedWeather) {
+function getTemplateBand(temperatureBand) {
+  return temperatureBand === "hot" ? "warm" : temperatureBand;
+}
+
+function getDateSeed(weather) {
+  if (typeof weather?.localTime === "string" && weather.localTime) {
+    return weather.localTime.split(" ")[0] || weather.localTime;
+  }
+
+  const epoch = toFiniteNumber(weather?.currentEpoch, null);
+
+  if (epoch !== null) {
+    return new Date(epoch * 1000).toISOString().slice(0, 10);
+  }
+
+  return "stable-date";
+}
+
+function buildSuggestionSeed({
+  recommendation,
+  weather,
+  profile,
+  closetItem,
+  forecastAnalysis,
+  primaryColor,
+  secondaryColor,
+}) {
+  return [
+    profile?.style_preference || "streetwear",
+    profile?.fit_preference || "relaxed",
+    recommendation?.decision || "NO",
+    recommendation?.recommendationBasis || "temperature",
+    closetItem?.id || "no-jacket",
+    primaryColor,
+    secondaryColor || "no-secondary",
+    weather?.city || "unknown-city",
+    forecastAnalysis?.windowId || "rest_of_day",
+    getDateSeed(weather),
+  ].join("|");
+}
+
+function getFitDirection(styleTemplate, fitPreference, seed) {
+  const options =
+    styleTemplate.fitDirections?.[fitPreference] ||
+    styleTemplate.fitDirections?.default ||
+    ["Keep the proportions balanced"];
+
+  return selectBySeed(options, seed, 1) || "Keep the proportions balanced";
+}
+
+function getWeatherNote(styleTemplate, weatherState, seed) {
+  const options =
+    styleTemplate.weatherNotes?.[weatherState] ||
+    styleTemplate.weatherNotes?.default ||
+    [];
+
+  return selectBySeed(options, seed, 2) || null;
+}
+
+function getSecondaryAccentNote({
+  primaryColor,
+  secondaryColor,
+  selectedColors,
+}) {
   if (
-    selectedWeather.rainChance >= 55 &&
-    selectedWeather.windSpeed >= 20
+    !secondaryColor ||
+    secondaryColor === "other" ||
+    secondaryColor === "multicolor" ||
+    secondaryColor === primaryColor
   ) {
-    return "Rain and wind are both in play, so keep the shoes weather-friendly and avoid bulky layers under the jacket.";
+    return null;
   }
 
-  if (selectedWeather.rainChance >= 55) {
-    return "Rain is likely, so keep the shoes weather-friendly and add a compact umbrella if needed.";
+  const readableSecondary = formatLabel(secondaryColor).toLowerCase();
+  const alreadyUsed = selectedColors.some(
+    (color) => normalizeStyleColor(color) === secondaryColor
+  );
+
+  if (alreadyUsed) {
+    return `let the ${readableSecondary} detail stay as the accent`;
   }
 
-  if (selectedWeather.windSpeed >= 20) {
-    return "It may get windy, so keep the layers close and avoid anything overly loose.";
-  }
-
-  if (selectedWeather.feelsLike < 45) {
-    return "It will feel cold, so use a warmer base or knit without changing the overall look.";
-  }
-
-  if (selectedWeather.feelsLike >= 78) {
-    return "Keep the base layer light so the outfit does not feel too warm.";
-  }
-
-  return "Keep the outfit simple and let the proportions and colors do the work.";
+  return `use one small ${readableSecondary} accent to tie it together`;
 }
 
-function buildColorSentence(pairing, jacketColor, hasJacket) {
-  const topColors = joinChoices(pairing.tops);
-  const bottomColors = joinChoices(pairing.bottoms);
-  const shoeColors = joinChoices(pairing.shoes);
+function buildPiecePhrase(piece, color, includeArticle = false) {
+  const phrase = `${piece} in ${formatLabel(color).toLowerCase()}`;
 
-  if (hasJacket) {
-    return `With the ${formatLabel(
-      jacketColor
-    ).toLowerCase()} jacket, use a ${topColors} top, ${bottomColors} pants, and ${shoeColors} shoes.`;
+  if (!includeArticle) {
+    return phrase;
   }
 
-  return `Try a ${topColors} top, ${bottomColors} pants, and ${shoeColors} shoes.`;
+  const firstCharacter = phrase.trim().charAt(0).toLowerCase();
+  const article = ["a", "e", "i", "o", "u"].includes(firstCharacter)
+    ? "an"
+    : "a";
+
+  return `${article} ${phrase}`;
+}
+
+function buildSummary({
+  hasJacket,
+  primaryColor,
+  topPiece,
+  topColor,
+  bottomPiece,
+  bottomColor,
+  shoePiece,
+  shoeColor,
+  fitDirection,
+  accentNote,
+  seed,
+}) {
+  const jacketColor = formatLabel(primaryColor).toLowerCase();
+  const outfit = `${buildPiecePhrase(
+    topPiece,
+    topColor,
+    true
+  )}, ${buildPiecePhrase(
+    bottomPiece,
+    bottomColor
+  )}, and ${buildPiecePhrase(shoePiece, shoeColor)}`;
+
+  const yesStarters = [
+    `With the ${jacketColor} jacket, go with`,
+    `Build around the ${jacketColor} jacket with`,
+    `Pair the ${jacketColor} jacket with`,
+  ];
+
+  const noStarters = [
+    "Go with",
+    "Keep it simple with",
+    "Try",
+  ];
+
+  const starter = selectBySeed(
+    hasJacket ? yesStarters : noStarters,
+    seed,
+    3
+  );
+
+  const closer = accentNote
+    ? `${fitDirection}, and ${accentNote}.`
+    : `${fitDirection}.`;
+
+  return `${starter} ${outfit}. ${closer}`;
+}
+
+function selectColorPlan({
+  plans,
+  preferenceModel,
+  stylePreference,
+  weatherState,
+  temperatureBand,
+  seed,
+}) {
+  if (!Array.isArray(plans) || plans.length === 0) {
+    return {
+      plan: null,
+      learningScore: 0,
+    };
+  }
+
+  const scoredPlans = plans.map((plan, index) => ({
+    plan,
+    learningScore: getStyleStrategyPreferenceScore({
+      preferenceModel,
+      style: stylePreference,
+      strategy: plan.key,
+      weatherState,
+      temperatureBand,
+    }),
+    tieBreak: hashString(`${seed}|${plan.key}|${index}`),
+  }));
+
+  const hasLearnedPreference = scoredPlans.some(
+    (entry) => Math.abs(entry.learningScore) >= 0.25
+  );
+
+  if (!hasLearnedPreference) {
+    return {
+      plan: selectBySeed(plans, seed, 4),
+      learningScore: 0,
+    };
+  }
+
+  scoredPlans.sort((first, second) => {
+    if (second.learningScore !== first.learningScore) {
+      return second.learningScore - first.learningScore;
+    }
+
+    return second.tieBreak - first.tieBreak;
+  });
+
+  return {
+    plan: scoredPlans[0].plan,
+    learningScore: scoredPlans[0].learningScore,
+  };
 }
 
 export function generateStyleSuggestion({
@@ -128,6 +346,7 @@ export function generateStyleSuggestion({
   profile,
   closetItem = null,
   forecastAnalysis = null,
+  preferenceModel = null,
 }) {
   if (!recommendation || !profile) {
     return null;
@@ -136,43 +355,133 @@ export function generateStyleSuggestion({
   const stylePreference = profile.style_preference || "streetwear";
   const fitPreference = profile.fit_preference || "relaxed";
   const preferredColor = profile.preferred_color || "black";
-
   const styleTemplate = getStyleSuggestionTemplate(stylePreference);
   const selectedWeather = getSelectedWeather(weather, forecastAnalysis);
-  const temperatureBand = getTemperatureBand(selectedWeather.feelsLike);
-  const temperatureTemplate = styleTemplate[temperatureBand];
+  const temperatureBand = getTemperatureBand(selectedWeather);
+  const templateBand = getTemplateBand(temperatureBand);
+  const weatherState = getWeatherState(
+    selectedWeather,
+    temperatureBand
+  );
 
   const hasJacket =
     recommendation.decision === "YES" && Boolean(closetItem);
 
-  const jacketColor =
-    closetItem?.primary_color || closetItem?.color || preferredColor;
-
-  const colorPairing = hasJacket
-    ? getJacketColorPairing(jacketColor)
-    : getProfileColorPairing(preferredColor);
-
-  const baseDirection = `${getFitPhrase(
-    fitPreference
-  )}: ${temperatureTemplate.top}, ${temperatureTemplate.bottoms}, and ${temperatureTemplate.shoes}.`;
-
-  const colorDirection = buildColorSentence(
-    colorPairing,
-    jacketColor,
-    hasJacket
+  const primaryColor = normalizeStyleColor(
+    closetItem?.primary_color || closetItem?.color || preferredColor
   );
 
-  const weatherNote = getWeatherNote(selectedWeather);
+  const secondaryColor = normalizeStyleColor(
+    closetItem?.secondary_color || "other"
+  );
+
+  const colorOptions = hasJacket
+    ? getColorPlanOptions(primaryColor)
+    : getProfileColorPlanOptions(preferredColor);
+
+  const seedText = buildSuggestionSeed({
+    recommendation,
+    weather,
+    profile,
+    closetItem,
+    forecastAnalysis,
+    primaryColor,
+    secondaryColor,
+  });
+
+  const seed = hashString(seedText);
+  const selectedPlan = selectColorPlan({
+    plans: colorOptions.plans,
+    preferenceModel,
+    stylePreference,
+    weatherState,
+    temperatureBand,
+    seed,
+  });
+
+  const colorPlan = selectedPlan.plan;
+  const temperatureTemplate =
+    styleTemplate[templateBand] || styleTemplate.mild;
+
+  const topPiece = selectBySeed(
+    temperatureTemplate.tops,
+    seed,
+    5
+  );
+  const bottomPiece = selectBySeed(
+    temperatureTemplate.bottoms,
+    seed,
+    6
+  );
+  const shoePiece = selectBySeed(
+    temperatureTemplate.shoes,
+    seed,
+    7
+  );
+
+  const topColor = selectBySeed(colorPlan?.tops, seed, 8) || "neutral";
+  const bottomColor =
+    selectBySeed(colorPlan?.bottoms, seed, 9) || "neutral";
+  const shoeColor =
+    selectBySeed(colorPlan?.shoes, seed, 10) || "neutral";
+
+  const fitDirection = getFitDirection(
+    styleTemplate,
+    fitPreference,
+    seed
+  );
+
+  const accentNote = getSecondaryAccentNote({
+    primaryColor,
+    secondaryColor,
+    selectedColors: [topColor, bottomColor, shoeColor],
+  });
+
+  const weatherNote = getWeatherNote(
+    styleTemplate,
+    weatherState,
+    seed
+  );
+
+  const summary = buildSummary({
+    hasJacket,
+    primaryColor,
+    topPiece,
+    topColor,
+    bottomPiece,
+    bottomColor,
+    shoePiece,
+    shoeColor,
+    fitDirection,
+    accentNote,
+    seed,
+  });
 
   return {
-    version: 3,
+    version: 5,
     type: "style_suggestion",
-    title: `${styleTemplate.label} fit idea`,
+    title: hasJacket
+      ? `${styleTemplate.label} · ${formatLabel(primaryColor)} jacket`
+      : `${styleTemplate.label} fit idea`,
     style: stylePreference,
     styleLabel: styleTemplate.label,
-    jacketColor: hasJacket ? jacketColor : null,
-    summary: `${colorDirection} ${baseDirection}`,
+    jacketColor: hasJacket ? primaryColor : null,
+    secondaryColor:
+      hasJacket && secondaryColor !== "other"
+        ? secondaryColor
+        : null,
+    temperatureBand,
+    weatherState,
+    colorStrategy: colorPlan?.key || "balanced_neutral",
+    variantKey: hashString(seedText).toString(36),
+    summary,
     weatherNote,
-    reason: `This stays ${styleTemplate.tone} and follows your saved ${styleTemplate.label.toLowerCase()} preference.`,
+    learningInfluence:
+      selectedPlan.learningScore > 0.5
+        ? "positive"
+        : selectedPlan.learningScore < -0.5
+          ? "avoid_negative"
+          : "neutral",
+    reason: `This keeps the suggestion ${styleTemplate.tone}, weather-aware, and intentionally broad rather than claiming you own exact pieces.`,
   };
 }

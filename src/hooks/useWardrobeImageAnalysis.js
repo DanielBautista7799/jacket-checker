@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { supabase } from "../lib/supabaseClient";
 import { normalizeWardrobeAnalysis } from "../utils/normalizeWardrobeAnalysis";
@@ -35,7 +35,7 @@ function fileToBase64(file) {
 }
 
 async function readErrorPayload(response) {
-  if (!(response instanceof Response)) {
+  if (!response || typeof response.clone !== "function") {
     return null;
   }
 
@@ -51,26 +51,100 @@ async function readErrorPayload(response) {
   }
 }
 
-async function getFunctionErrorMessage(error) {
+async function getFunctionError(error) {
   const payload = await readErrorPayload(error?.context);
+  const status = Number(error?.context?.status) || null;
 
-  if (typeof payload?.error === "string" && payload.error.trim()) {
-    return payload.error;
-  }
-
-  if (typeof error?.message === "string" && error.message.trim()) {
-    return error.message;
-  }
-
-  return "The wardrobe item could not be analyzed.";
+  return {
+    message:
+      typeof payload?.error === "string" && payload.error.trim()
+        ? payload.error
+        : typeof error?.message === "string" && error.message.trim()
+          ? error.message
+          : "The jacket could not be analyzed.",
+    code:
+      typeof payload?.code === "string" && payload.code.trim()
+        ? payload.code
+        : "analysis_failed",
+    provider:
+      typeof payload?.provider === "string" && payload.provider.trim()
+        ? payload.provider
+        : null,
+    status,
+    retryable: payload?.retryable === true,
+    availableProviders: Array.isArray(payload?.availableProviders)
+      ? payload.availableProviders
+      : null,
+  };
 }
 
 function useWardrobeImageAnalysis() {
   const [analysis, setAnalysis] = useState(null);
   const [analysisStatus, setAnalysisStatus] = useState("idle");
   const [analysisError, setAnalysisError] = useState("");
+  const [analysisRetryable, setAnalysisRetryable] = useState(false);
+  const [analysisProviders, setAnalysisProviders] = useState([
+    "gemini",
+    "manual",
+  ]);
+  const [analysisProvider, setAnalysisProviderState] = useState("gemini");
 
-  const analyzeImage = async (file, categoryHint = null) => {
+  const loadProviders = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "analyze-wardrobe-item",
+        { body: { action: "providers" } }
+      );
+
+      if (error || !data?.success) {
+        return;
+      }
+
+      const providers = Array.isArray(data.providers)
+        ? data.providers
+        : ["gemini", "manual"];
+
+      setAnalysisProviders(providers);
+
+      const nextDefault = providers.includes(data.defaultProvider)
+        ? data.defaultProvider
+        : providers.find((provider) => provider !== "manual") || "manual";
+
+      setAnalysisProviderState((current) =>
+        providers.includes(current) ? current : nextDefault
+      );
+    } catch {
+      // Provider discovery is optional. Gemini/manual defaults remain usable.
+    }
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadProviders();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadProviders]);
+
+  const setAnalysisProvider = (provider) => {
+    if (!analysisProviders.includes(provider)) {
+      return;
+    }
+
+    setAnalysisProviderState(provider);
+    setAnalysis(null);
+    setAnalysisError("");
+    setAnalysisRetryable(false);
+    setAnalysisStatus("idle");
+  };
+
+  const analyzeImage = async (
+    file,
+    categoryHint = "jacket",
+    providerOverride = null
+  ) => {
+    void categoryHint;
+
     if (!file) {
       setAnalysisError("Select an image first.");
       setAnalysisStatus("error");
@@ -85,8 +159,19 @@ function useWardrobeImageAnalysis() {
       return null;
     }
 
+    const provider = providerOverride || analysisProvider;
+
+    if (provider === "manual") {
+      setAnalysis(null);
+      setAnalysisError("");
+      setAnalysisRetryable(false);
+      setAnalysisStatus("manual");
+      return null;
+    }
+
     setAnalysis(null);
     setAnalysisError("");
+    setAnalysisRetryable(false);
     setAnalysisStatus("analyzing");
 
     try {
@@ -96,9 +181,11 @@ function useWardrobeImageAnalysis() {
         "analyze-wardrobe-item",
         {
           body: {
+            action: "analyze",
             imageBase64,
             mimeType: file.type,
-            categoryHint,
+            categoryHint: "jacket",
+            provider,
           },
         }
       );
@@ -109,26 +196,45 @@ function useWardrobeImageAnalysis() {
 
       if (!data?.success || !data?.analysis) {
         throw new Error(
-          data?.error || "The wardrobe item could not be identified."
+          data?.error || "The jacket could not be identified."
         );
+      }
+
+      if (Array.isArray(data.availableProviders)) {
+        setAnalysisProviders(data.availableProviders);
       }
 
       const normalized = normalizeWardrobeAnalysis(data.analysis);
       const result = {
         ...normalized,
-        provider: data.provider || "gemini",
+        category: "jacket",
+        provider: data.provider || provider,
         model: data.model || null,
-        originalAiJson: data.analysis,
+        analysisVersion: data.analysisVersion || "phase10-v1",
+        originalAiJson: data.rawResponse || data.analysis,
       };
 
       setAnalysis(result);
+      setAnalysisProviderState(result.provider);
       setAnalysisStatus("success");
       return result;
     } catch (error) {
-      console.error("Wardrobe analysis failed:", error);
+      const details = await getFunctionError(error);
 
-      const message = await getFunctionErrorMessage(error);
-      setAnalysisError(message);
+      console.error("Jacket analysis failed:", {
+        message: details.message,
+        code: details.code,
+        provider: details.provider,
+        status: details.status,
+        retryable: details.retryable,
+      });
+
+      if (details.availableProviders) {
+        setAnalysisProviders(details.availableProviders);
+      }
+
+      setAnalysisError(details.message);
+      setAnalysisRetryable(details.retryable);
       setAnalysisStatus("error");
       return null;
     }
@@ -137,6 +243,7 @@ function useWardrobeImageAnalysis() {
   const resetAnalysis = () => {
     setAnalysis(null);
     setAnalysisError("");
+    setAnalysisRetryable(false);
     setAnalysisStatus("idle");
   };
 
@@ -144,6 +251,11 @@ function useWardrobeImageAnalysis() {
     analysis,
     analysisStatus,
     analysisError,
+    analysisRetryable,
+    analysisProviders,
+    analysisProvider,
+    setAnalysisProvider,
+    loadProviders,
     analyzeImage,
     resetAnalysis,
   };

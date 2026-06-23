@@ -61,6 +61,7 @@ function syncRecommendationWithJackets({
   activeJacketItems,
   weather,
   profile,
+  preferenceModel,
 }) {
   if (!recommendation) {
     return null;
@@ -132,6 +133,7 @@ function syncRecommendationWithJackets({
     profile,
     rankedClosetMatches: nextRankedMatches,
     weatherNeeds: recommendation.weatherNeeds,
+    preferenceModel,
   });
 
   return {
@@ -196,8 +198,15 @@ function PersonalizedJacketCheck({ profile }) {
         activeJacketItems,
         weather: resultWeather,
         profile,
+        preferenceModel,
       }),
-    [recommendation, activeJacketItems, resultWeather, profile]
+    [
+      recommendation,
+      activeJacketItems,
+      resultWeather,
+      profile,
+      preferenceModel,
+    ]
   );
 
   const displayedRankIndex = useMemo(() => {
@@ -265,6 +274,7 @@ function PersonalizedJacketCheck({ profile }) {
       profile,
       rankedClosetMatches: rankedMatches,
       weatherNeeds: baseRecommendation.weatherNeeds,
+      preferenceModel,
     });
 
   const handlePersonalizedCheck = async () => {
@@ -295,6 +305,7 @@ function PersonalizedJacketCheck({ profile }) {
       windowId: timeWindow,
       closetItems: activeJacketItems,
       preferenceModel,
+      location: selectedLocation,
     });
 
     setResultWeather(weatherData);
@@ -369,6 +380,7 @@ function PersonalizedJacketCheck({ profile }) {
           profile,
           rankedClosetMatches: [],
           weatherNeeds: ranking.weatherNeeds,
+          preferenceModel,
         });
 
       return {
@@ -459,6 +471,7 @@ function PersonalizedJacketCheck({ profile }) {
         recommendationId: historyId,
         recommendation: recommendationWithHistory,
         rating,
+        timeWindow,
       });
 
       if (!feedbackResult) {

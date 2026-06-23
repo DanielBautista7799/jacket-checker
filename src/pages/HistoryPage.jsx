@@ -1,15 +1,11 @@
 import { useMemo, useState } from "react";
+import { BrainCircuit, RotateCcw } from "lucide-react";
 
 import HistoryCard from "../components/HistoryCard";
 
 import useRecommendationLearning from "../hooks/useRecommendationLearning";
 import useWardrobeItems from "../hooks/useWardrobeItems";
-
-const FEEDBACK_WEIGHTS = {
-  fire: 2,
-  good: 1,
-  not_it: -1,
-};
+import { FEEDBACK_WEIGHTS } from "../utils/feedbackLearning";
 
 function getHistoryWardrobeItemId(entry) {
   return entry?.wardrobe_item_id || entry?.closet_item_id || null;
@@ -29,11 +25,14 @@ function HistoryPage() {
     learningLoading,
     learningRefreshing,
     learningError,
+    resettingLearning,
     deleteHistoryItem,
+    resetRecommendationLearning,
   } = useRecommendationLearning();
 
   const [deletingId, setDeletingId] = useState(null);
   const [localError, setLocalError] = useState("");
+  const [localMessage, setLocalMessage] = useState("");
 
   const wardrobeItemById = useMemo(
     () =>
@@ -55,7 +54,7 @@ function HistoryPage() {
   };
 
   const handleDelete = async (historyId) => {
-    if (deletingId) {
+    if (deletingId || resettingLearning) {
       return;
     }
 
@@ -69,6 +68,7 @@ function HistoryPage() {
 
     setDeletingId(historyId);
     setLocalError("");
+    setLocalMessage("");
 
     const historyEntry = history.find(
       (entry) => entry.id === historyId
@@ -129,12 +129,47 @@ function HistoryPage() {
     }
   };
 
+  const handleResetLearning = async () => {
+    if (resettingLearning || deletingId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Reset recommendation learning? This clears Fire, Good, and Not It effects and resets hidden jacket preference scores. Your jackets and recommendation history will stay."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setLocalError("");
+    setLocalMessage("");
+
+    const reset = await resetRecommendationLearning();
+
+    if (reset) {
+      setLocalMessage(
+        "Recommendation learning was reset. Your jackets and history were kept."
+      );
+    }
+  };
+
+  const hasLearning =
+    feedback.length > 0 ||
+    wardrobeItems.some((item) => {
+      const value = Number(
+        item?.preference_score ?? item?.times_recommended ?? 0
+      );
+
+      return Number.isFinite(value) && value !== 0;
+    });
+
   const displayedError =
     localError || learningError || wardrobeError;
 
   return (
     <section>
-      <div className="mb-6 flex items-end justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-purple-400">
             History
@@ -144,21 +179,50 @@ function HistoryPage() {
             Past recommendations
           </h1>
 
-          <p className="mt-2 text-slate-400">
-            History uses each jacket&apos;s current primary photo. Deleting a rated recommendation also reverses its preference score.
+          <p className="mt-2 max-w-3xl text-slate-400">
+            Feedback now learns which jackets work in similar weather while keeping protection more important than preference. Deleting a rated recommendation still reverses its direct preference score.
           </p>
         </div>
 
-        {learningRefreshing && (
-          <p className="text-xs font-semibold text-slate-500">
-            Syncing…
-          </p>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {learningRefreshing && (
+            <p className="text-xs font-semibold text-slate-500">
+              Syncing…
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleResetLearning}
+            disabled={
+              resettingLearning ||
+              deletingId !== null ||
+              !hasLearning
+            }
+            className="inline-flex items-center gap-2 rounded-2xl border border-purple-400/20 bg-purple-400/10 px-4 py-3 text-sm font-black text-purple-100 transition hover:bg-purple-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {resettingLearning ? (
+              <RotateCcw size={17} className="animate-spin" />
+            ) : (
+              <BrainCircuit size={17} />
+            )}
+
+            {resettingLearning
+              ? "Resetting..."
+              : "Reset learning"}
+          </button>
+        </div>
       </div>
 
       {displayedError && (
         <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
           {displayedError}
+        </div>
+      )}
+
+      {localMessage && (
+        <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-100">
+          {localMessage}
         </div>
       )}
 

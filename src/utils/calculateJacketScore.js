@@ -1,219 +1,262 @@
-import { analyzeForecast } from "./analyzeForecast";
+import { RECOMMENDATION_CONFIG } from "../config/recommendationConfig.js";
+import { analyzeForecast } from "./analyzeForecast.js";
 
 function toFiniteNumber(value, fallback) {
-if (value === null || value === undefined || value === "") {
-return fallback;
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
-const number = Number(value);
-return Number.isFinite(number) ? number : fallback;
+function findBand(value, bands, comparisonKey) {
+  return (
+    bands.find((band) => value >= band[comparisonKey]) ||
+    bands[bands.length - 1]
+  );
 }
 
-function buildConfidence({
-score,
-windowId,
-forecastAnalysis,
+function getTemperatureReason(feelsLike, windowLabel, bandKey) {
+  const roundedFeelsLike = Math.round(feelsLike);
+
+  const messages = {
+    hot: `It should feel around ${roundedFeelsLike}°F during ${windowLabel}, which is warm.`,
+    warm: `It should feel around ${roundedFeelsLike}°F during ${windowLabel}, which is mild.`,
+    mild: `It should feel around ${roundedFeelsLike}°F during ${windowLabel}, so a jacket is probably unnecessary.`,
+    light_layer_optional: `It should feel around ${roundedFeelsLike}°F during ${windowLabel}, so a light layer is optional.`,
+    cool: `It should feel around ${roundedFeelsLike}°F during ${windowLabel}, which is cool.`,
+    jacket_weather: `It should feel around ${roundedFeelsLike}°F during ${windowLabel}, which is jacket weather.`,
+    cold: `It should feel around ${roundedFeelsLike}°F during ${windowLabel}, which is cold.`,
+    very_cold: `It should feel around ${roundedFeelsLike}°F during ${windowLabel}, which is very cold.`,
+  };
+
+  return messages[bandKey] || messages.mild;
+}
+
+function buildBaseConfidence({
+  score,
+  windowId,
+  forecastAnalysis,
 }) {
-const reasons = [];
-let level = "high";
+  const reasons = [];
+  let level = "high";
 
-if (
-windowId !== "now" &&
-forecastAnalysis.coverageLevel === "missing"
-) {
-level = "low";
-reasons.push(
-    "The selected forecast window did not include usable hourly data."
-);
-} else if (
-windowId !== "now" &&
-forecastAnalysis.coverageLevel === "partial"
-) {
-level = "medium";
-reasons.push(
-    "Only part of the selected forecast window was available."
-);
-}
+  if (
+    windowId !== "now" &&
+    forecastAnalysis.coverageLevel === "missing"
+  ) {
+    level = "low";
+    reasons.push(
+      "The selected forecast window did not include usable hourly data."
+    );
+  } else if (
+    windowId !== "now" &&
+    forecastAnalysis.coverageLevel === "partial"
+  ) {
+    level = "medium";
+    reasons.push(
+      "Only part of the selected forecast window was available."
+    );
+  }
 
-if (score >= 1 && score <= 4 && level === "high") {
-level = "medium";
-reasons.push(
-    "Conditions are close to the YES or NO boundary."
-);
-}
+  if (score >= 1 && score <= 4 && level === "high") {
+    level = "medium";
+    reasons.push(
+      "Conditions are close to the YES or NO boundary."
+    );
+  }
 
-if (forecastAnalysis.tempDrop >= 12 && level === "high") {
-level = "medium";
-reasons.push(
-    "Conditions change noticeably during the selected window."
-);
-}
+  if (
+    forecastAnalysis.tempDrop >=
+      RECOMMENDATION_CONFIG.weatherScore.temperatureDrop.minimum &&
+    level === "high"
+  ) {
+    level = "medium";
+    reasons.push(
+      "Conditions change noticeably during the selected window."
+    );
+  }
 
-if (reasons.length === 0) {
-reasons.push(
-    "The selected forecast clearly supports this recommendation."
-);
-}
+  if (reasons.length === 0) {
+    reasons.push(
+      "The selected forecast clearly supports this recommendation."
+    );
+  }
 
-return {
-level,
-reasons,
-};
+  return {
+    level,
+    reasons,
+  };
 }
 
 export function calculateJacketScore({
-weather,
-windowId = "rest_of_day",
+  weather,
+  windowId = "rest_of_day",
 }) {
-let score = 0;
-const reasons = [];
+  const config = RECOMMENDATION_CONFIG.weatherScore;
+  const reasons = [];
+  const forecastAnalysis = analyzeForecast(weather, windowId);
+  const selectedConditions = forecastAnalysis.selectedConditions;
 
-const forecastAnalysis = analyzeForecast(weather, windowId);
-const selectedConditions = forecastAnalysis.selectedConditions;
+  const feelsLike = toFiniteNumber(
+    selectedConditions?.feelsLike,
+    toFiniteNumber(weather?.feelsLike, config.defaultFeelsLike)
+  );
 
-const feelsLike = toFiniteNumber(
-selectedConditions?.feelsLike,
-toFiniteNumber(weather?.feelsLike, 65)
-);
+  const rainChance = toFiniteNumber(
+    selectedConditions?.rainChance,
+    toFiniteNumber(weather?.rainChance, 0)
+  );
 
-const rainChance = toFiniteNumber(
-selectedConditions?.rainChance,
-toFiniteNumber(weather?.rainChance, 0)
-);
+  const windSpeed = toFiniteNumber(
+    selectedConditions?.windSpeed,
+    toFiniteNumber(weather?.windSpeed, 0)
+  );
 
-const windSpeed = toFiniteNumber(
-selectedConditions?.windSpeed,
-toFiniteNumber(weather?.windSpeed, 0)
-);
-
-const lowestFeelsLike = toFiniteNumber(
-selectedConditions?.lowestFeelsLike,
-feelsLike
-);
-
-const windowLabel = forecastAnalysis.windowLabel.toLowerCase();
-
-if (feelsLike >= 80) {
-score -= 4;
-reasons.push(
-    `It should feel around ${Math.round(
+  const lowestFeelsLike = toFiniteNumber(
+    selectedConditions?.lowestFeelsLike,
     feelsLike
-    )}°F during ${windowLabel}, which is warm.`
-);
-} else if (feelsLike >= 72) {
-score -= 2;
-reasons.push(
-    `It should feel around ${Math.round(
-    feelsLike
-    )}°F during ${windowLabel}, which is mild.`
-);
-} else if (feelsLike >= 66) {
-reasons.push(
-    `It should feel around ${Math.round(
-    feelsLike
-    )}°F during ${windowLabel}, so a jacket is probably unnecessary.`
-);
-} else if (feelsLike >= 61) {
-score += 1;
-reasons.push(
-    `It should feel around ${Math.round(
-    feelsLike
-    )}°F during ${windowLabel}, so a light layer is optional.`
-);
-} else if (feelsLike >= 52) {
-score += 3;
-reasons.push(
-    `It should feel around ${Math.round(
-    feelsLike
-    )}°F during ${windowLabel}, which is cool.`
-);
-} else if (feelsLike >= 42) {
-score += 5;
-reasons.push(
-    `It should feel around ${Math.round(
-    feelsLike
-    )}°F during ${windowLabel}, which is jacket weather.`
-);
-} else if (feelsLike >= 32) {
-score += 7;
-reasons.push(
-    `It should feel around ${Math.round(
-    feelsLike
-    )}°F during ${windowLabel}, which is cold.`
-);
-} else {
-score += 9;
-reasons.push(
-    `It should feel around ${Math.round(
-    feelsLike
-    )}°F during ${windowLabel}, which is very cold.`
-);
-}
+  );
 
-if (windSpeed >= 22) {
-score += 2;
-reasons.push(
-    `Wind may reach ${Math.round(
-    windSpeed
-    )} mph during the selected window.`
-);
-} else if (windSpeed >= 14) {
-score += 1;
-reasons.push(
-    `Wind may reach ${Math.round(
-    windSpeed
-    )} mph during the selected window.`
-);
-}
+  const windowLabel = forecastAnalysis.windowLabel.toLowerCase();
 
-if (rainChance >= 60) {
-score += 2;
-reasons.push(
-    `Rain chance may reach ${Math.round(
-    rainChance
-    )}% during the selected window.`
-);
-} else if (rainChance >= 35) {
-score += 1;
-reasons.push(
-    "There is some rain risk during the selected window."
-);
-}
+  const temperatureBand = findBand(
+    feelsLike,
+    config.temperatureBands,
+    "minimum"
+  );
 
-if (windowId !== "now") {
-if (lowestFeelsLike <= 40 && feelsLike > 40) {
-    score += 2;
+  const temperatureScore = temperatureBand.score;
+  reasons.push(
+    getTemperatureReason(
+      feelsLike,
+      windowLabel,
+      temperatureBand.key
+    )
+  );
+
+  const windBand = findBand(
+    windSpeed,
+    config.windBands,
+    "minimum"
+  );
+
+  const windScore =
+    windBand && windSpeed >= windBand.minimum
+      ? windBand.score
+      : 0;
+
+  if (windScore > 0) {
     reasons.push(
-    `The coldest part of the window may feel like ${Math.round(
-        lowestFeelsLike
-    )}°F.`
+      `Wind may reach ${Math.round(
+        windSpeed
+      )} mph during the selected window.`
     );
-} else if (lowestFeelsLike <= 48 && feelsLike > 48) {
-    score += 1;
-    reasons.push(
-    `The coldest part of the window may feel like ${Math.round(
-        lowestFeelsLike
-    )}°F.`
-    );
-}
+  }
 
-if (forecastAnalysis.tempDrop >= 12) {
-    score += 1;
-    reasons.push(
-    "Conditions cool down noticeably during the selected window."
-    );
-}
-}
+  const rainBand = findBand(
+    rainChance,
+    config.rainBands,
+    "minimum"
+  );
 
-return {
-score,
-reasons,
-forecastAnalysis,
-selectedConditions,
-confidence: buildConfidence({
+  const rainScore =
+    rainBand && rainChance >= rainBand.minimum
+      ? rainBand.score
+      : 0;
+
+  if (rainScore >= 2) {
+    reasons.push(
+      `Rain chance may reach ${Math.round(
+        rainChance
+      )}% during the selected window.`
+    );
+  } else if (rainScore === 1) {
+    reasons.push(
+      "There is some rain risk during the selected window."
+    );
+  }
+
+  let forecastLowScore = 0;
+
+  if (windowId !== "now") {
+    if (
+      lowestFeelsLike <= config.forecastLow.coldThreshold &&
+      feelsLike > config.forecastLow.coldThreshold
+    ) {
+      forecastLowScore = config.forecastLow.coldScore;
+      reasons.push(
+        `The coldest part of the window may feel like ${Math.round(
+          lowestFeelsLike
+        )}°F.`
+      );
+    } else if (
+      lowestFeelsLike <= config.forecastLow.coolThreshold &&
+      feelsLike > config.forecastLow.coolThreshold
+    ) {
+      forecastLowScore = config.forecastLow.coolScore;
+      reasons.push(
+        `The coldest part of the window may feel like ${Math.round(
+          lowestFeelsLike
+        )}°F.`
+      );
+    }
+  }
+
+  let temperatureDropScore = 0;
+
+  if (
+    windowId !== "now" &&
+    forecastAnalysis.tempDrop >=
+      config.temperatureDrop.minimum
+  ) {
+    temperatureDropScore = config.temperatureDrop.score;
+    reasons.push(
+      "Conditions cool down noticeably during the selected window."
+    );
+  }
+
+  const score =
+    temperatureScore +
+    windScore +
+    rainScore +
+    forecastLowScore +
+    temperatureDropScore;
+
+  return {
     score,
-    windowId,
+    reasons,
     forecastAnalysis,
-}),
-};
+    selectedConditions,
+    confidence: buildBaseConfidence({
+      score,
+      windowId,
+      forecastAnalysis,
+    }),
+    scoreBreakdown: {
+      temperature: {
+        score: temperatureScore,
+        band: temperatureBand.key,
+        feelsLike,
+      },
+      wind: {
+        score: windScore,
+        windSpeed,
+      },
+      rain: {
+        score: rainScore,
+        rainChance,
+      },
+      forecastLow: {
+        score: forecastLowScore,
+        lowestFeelsLike,
+      },
+      temperatureDrop: {
+        score: temperatureDropScore,
+        amount: forecastAnalysis.tempDrop,
+      },
+      total: score,
+    },
+  };
 }

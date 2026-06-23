@@ -433,3 +433,9 @@ entrypoint = "./functions/analyze-wardrobe-item/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/get-weather/index.ts"
+
+[functions.generate-jacket-embedding]
+enabled = true
+verify_jwt = false
+import_map = "./functions/generate-jacket-embedding/deno.json"
+entrypoint = "./functions/generate-jacket-embedding/index.ts"

@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:recommendations": "node scripts/run-recommendation-scenarios.mjs",
+    "test:phase10": "node scripts/run-phase10-tests.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",

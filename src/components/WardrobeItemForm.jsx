@@ -27,8 +27,12 @@ import {
   getSubtypesForCategory,
 } from "../data/wardrobeOptions";
 import useWardrobeImageAnalysis from "../hooks/useWardrobeImageAnalysis";
+import useJacketEmbeddings from "../hooks/useJacketEmbeddings";
 import useWardrobeImages from "../hooks/useWardrobeImages";
+import { formatAiProvider } from "../config/aiConfig";
 import { getWardrobeConfidenceLabel } from "../utils/normalizeWardrobeAnalysis";
+import { getDuplicateCandidates } from "../utils/jacketSimilarity";
+import DuplicateJacketWarning from "./DuplicateJacketWarning";
 import {
   validateWardrobeImage,
   validateWardrobeImages,
@@ -244,14 +248,27 @@ function WardrobeItemFormInner({
   const [imageError, setImageError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [replaceTargetId, setReplaceTargetId] = useState(null);
+  const [duplicateMatches, setDuplicateMatches] = useState([]);
+  const [pendingDuplicateSubmission, setPendingDuplicateSubmission] =
+    useState(null);
 
   const {
     analysis,
     analysisStatus,
     analysisError,
+    analysisRetryable,
+    analysisProviders,
+    analysisProvider,
+    setAnalysisProvider,
     analyzeImage,
     resetAnalysis,
   } = useWardrobeImageAnalysis();
+
+  const {
+    embeddingError,
+    clearEmbeddingError,
+    previewDuplicates,
+  } = useJacketEmbeddings();
 
   const {
     maxWardrobeImagesPerItem,
@@ -329,7 +346,13 @@ function WardrobeItemFormInner({
     };
   }, []);
 
+  const clearDuplicateReview = () => {
+    setDuplicateMatches([]);
+    setPendingDuplicateSubmission(null);
+  };
+
   const updateField = (field, value) => {
+    clearDuplicateReview();
     setForm((current) => ({
       ...current,
       [field]: value,
@@ -337,6 +360,7 @@ function WardrobeItemFormInner({
   };
 
   const toggleArrayValue = (field, value) => {
+    clearDuplicateReview();
     setForm((current) => {
       const currentValues = Array.isArray(current[field])
         ? current[field]
@@ -372,6 +396,8 @@ function WardrobeItemFormInner({
     setForm(createInitialForm());
     setImageError("");
     setReplaceTargetId(null);
+    clearDuplicateReview();
+    clearEmbeddingError();
 
     if (replaceImageInputRef.current) {
       replaceImageInputRef.current.value = "";
@@ -597,7 +623,16 @@ function WardrobeItemFormInner({
       return;
     }
 
-    const result = await analyzeImage(sourceFile, "jacket");
+    if (analysisProvider === "manual") {
+      resetAnalysis();
+      return;
+    }
+
+    const result = await analyzeImage(
+      sourceFile,
+      "jacket",
+      analysisProvider
+    );
 
     if (!result) {
       return;
@@ -622,17 +657,7 @@ function WardrobeItemFormInner({
     onCancelEdit?.();
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    if (!form.name.trim() || isAnalyzing || isSubmitting) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    clearWardrobeImageError();
-    setImageError("");
-
+  const buildSavePayload = () => {
     const payload = {
       name: form.name.trim(),
       category: "jacket",
@@ -657,114 +682,191 @@ function WardrobeItemFormInner({
       payload.ai_model = analysis.model;
       payload.ai_confidence = analysis.confidence;
       payload.original_ai_json = analysis.originalAiJson;
+      payload.analysis_version =
+        analysis.analysisVersion || "phase10-v1";
+      payload.analysis_status = "ready";
+      payload.analysis_error = null;
+      payload.analyzed_at = new Date().toISOString();
     } else if (!isEditing) {
       payload.ai_generated = false;
       payload.ai_provider = null;
       payload.ai_model = null;
       payload.ai_confidence = null;
       payload.original_ai_json = null;
+      payload.analysis_version = null;
+      payload.analysis_status = "manual";
+      payload.analysis_error = null;
+      payload.analyzed_at = null;
     }
 
+    return payload;
+  };
+
+  const executeSave = async (payload, orderedPending) => {
+    if (!isEditing) {
+      const primaryFile = orderedPending[0]?.file || null;
+      const savedItem = await onSave(payload, primaryFile);
+
+      if (!savedItem) {
+        return null;
+      }
+
+      const additionalFiles = orderedPending
+        .slice(1)
+        .map((image) => image.file);
+
+      if (additionalFiles.length > 0) {
+        const updatedItem = await addWardrobeImages(
+          savedItem.id,
+          additionalFiles
+        );
+
+        if (!updatedItem) {
+          clearPendingImages();
+          setImageError(
+            "The jacket was saved, but one or more extra images did not upload. Open it again to retry those images."
+          );
+          onSaveComplete?.(savedItem, { imageWarning: true });
+          return savedItem;
+        }
+      }
+
+      resetForm();
+      onSaveComplete?.(savedItem, { imageWarning: false });
+      return savedItem;
+    }
+
+    const existingImageIds = new Set(
+      savedImages.map((image) => image.id)
+    );
+    const updatedItem = await onSave(payload, null);
+
+    if (!updatedItem) {
+      return null;
+    }
+
+    let itemAfterImages = updatedItem;
+
+    if (orderedPending.length > 0) {
+      itemAfterImages = await addWardrobeImages(
+        editingItem.id,
+        orderedPending.map((image) => image.file)
+      );
+
+      if (!itemAfterImages) {
+        setImageError(
+          "Your jacket details were saved, but the new images did not upload. The selected images are still here so you can try again."
+        );
+        return updatedItem;
+      }
+
+      const addedImages = itemAfterImages.images
+        .filter((image) => !existingImageIds.has(image.id))
+        .sort(
+          (first, second) =>
+            Number(first.display_order) -
+            Number(second.display_order)
+        );
+
+      const pendingPrimaryIndex = orderedPending.findIndex(
+        (image) => image.id === pendingPrimaryId
+      );
+
+      clearPendingImages();
+
+      if (
+        pendingPrimaryIndex >= 0 &&
+        addedImages[pendingPrimaryIndex]
+      ) {
+        const primaryResult = await setPrimaryWardrobeImage(
+          editingItem.id,
+          addedImages[pendingPrimaryIndex].id
+        );
+
+        if (!primaryResult) {
+          setImageError(
+            "The new images were uploaded, but the selected primary image could not be applied. Choose it from the saved-image controls."
+          );
+          return itemAfterImages;
+        }
+
+        itemAfterImages = primaryResult;
+      }
+    }
+
+    resetForm();
+    onSaveComplete?.(itemAfterImages, { imageWarning: false });
+    return itemAfterImages;
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!form.name.trim() || isAnalyzing || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    clearWardrobeImageError();
+    clearEmbeddingError();
+    setImageError("");
+    clearDuplicateReview();
+
+    const payload = buildSavePayload();
     const orderedPending = orderPendingForUpload(
       pendingImages,
       pendingPrimaryId
     );
 
     try {
-      if (!isEditing) {
-        const primaryFile = orderedPending[0]?.file || null;
-        const savedItem = await onSave(payload, primaryFile);
+      const matches = await previewDuplicates(payload, {
+        excludeJacketId: editingItem?.id || null,
+      });
+      const duplicateCandidates = getDuplicateCandidates(matches);
 
-        if (!savedItem) {
-          return;
-        }
-
-        const additionalFiles = orderedPending.slice(1).map((image) => image.file);
-
-        if (additionalFiles.length > 0) {
-          const updatedItem = await addWardrobeImages(
-            savedItem.id,
-            additionalFiles
-          );
-
-          if (!updatedItem) {
-            clearPendingImages();
-            setImageError(
-              "The item was saved, but one or more extra images did not upload. Open the item again to retry those images."
-            );
-            onSaveComplete?.(savedItem, { imageWarning: true });
-            return;
-          }
-        }
-
-        resetForm();
-        onSaveComplete?.(savedItem, { imageWarning: false });
+      if (duplicateCandidates.length > 0) {
+        setDuplicateMatches(duplicateCandidates);
+        setPendingDuplicateSubmission({
+          payload,
+          orderedPending,
+        });
         return;
       }
 
-      const existingImageIds = new Set(savedImages.map((image) => image.id));
-      const updatedItem = await onSave(payload, null);
-
-      if (!updatedItem) {
-        return;
-      }
-
-      let itemAfterImages = updatedItem;
-
-      if (orderedPending.length > 0) {
-        itemAfterImages = await addWardrobeImages(
-          editingItem.id,
-          orderedPending.map((image) => image.file)
-        );
-
-        if (!itemAfterImages) {
-          setImageError(
-            "Your item details were saved, but the new images did not upload. The selected images are still here so you can try saving again."
-          );
-          return;
-        }
-
-        const addedImages = itemAfterImages.images
-          .filter((image) => !existingImageIds.has(image.id))
-          .sort(
-            (first, second) =>
-              Number(first.display_order) - Number(second.display_order)
-          );
-
-        const pendingPrimaryIndex = orderedPending.findIndex(
-          (image) => image.id === pendingPrimaryId
-        );
-
-        clearPendingImages();
-
-        if (pendingPrimaryIndex >= 0 && addedImages[pendingPrimaryIndex]) {
-          const primaryResult = await setPrimaryWardrobeImage(
-            editingItem.id,
-            addedImages[pendingPrimaryIndex].id
-          );
-
-          if (!primaryResult) {
-            setImageError(
-              "The new images were uploaded, but the selected primary image could not be applied. Choose the primary image from the saved-image controls."
-            );
-            return;
-          }
-
-          itemAfterImages = primaryResult;
-        }
-      }
-
-      resetForm();
-      onSaveComplete?.(itemAfterImages, { imageWarning: false });
+      await executeSave(payload, orderedPending);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleSaveAnyway = async () => {
+    if (!pendingDuplicateSubmission || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setDuplicateMatches([]);
+
+    try {
+      await executeSave(
+        pendingDuplicateSubmission.payload,
+        pendingDuplicateSubmission.orderedPending
+      );
+    } finally {
+      setPendingDuplicateSubmission(null);
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDuplicateCancel = () => {
+    clearDuplicateReview();
+  };
+
   const canAnalyze =
-    Boolean(selectedPendingPrimary?.file) ||
-    (!pendingPrimaryId && Boolean(savedPrimaryImage)) ||
-    pendingImages.length > 0;
+    analysisProvider !== "manual" &&
+    (Boolean(selectedPendingPrimary?.file) ||
+      (!pendingPrimaryId && Boolean(savedPrimaryImage)) ||
+      pendingImages.length > 0);
 
   return (
     <form
@@ -1036,7 +1138,31 @@ function WardrobeItemFormInner({
           </div>
         )}
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-3">
+          <label className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+            Analysis method
+          </label>
+
+          <select
+            value={analysisProvider}
+            onChange={(event) => setAnalysisProvider(event.target.value)}
+            disabled={isAnalyzing}
+            className={inputClass}
+          >
+            {analysisProviders.map((provider) => (
+              <option key={provider} value={provider}>
+                {formatAiProvider(provider)}
+              </option>
+            ))}
+          </select>
+
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Gemini is the default. OpenAI appears only when configured
+            server-side. Manual entry never sends the image to an AI provider.
+          </p>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <button
             type="button"
             onClick={() => addImagesInputRef.current?.click()}
@@ -1058,11 +1184,13 @@ function WardrobeItemFormInner({
               <Sparkles size={18} />
             )}
 
-            {isAnalyzing
-              ? "Analyzing primary image..."
-              : hasAppliedAnalysis
-                ? "Analyze primary image again"
-                : "Analyze primary image with AI"}
+            {analysisProvider === "manual"
+              ? "Manual entry selected"
+              : isAnalyzing
+                ? `Analyzing with ${formatAiProvider(analysisProvider)}...`
+                : hasAppliedAnalysis
+                  ? "Analyze primary image again"
+                  : `Analyze with ${formatAiProvider(analysisProvider)}`}
           </button>
         </div>
 
@@ -1087,6 +1215,9 @@ function WardrobeItemFormInner({
             <p className="mt-1">{analysisError}</p>
             <p className="mt-1 text-amber-200/80">
               Your images remain selected, and manual entry is still available.
+              {analysisRetryable
+                ? " This looks temporary, so retrying may work."
+                : ""}
             </p>
           </div>
         </div>
@@ -1106,6 +1237,9 @@ function WardrobeItemFormInner({
                 </p>
                 <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-emerald-300">
                   {getWardrobeConfidenceLabel(analysis.confidence.overall)}
+                  {" · "}
+                  {formatAiProvider(analysis.provider)}
+                  {analysis.model ? ` · ${analysis.model}` : ""}
                 </p>
               </div>
             </div>
@@ -1284,6 +1418,23 @@ function WardrobeItemFormInner({
           onToggle={(value) => toggleArrayValue("weather_use", value)}
         />
       </div>
+
+      {(duplicateMatches.length > 0 || embeddingError) && (
+        <div className="mt-6">
+          {duplicateMatches.length > 0 ? (
+            <DuplicateJacketWarning
+              matches={duplicateMatches}
+              onSaveAnyway={handleSaveAnyway}
+              onCancel={handleDuplicateCancel}
+              loading={isSubmitting}
+            />
+          ) : (
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+              {embeddingError} The jacket can still be saved normally.
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-3">
         <button
