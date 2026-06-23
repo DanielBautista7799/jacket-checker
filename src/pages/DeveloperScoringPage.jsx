@@ -15,8 +15,10 @@ import RecommendationDecisionBreakdown from "../components/RecommendationDecisio
 import RecommendationScenarioRunner from "../components/RecommendationScenarioRunner";
 import TimeWindowSelect from "../components/TimeWindowSelect";
 import VisualIntelligenceDiagnostics from "../components/VisualIntelligenceDiagnostics";
+import TrendDiagnostics from "../components/TrendDiagnostics";
 import useProfile from "../hooks/useProfile";
 import useRecommendationLearning from "../hooks/useRecommendationLearning";
+import useStyleTrends from "../hooks/useStyleTrends";
 import useWardrobeItems from "../hooks/useWardrobeItems";
 import useWeather from "../hooks/useWeather";
 import { calculatePersonalizedRecommendation } from "../utils/calculatePersonalizedRecommendation.js";
@@ -51,6 +53,12 @@ function DeveloperScoringPage() {
   } = useWardrobeItems();
   const { preferenceModel, learningError } =
     useRecommendationLearning();
+  const {
+    rules: activeTrendRules,
+    trendPreferenceModel,
+    trendSource,
+    trendError,
+  } = useStyleTrends();
   const { fetchWeather, loading, error } = useWeather();
 
   const defaultLocation = useMemo(
@@ -119,6 +127,9 @@ function DeveloperScoringPage() {
       closetItems: wardrobeItems,
       preferenceModel,
       location: selectedLocation,
+      activeTrendRules,
+      trendPreferenceModel,
+      trendSource,
     });
 
     setResultWeather(weatherData);
@@ -130,7 +141,8 @@ function DeveloperScoringPage() {
     error ||
     profileError ||
     wardrobeError ||
-    learningError;
+    learningError ||
+    trendError;
 
   const selectedLocationIsDefault =
     defaultLocation &&
@@ -268,6 +280,9 @@ function DeveloperScoringPage() {
             diagnostics={recommendation.diagnostics}
           />
           <VisualIntelligenceDiagnostics
+            diagnostics={recommendation.diagnostics}
+          />
+          <TrendDiagnostics
             diagnostics={recommendation.diagnostics}
           />
           <DiagnosticJsonPanel

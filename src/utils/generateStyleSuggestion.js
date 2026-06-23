@@ -5,6 +5,7 @@ import {
   normalizeStyleColor,
 } from "../data/styleSuggestionLibrary.js";
 import { getStyleStrategyPreferenceScore } from "./feedbackLearning.js";
+import { applyTrendRules } from "./applyTrendRules.js";
 
 function toFiniteNumber(value, fallback) {
   if (value === null || value === undefined || value === "") {
@@ -347,6 +348,9 @@ export function generateStyleSuggestion({
   closetItem = null,
   forecastAnalysis = null,
   preferenceModel = null,
+  activeTrendRules = [],
+  trendPreferenceModel = null,
+  trendSource = "none",
 }) {
   if (!recommendation || !profile) {
     return null;
@@ -457,8 +461,8 @@ export function generateStyleSuggestion({
     seed,
   });
 
-  return {
-    version: 5,
+  const baseSuggestion = {
+    version: 6,
     type: "style_suggestion",
     title: hasJacket
       ? `${styleTemplate.label} · ${formatLabel(primaryColor)} jacket`
@@ -484,4 +488,26 @@ export function generateStyleSuggestion({
           : "neutral",
     reason: `This keeps the suggestion ${styleTemplate.tone}, weather-aware, and intentionally broad rather than claiming you own exact pieces.`,
   };
+
+  const localDate = weather?.localTime
+    ? new Date(String(weather.localTime).replace(" ", "T"))
+    : weather?.currentEpoch
+      ? new Date(Number(weather.currentEpoch) * 1000)
+      : new Date();
+
+  return applyTrendRules({
+    styleSuggestion: baseSuggestion,
+    rules: activeTrendRules,
+    profile,
+    style: stylePreference,
+    jacket: closetItem,
+    temperatureBand,
+    weatherState,
+    rainChance: selectedWeather.rainChance,
+    windSpeed: selectedWeather.windSpeed,
+    trendPreferenceModel,
+    source: trendSource,
+    date: Number.isNaN(localDate.getTime()) ? new Date() : localDate,
+    seedText,
+  });
 }

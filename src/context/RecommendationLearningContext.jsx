@@ -18,7 +18,7 @@ import {
 
 export const RecommendationLearningContext = createContext(null);
 
-const CACHE_VERSION = 5;
+const CACHE_VERSION = 6;
 const CACHE_TTL_MS = 3 * 60 * 1000;
 
 const inFlightLearningRequests = new Map();
@@ -183,7 +183,7 @@ function createOutfitSnapshot({
   });
 
   return {
-    version: 5,
+    version: 6,
     type: "style_suggestion",
     title,
     outfitTitle: title,
@@ -197,6 +197,8 @@ function createOutfitSnapshot({
     colorStrategy: styleSuggestion?.colorStrategy || null,
     variantKey: styleSuggestion?.variantKey || null,
     weatherNote: styleSuggestion?.weatherNote || null,
+    trendNote: styleSuggestion?.trendNote || null,
+    trend: styleSuggestion?.trend || null,
     reason: styleSuggestion?.reason || null,
     learningContext,
     pieces: [],

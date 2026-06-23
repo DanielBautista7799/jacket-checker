@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import useRecommendationLearning from "../hooks/useRecommendationLearning";
+import useStyleTrends from "../hooks/useStyleTrends";
 import useWardrobeItems from "../hooks/useWardrobeItems";
 import useWeather from "../hooks/useWeather";
 
@@ -62,6 +63,9 @@ function syncRecommendationWithJackets({
   weather,
   profile,
   preferenceModel,
+  activeTrendRules,
+  trendPreferenceModel,
+  trendSource,
 }) {
   if (!recommendation) {
     return null;
@@ -134,6 +138,9 @@ function syncRecommendationWithJackets({
     rankedClosetMatches: nextRankedMatches,
     weatherNeeds: recommendation.weatherNeeds,
     preferenceModel,
+    activeTrendRules,
+    trendPreferenceModel,
+    trendSource,
   });
 
   return {
@@ -158,6 +165,13 @@ function PersonalizedJacketCheck({ profile }) {
     submitFeedback,
     getFeedbackForRecommendation,
   } = useRecommendationLearning();
+
+  const {
+    rules: activeTrendRules,
+    trendPreferenceModel,
+    trendSource,
+    trendError,
+  } = useStyleTrends();
 
   const {
     loading,
@@ -199,6 +213,9 @@ function PersonalizedJacketCheck({ profile }) {
         weather: resultWeather,
         profile,
         preferenceModel,
+        activeTrendRules,
+        trendPreferenceModel,
+        trendSource,
       }),
     [
       recommendation,
@@ -206,6 +223,9 @@ function PersonalizedJacketCheck({ profile }) {
       resultWeather,
       profile,
       preferenceModel,
+      activeTrendRules,
+      trendPreferenceModel,
+      trendSource,
     ]
   );
 
@@ -275,6 +295,9 @@ function PersonalizedJacketCheck({ profile }) {
       rankedClosetMatches: rankedMatches,
       weatherNeeds: baseRecommendation.weatherNeeds,
       preferenceModel,
+      activeTrendRules,
+      trendPreferenceModel,
+      trendSource,
     });
 
   const handlePersonalizedCheck = async () => {
@@ -306,6 +329,9 @@ function PersonalizedJacketCheck({ profile }) {
       closetItems: activeJacketItems,
       preferenceModel,
       location: selectedLocation,
+      activeTrendRules,
+      trendPreferenceModel,
+      trendSource,
     });
 
     setResultWeather(weatherData);
@@ -381,6 +407,9 @@ function PersonalizedJacketCheck({ profile }) {
           rankedClosetMatches: [],
           weatherNeeds: ranking.weatherNeeds,
           preferenceModel,
+          activeTrendRules,
+          trendPreferenceModel,
+          trendSource,
         });
 
       return {
@@ -576,7 +605,7 @@ function PersonalizedJacketCheck({ profile }) {
   ].filter(Boolean);
 
   const displayedError =
-    localError || error || learningError;
+    localError || error || learningError || trendError;
 
   const selectedLocationIsDefault =
     defaultLocation &&

@@ -47,6 +47,8 @@ function getProfileSummary(profile) {
       defaultExposure: null,
       stylePreference: null,
       preferredColor: null,
+      useStyleTrends: null,
+      trendInfluence: null,
     };
   }
 
@@ -58,6 +60,10 @@ function getProfileSummary(profile) {
     defaultExposure: profile.default_exposure || null,
     stylePreference: profile.style_preference || null,
     preferredColor: profile.preferred_color || null,
+    useStyleTrends: profile.use_style_trends !== false,
+    trendInfluence: profile.use_style_trends === false
+      ? "off"
+      : profile.trend_influence || "subtle",
   };
 }
 
@@ -480,7 +486,7 @@ export function buildRecommendationDiagnostics({
     : null;
 
   return {
-    schemaVersion: "phase10-v1",
+    schemaVersion: "phase11-v1",
     engineVersion: RECOMMENDATION_CONFIG.version,
     generatedAt: new Date().toISOString(),
 
@@ -598,6 +604,12 @@ export function buildRecommendationDiagnostics({
       referenceMap,
     }),
 
+    style: recommendation?.styleSuggestion
+      ? {
+          trend: recommendation.styleSuggestion.trend || null,
+        }
+      : null,
+
     styleSuggestion: recommendation?.styleSuggestion
       ? {
           text:
@@ -617,6 +629,38 @@ export function buildRecommendationDiagnostics({
             recommendation.styleSuggestion.variantKey ||
             recommendation.styleSuggestion.variationKey ||
             null,
+          trendNote:
+            recommendation.styleSuggestion.trendNote || null,
+          trend: recommendation.styleSuggestion.trend
+            ? {
+                enabled:
+                  recommendation.styleSuggestion.trend.enabled === true,
+                influence:
+                  recommendation.styleSuggestion.trend.influence || "off",
+                source:
+                  recommendation.styleSuggestion.trend.source || "none",
+                season:
+                  recommendation.styleSuggestion.trend.season || null,
+                climateTags:
+                  recommendation.styleSuggestion.trend.climateTags || [],
+                totalRuleCount:
+                  recommendation.styleSuggestion.trend.totalRuleCount || 0,
+                activeRuleCount:
+                  recommendation.styleSuggestion.trend.activeRuleCount || 0,
+                matchedRuleCount:
+                  recommendation.styleSuggestion.trend.matchedRuleCount || 0,
+                primaryRule:
+                  recommendation.styleSuggestion.trend.primaryRule || null,
+                supportingRule:
+                  recommendation.styleSuggestion.trend.supportingRule || null,
+                ignoredRuleCount:
+                  recommendation.styleSuggestion.trend.ignoredRules?.length || 0,
+                ignoredRules:
+                  recommendation.styleSuggestion.trend.ignoredRules || [],
+                adjustmentApplied:
+                  recommendation.styleSuggestion.trend.adjustmentApplied === true,
+              }
+            : null,
         }
       : null,
   };

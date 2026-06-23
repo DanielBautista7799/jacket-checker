@@ -439,3 +439,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/generate-jacket-embedding/deno.json"
 entrypoint = "./functions/generate-jacket-embedding/index.ts"
+
+[functions.sync-style-trends]
+enabled = true
+verify_jwt = false
+import_map = "./functions/sync-style-trends/deno.json"
+entrypoint = "./functions/sync-style-trends/index.ts"

@@ -239,6 +239,9 @@ function attachStyleSuggestion({
   profile,
   closetItem = null,
   preferenceModel = null,
+  activeTrendRules = [],
+  trendPreferenceModel = null,
+  trendSource = "none",
 }) {
   const styleSuggestion = generateStyleSuggestion({
     recommendation,
@@ -247,6 +250,9 @@ function attachStyleSuggestion({
     closetItem,
     forecastAnalysis: recommendation.forecastAnalysis,
     preferenceModel,
+    activeTrendRules,
+    trendPreferenceModel,
+    trendSource,
   });
 
   return {
@@ -263,6 +269,9 @@ export function buildRecommendationForClosetMatch({
   rankedClosetMatches = [],
   weatherNeeds = null,
   preferenceModel = null,
+  activeTrendRules = [],
+  trendPreferenceModel = null,
+  trendSource = "none",
 }) {
   if (
     recommendationBase?.decision !== "YES" ||
@@ -286,6 +295,9 @@ export function buildRecommendationForClosetMatch({
       profile,
       closetItem: null,
       preferenceModel,
+      activeTrendRules,
+      trendPreferenceModel,
+      trendSource,
     });
   }
 
@@ -312,6 +324,9 @@ export function buildRecommendationForClosetMatch({
     profile,
     closetItem: jacket,
     preferenceModel,
+    activeTrendRules,
+    trendPreferenceModel,
+    trendSource,
   });
 }
 
@@ -349,6 +364,9 @@ export function calculatePersonalizedRecommendation({
   preferenceModel = null,
   excludedItemIds = [],
   location = null,
+  activeTrendRules = [],
+  trendPreferenceModel = null,
+  trendSource = "none",
 }) {
   const baseResult = calculateJacketScore({
     weather,
@@ -431,6 +449,9 @@ export function calculatePersonalizedRecommendation({
       profile,
       closetItem: null,
       preferenceModel,
+      activeTrendRules,
+      trendPreferenceModel,
+      trendSource,
     });
 
     return attachDiagnostics({
@@ -457,6 +478,9 @@ export function calculatePersonalizedRecommendation({
     rankedClosetMatches: jacketRanking.topMatches,
     weatherNeeds: jacketRanking.weatherNeeds,
     preferenceModel,
+    activeTrendRules,
+    trendPreferenceModel,
+    trendSource,
   });
 
   return attachDiagnostics({

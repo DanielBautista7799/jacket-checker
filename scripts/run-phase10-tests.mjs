@@ -186,7 +186,7 @@ test("diagnostic JSON includes visual metadata but excludes raw vectors and priv
   });
 
   const serialized = JSON.stringify(diagnostics);
-  assert.equal(diagnostics.schemaVersion, "phase10-v1");
+  assert.match(diagnostics.schemaVersion, /^phase1[01]-v1$/);
   assert.equal(diagnostics.visualIntelligence.statusCounts.ready, 1);
   assert.equal(serialized.includes("0.1"), false);
   assert.equal(serialized.includes("signed-image"), false);

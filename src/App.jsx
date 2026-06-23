@@ -10,6 +10,7 @@ import {
 import { AuthProvider } from "./context/AuthContext";
 import { ProfileProvider } from "./context/ProfileContext";
 import { RecommendationLearningProvider } from "./context/RecommendationLearningContext";
+import { StyleTrendProvider } from "./context/StyleTrendContext";
 import { WardrobeProvider } from "./context/WardrobeContext";
 import { WeatherProvider } from "./context/WeatherContext";
 
@@ -27,10 +28,17 @@ const HistoryPage = lazy(() => import("./pages/HistoryPage"));
 const DeveloperScoringPage = lazy(() =>
   import("./pages/DeveloperScoringPage")
 );
+const DeveloperTrendsPage = lazy(() =>
+  import("./pages/DeveloperTrendsPage")
+);
 
 const developerScoringEnabled =
   import.meta.env.DEV ||
   import.meta.env.VITE_ENABLE_DEV_SCORING === "true";
+
+const developerTrendsEnabled =
+  import.meta.env.DEV ||
+  import.meta.env.VITE_ENABLE_DEV_TRENDS === "true";
 
 function PageFallback() {
   return (
@@ -112,6 +120,19 @@ function AppShell() {
                 }
               />
 
+              <Route
+                path="/dev/trends"
+                element={
+                  developerTrendsEnabled ? (
+                    <ProtectedRoute>
+                      <DeveloperTrendsPage />
+                    </ProtectedRoute>
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
+              />
+
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
@@ -127,11 +148,13 @@ function App() {
       <AuthProvider>
         <WeatherProvider>
           <ProfileProvider>
-            <WardrobeProvider>
-              <RecommendationLearningProvider>
-                <AppShell />
-              </RecommendationLearningProvider>
-            </WardrobeProvider>
+            <StyleTrendProvider>
+              <WardrobeProvider>
+                <RecommendationLearningProvider>
+                  <AppShell />
+                </RecommendationLearningProvider>
+              </WardrobeProvider>
+            </StyleTrendProvider>
           </ProfileProvider>
         </WeatherProvider>
       </AuthProvider>

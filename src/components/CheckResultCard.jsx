@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import RecommendationFeedback from "./RecommendationFeedback";
+import TrendFeedback from "./TrendFeedback";
 import WardrobeImage from "./WardrobeImage";
 
 function formatLabel(value = "") {
@@ -355,6 +356,17 @@ function CheckResultCard({
               {styleSuggestion.weatherNote}
             </p>
           )}
+
+          {styleSuggestion.trendNote && (
+            <p className="mt-3 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-3 py-3 text-xs leading-5 text-violet-100">
+              {styleSuggestion.trendNote}
+            </p>
+          )}
+
+          <TrendFeedback
+            styleSuggestion={styleSuggestion}
+            recommendationId={recommendation.historyId || null}
+          />
         </div>
       )}
 
