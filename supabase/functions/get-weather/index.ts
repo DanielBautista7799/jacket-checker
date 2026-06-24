@@ -1,14 +1,9 @@
-const CORS_HEADERS = {
-"Access-Control-Allow-Origin": "*",
-"Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-"Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const JSON_HEADERS = {
-...CORS_HEADERS,
-"Content-Type": "application/json",
-};
+import { handleCorsPreflight, isOriginAllowed } from "../_shared/security/cors.ts";
+import { enforceRateLimit } from "../_shared/security/rateLimit.ts";
+import { getRequestId } from "../_shared/security/requestId.ts";
+import { jsonResponse as secureJsonResponse, safeErrorResponse, SafeHttpError } from "../_shared/security/safeError.ts";
+import { readJsonBody } from "../_shared/security/validateJsonBody.ts";
+import { logSecurityEvent } from "../_shared/security/logSecurityEvent.ts";
 
 const WEATHER_API_BASE_URL =
 "https://api.weatherapi.com/v1";
@@ -46,16 +41,12 @@ type ForecastLocationInput =
 const responseCache = new Map<string, CacheEntry>();
 
 function jsonResponse(
+request: Request,
 body: unknown,
-status = 200
+status = 200,
+requestId?: string,
 ): Response {
-return new Response(
-    JSON.stringify(body),
-    {
-    status,
-    headers: JSON_HEADERS,
-    }
-);
+return secureJsonResponse(request, body, status, requestId);
 }
 
 function sleep(
@@ -485,8 +476,10 @@ return data
 }
 
 async function handleForecast(
+request: Request,
 body: Record<string, unknown>,
-apiKey: string
+apiKey: string,
+requestId: string,
 ): Promise<Response> {
 const input =
     getForecastLocationInput(body);
@@ -498,11 +491,11 @@ const cached =
     getCachedPayload(cacheKey);
 
 if (cached) {
-    return jsonResponse({
+    return jsonResponse(request, {
     success: true,
     weather: cached,
     cached: true,
-    });
+    }, 200, requestId);
 }
 
 const parameters =
@@ -530,16 +523,18 @@ setCachedPayload(
     weather
 );
 
-return jsonResponse({
+return jsonResponse(request, {
     success: true,
     weather,
     cached: false,
-});
+}, 200, requestId);
 }
 
 async function handleSearch(
+request: Request,
 body: Record<string, unknown>,
-apiKey: string
+apiKey: string,
+requestId: string,
 ): Promise<Response> {
 const query =
     getSearchQuery(body);
@@ -551,11 +546,11 @@ const cached =
     getCachedPayload(cacheKey);
 
 if (cached) {
-    return jsonResponse({
+    return jsonResponse(request, {
     success: true,
     locations: cached,
     cached: true,
-    });
+    }, 200, requestId);
 }
 
 const parameters =
@@ -580,155 +575,68 @@ setCachedPayload(
     locations
 );
 
-return jsonResponse({
+return jsonResponse(request, {
     success: true,
     locations,
     cached: false,
-});
+}, 200, requestId);
 }
 
-Deno.serve(
-async (
-    request: Request
-) => {
-    if (
-    request.method ===
-    "OPTIONS"
-    ) {
-    return new Response(
-        "ok",
-        {
-        headers:
-            CORS_HEADERS,
-        }
-    );
+Deno.serve(async (request: Request) => {
+  const preflight = handleCorsPreflight(request);
+  if (preflight) return preflight;
+  const requestId = getRequestId(request);
+
+  try {
+    if (!isOriginAllowed(request)) {
+      throw new SafeHttpError(403, "origin_not_allowed", "This request origin is not allowed.");
+    }
+    if (request.method !== "POST") {
+      throw new SafeHttpError(405, "method_not_allowed", "POST is required.");
     }
 
-    if (
-    request.method !==
-    "POST"
-    ) {
-    return jsonResponse(
-        {
-        success: false,
-        error:
-            "Method not allowed.",
-        },
-        405
-    );
-    }
+    await enforceRateLimit({
+      request,
+      functionName: "get-weather",
+      limit: 90,
+      windowSeconds: 3600,
+    });
 
-    const apiKey =
-    Deno.env.get(
-        "WEATHER_API_KEY"
-    );
-
+    const apiKey = Deno.env.get("WEATHER_API_KEY");
     if (!apiKey) {
-    console.error(
-        "WEATHER_API_KEY is not configured."
-    );
+      throw new SafeHttpError(503, "weather_not_configured", "Weather service configuration is unavailable.");
+    }
 
+    const requestBody = await readJsonBody<Record<string, unknown>>(request, 16 * 1024);
+    const action = normalizeText(requestBody.action) as WeatherAction;
+
+    if (action === "forecast") {
+      return await handleForecast(request, requestBody, apiKey, requestId);
+    }
+    if (action === "search") {
+      return await handleSearch(request, requestBody, apiKey, requestId);
+    }
+    throw new SafeHttpError(400, "unsupported_action", "Action must be either forecast or search.");
+  } catch (error) {
+    if (error instanceof SafeHttpError) {
+      return safeErrorResponse(request, error, requestId);
+    }
+
+    const message = error instanceof Error ? error.message : "Could not complete the weather request.";
+    const invalidInput = /location|coordinates|characters|request body|search/i.test(message);
+    logSecurityEvent(invalidInput ? "warn" : "error", "weather_request_failed", {
+      requestId,
+      code: invalidInput ? "invalid_weather_request" : "weather_upstream_error",
+    });
     return jsonResponse(
-        {
+      request,
+      {
         success: false,
-        error:
-            "Weather service configuration is unavailable.",
-        },
-        500
+        error: invalidInput ? message : "Weather information is temporarily unavailable. Try again shortly.",
+        code: invalidInput ? "invalid_weather_request" : "weather_upstream_error",
+      },
+      invalidInput ? 400 : 502,
+      requestId,
     );
-    }
-
-    try {
-    const body =
-        await request.json();
-
-    if (
-        !body ||
-        typeof body !==
-        "object" ||
-        Array.isArray(body)
-    ) {
-        return jsonResponse(
-        {
-            success: false,
-            error:
-            "The request body must be a JSON object.",
-        },
-        400
-        );
-    }
-
-    const requestBody =
-        body as Record<
-        string,
-        unknown
-        >;
-
-    const action =
-        normalizeText(
-        requestBody.action
-        ) as WeatherAction;
-
-    if (
-        action === "forecast"
-    ) {
-        return await handleForecast(
-        requestBody,
-        apiKey
-        );
-    }
-
-    if (
-        action === "search"
-    ) {
-        return await handleSearch(
-        requestBody,
-        apiKey
-        );
-    }
-
-    return jsonResponse(
-        {
-        success: false,
-        error:
-            "Action must be either forecast or search.",
-        },
-        400
-    );
-    } catch (error) {
-    const message =
-        error instanceof Error
-        ? error.message
-        : "Could not complete the weather request.";
-
-    console.error(
-        "get-weather failed:",
-        message
-    );
-
-    const status =
-        message.includes(
-        "location"
-        ) ||
-        message.includes(
-        "coordinates"
-        ) ||
-        message.includes(
-        "characters"
-        ) ||
-        message.includes(
-        "request body"
-        )
-        ? 400
-        : 502;
-
-    return jsonResponse(
-        {
-        success: false,
-        error: message,
-        },
-        status
-    );
-    }
-}
-);
+  }
+});

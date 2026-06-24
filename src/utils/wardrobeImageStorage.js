@@ -1,271 +1,132 @@
 import { supabase } from "../lib/supabaseClient";
+import { UPLOAD_SECURITY_CONFIG } from "../config/uploadSecurityConfig";
+import validateJacketImageFile, { getJacketImageFingerprint } from "./validateJacketImageFile";
 
 export const WARDROBE_IMAGE_BUCKET = "closet-images";
-export const MAX_WARDROBE_IMAGE_SIZE = 5 * 1024 * 1024;
-export const MAX_WARDROBE_IMAGES_PER_ITEM = 8;
+export const MAX_WARDROBE_IMAGE_SIZE = UPLOAD_SECURITY_CONFIG.maxBytes;
+export const MAX_WARDROBE_IMAGES_PER_ITEM = UPLOAD_SECURITY_CONFIG.maxImagesPerJacket;
 
-const ALLOWED_WARDROBE_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
+const signedUrlPromises = new Map();
 
 function getImageExtension(file) {
-  const extensionFromName = file?.name
-    ?.split(".")
-    .pop()
-    ?.toLowerCase();
-
-  if (
-    extensionFromName &&
-    ["jpg", "jpeg", "png", "webp"].includes(extensionFromName)
-  ) {
+  const extensionFromName = file?.name?.split(".").pop()?.toLowerCase();
+  if (["jpg", "jpeg", "png", "webp"].includes(extensionFromName)) {
     return extensionFromName === "jpeg" ? "jpg" : extensionFromName;
   }
-
-  const extensionByType = {
+  return {
     "image/jpeg": "jpg",
     "image/png": "png",
     "image/webp": "webp",
-  };
-
-  return extensionByType[file?.type] || "jpg";
+  }[file?.type] || "jpg";
 }
 
 function normalizeFileList(files) {
-  if (!files) {
-    return [];
-  }
-
-  if (Array.isArray(files)) {
-    return files.filter(Boolean);
-  }
-
-  return Array.from(files).filter(Boolean);
+  if (!files) return [];
+  return (Array.isArray(files) ? files : Array.from(files)).filter(Boolean);
 }
 
 function normalizePathPart(value, fallback) {
-  const normalized = String(value || "")
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]/g, "");
-
+  const normalized = String(value || "").trim().replace(/[^a-zA-Z0-9_-]/g, "");
   return normalized || fallback;
 }
 
 export function validateWardrobeImage(file) {
-  if (!file) {
-    return {
-      valid: false,
-      error: "Select an image first.",
-    };
+  if (!file) return { valid: false, error: "Select an image first." };
+  if (file.size <= 0) return { valid: false, error: "The selected image is empty." };
+  if (!UPLOAD_SECURITY_CONFIG.allowedMimeTypes.includes(file.type)) {
+    return { valid: false, error: "Use a JPG, PNG, or WebP image." };
   }
-
-  if (file.size <= 0) {
-    return {
-      valid: false,
-      error: "The selected image is empty.",
-    };
-  }
-
-  if (!ALLOWED_WARDROBE_IMAGE_TYPES.has(file.type)) {
-    return {
-      valid: false,
-      error: "Use a JPG, PNG, or WebP image.",
-    };
-  }
-
   if (file.size > MAX_WARDROBE_IMAGE_SIZE) {
-    return {
-      valid: false,
-      error: "Each image must be smaller than 5 MB.",
-    };
+    return { valid: false, error: "Each image must be smaller than 5 MB." };
   }
-
-  return {
-    valid: true,
-    error: "",
-  };
+  return { valid: true, error: "" };
 }
 
-export function validateWardrobeImages(
-  files,
-  {
-    currentCount = 0,
-    maxImages = MAX_WARDROBE_IMAGES_PER_ITEM,
-  } = {}
-) {
+export function validateWardrobeImages(files, { currentCount = 0, maxImages = MAX_WARDROBE_IMAGES_PER_ITEM } = {}) {
   const normalizedFiles = normalizeFileList(files);
-
-  if (normalizedFiles.length === 0) {
-    return {
-      valid: false,
-      error: "Select at least one image.",
-      files: [],
-    };
-  }
-
+  if (normalizedFiles.length === 0) return { valid: false, error: "Select at least one image.", files: [] };
   if (currentCount + normalizedFiles.length > maxImages) {
-    return {
-      valid: false,
-      error: `Each wardrobe item can have up to ${maxImages} images.`,
-      files: normalizedFiles,
-    };
+    return { valid: false, error: `Each jacket can have up to ${maxImages} images.`, files: normalizedFiles };
   }
-
+  const fingerprints = new Set();
   for (const file of normalizedFiles) {
     const validation = validateWardrobeImage(file);
-
-    if (!validation.valid) {
-      return {
-        ...validation,
-        files: normalizedFiles,
-      };
+    if (!validation.valid) return { ...validation, files: normalizedFiles };
+    const fingerprint = getJacketImageFingerprint(file);
+    if (fingerprints.has(fingerprint)) {
+      return { valid: false, error: "The same image was selected more than once.", files: normalizedFiles };
     }
+    fingerprints.add(fingerprint);
   }
-
-  return {
-    valid: true,
-    error: "",
-    files: normalizedFiles,
-  };
+  return { valid: true, error: "", files: normalizedFiles };
 }
 
-export async function uploadWardrobeImage({
-  file,
-  userId,
-  itemId,
-}) {
-  if (!userId) {
-    throw new Error("You must be signed in to upload an image.");
-  }
-
-  const validation = validateWardrobeImage(file);
-
-  if (!validation.valid) {
-    throw new Error(validation.error);
-  }
+export async function uploadWardrobeImage({ file, userId, itemId }) {
+  if (!userId) throw new Error("You must be signed in to upload an image.");
+  if (!itemId) throw new Error("The jacket must be saved before images can be uploaded.");
+  const validation = await validateJacketImageFile(file);
+  if (!validation.valid) throw new Error(validation.error);
 
   const safeUserId = normalizePathPart(userId, "user");
-  const safeItemId = normalizePathPart(itemId, "unassigned");
+  const safeItemId = normalizePathPart(itemId, "jacket");
   const extension = getImageExtension(file);
   const imagePath = `${safeUserId}/${safeItemId}/${crypto.randomUUID()}.${extension}`;
 
-  const { error } = await supabase.storage
-    .from(WARDROBE_IMAGE_BUCKET)
-    .upload(imagePath, file, {
-      cacheControl: "3600",
-      contentType: file.type,
-      upsert: false,
-    });
-
-  if (error) {
-    throw error;
-  }
-
+  const { error } = await supabase.storage.from(WARDROBE_IMAGE_BUCKET).upload(imagePath, file, {
+    cacheControl: "3600",
+    contentType: file.type,
+    upsert: false,
+  });
+  if (error) throw error;
   return imagePath;
 }
 
-export async function uploadWardrobeImages({
-  files,
-  userId,
-  itemId,
-  currentCount = 0,
-  maxImages = MAX_WARDROBE_IMAGES_PER_ITEM,
-}) {
-  const validation = validateWardrobeImages(files, {
-    currentCount,
-    maxImages,
-  });
-
-  if (!validation.valid) {
-    throw new Error(validation.error);
-  }
-
+export async function uploadWardrobeImages({ files, userId, itemId, currentCount = 0, maxImages = MAX_WARDROBE_IMAGES_PER_ITEM }) {
+  const validation = validateWardrobeImages(files, { currentCount, maxImages });
+  if (!validation.valid) throw new Error(validation.error);
   const uploadedPaths = [];
-
   try {
     for (const file of validation.files) {
-      const imagePath = await uploadWardrobeImage({
-        file,
-        userId,
-        itemId,
-      });
-
-      uploadedPaths.push(imagePath);
+      uploadedPaths.push(await uploadWardrobeImage({ file, userId, itemId }));
     }
-
     return uploadedPaths;
   } catch (error) {
     if (uploadedPaths.length > 0) {
-      try {
-        await deleteWardrobeImagePaths(uploadedPaths);
-      } catch (cleanupError) {
-        console.error(
-          "Could not clean up partially uploaded wardrobe images:",
-          cleanupError
-        );
-      }
+      try { await deleteWardrobeImagePaths(uploadedPaths); } catch { /* cleanup remains best-effort */ }
     }
-
     throw error;
   }
 }
 
 function wait(milliseconds) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, milliseconds);
-  });
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 export async function deleteWardrobeImagePaths(paths) {
-  const uniquePaths = [
-    ...new Set(
-      normalizeFileList(paths)
-        .map((path) => String(path || "").trim())
-        .filter(Boolean)
-    ),
-  ];
-
-  if (uniquePaths.length === 0) {
-    return;
-  }
-
+  const uniquePaths = [...new Set(normalizeFileList(paths).map((path) => String(path || "").trim()).filter(Boolean))];
+  if (uniquePaths.length === 0) return;
   let finalError = null;
-
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    const { error } = await supabase.storage
-      .from(WARDROBE_IMAGE_BUCKET)
-      .remove(uniquePaths);
-
-    if (!error) {
-      return;
-    }
-
+    const { error } = await supabase.storage.from(WARDROBE_IMAGE_BUCKET).remove(uniquePaths);
+    if (!error) return;
     finalError = error;
-
-    if (attempt < 3) {
-      await wait(attempt * 250);
-    }
+    if (attempt < 3) await wait(attempt * 250);
   }
-
-  throw finalError || new Error("Could not delete wardrobe image files.");
+  throw finalError || new Error("Could not delete jacket image files.");
 }
 
-export async function createWardrobeImageUrl(
-  imagePath,
-  expiresInSeconds = 60 * 60
-) {
-  if (!imagePath) {
-    return null;
-  }
-
-  const { data, error } = await supabase.storage
+export async function createWardrobeImageUrl(imagePath, expiresInSeconds = 60 * 60) {
+  if (!imagePath) return null;
+  const key = `${imagePath}:${expiresInSeconds}`;
+  if (signedUrlPromises.has(key)) return signedUrlPromises.get(key);
+  const promise = supabase.storage
     .from(WARDROBE_IMAGE_BUCKET)
-    .createSignedUrl(imagePath, expiresInSeconds);
-
-  if (error) {
-    throw error;
-  }
-
-  return data.signedUrl;
+    .createSignedUrl(imagePath, expiresInSeconds)
+    .then(({ data, error }) => {
+      if (error) throw error;
+      return data.signedUrl;
+    })
+    .finally(() => signedUrlPromises.delete(key));
+  signedUrlPromises.set(key, promise);
+  return promise;
 }

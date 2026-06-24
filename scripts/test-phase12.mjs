@@ -60,8 +60,9 @@ test("guest sessions use random UUID storage", () => {
 
 test("developer analytics requires authorization", () => {
   const source = read("supabase/functions/get-analytics-dashboard/index.ts");
+  const sharedAccess = read("supabase/functions/_shared/security/adminAccess.ts");
   assert(source.includes("requireDeveloper"), "Dashboard must require developer access.");
-  assert(source.includes("DEVELOPER_EMAILS"), "Developer allowlist should be supported.");
+  assert(sharedAccess.includes("DEVELOPER_EMAILS"), "Developer allowlist should be supported by shared security.");
 });
 
 test("analytics table is server-only", () => {

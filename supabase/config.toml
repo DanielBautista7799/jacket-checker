@@ -432,6 +432,7 @@ entrypoint = "./functions/analyze-wardrobe-item/index.ts"
 [functions.get-weather]
 enabled = true
 verify_jwt = false
+import_map = "./functions/get-weather/deno.json"
 entrypoint = "./functions/get-weather/index.ts"
 
 [functions.generate-jacket-embedding]
@@ -457,3 +458,10 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/get-analytics-dashboard/deno.json"
 entrypoint = "./functions/get-analytics-dashboard/index.ts"
+
+
+[functions.delete-account]
+enabled = true
+verify_jwt = false
+import_map = "./functions/delete-account/deno.json"
+entrypoint = "./functions/delete-account/index.ts"

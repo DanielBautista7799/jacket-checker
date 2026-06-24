@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { buildCanonicalJacketDescriptor } from "../_shared/ai/buildCanonicalJacketDescriptor.ts";
 import {
@@ -8,35 +8,19 @@ import {
 } from "../_shared/ai/embeddingProvider.ts";
 import { AiProviderError } from "../_shared/ai/aiErrors.ts";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const JSON_HEADERS = {
-  ...CORS_HEADERS,
-  "Content-Type": "application/json",
-};
+import { requireAuthenticatedUser } from "../_shared/security/auth.ts";
+import { handleCorsPreflight, isOriginAllowed } from "../_shared/security/cors.ts";
+import { enforceRateLimit } from "../_shared/security/rateLimit.ts";
+import { getRequestId } from "../_shared/security/requestId.ts";
+import { jsonResponse, safeErrorResponse, SafeHttpError } from "../_shared/security/safeError.ts";
+import { readJsonBody } from "../_shared/security/validateJsonBody.ts";
+import { logSecurityEvent } from "../_shared/security/logSecurityEvent.ts";
 
 const MATCH_THRESHOLD = 0.72;
 const MATCH_LIMIT = 8;
 
 type RawObject = Record<string, unknown>;
 type AppClient = SupabaseClient;
-
-interface AuthContext {
-  supabase: AppClient;
-  userId: string;
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: JSON_HEADERS,
-  });
-}
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -68,30 +52,6 @@ async function hashSource(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
-}
-
-async function getAuthContext(request: Request): Promise<AuthContext | null> {
-  const authorization = request.headers.get("Authorization");
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-
-  if (!authorization || !supabaseUrl || !supabaseAnonKey) {
-    return null;
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false },
-  });
-
-  const token = authorization.replace(/^Bearer\s+/i, "");
-  const { data, error } = await supabase.auth.getUser(token);
-
-  if (error || !data.user) {
-    return null;
-  }
-
-  return { supabase, userId: data.user.id };
 }
 
 async function getOwnedJacket(
@@ -340,130 +300,147 @@ async function markEmbeddingFailure({
 }
 
 Deno.serve(async (request: Request): Promise<Response> => {
-  if (request.method === "OPTIONS") {
-    return new Response("ok", { headers: CORS_HEADERS });
-  }
+  const preflight = handleCorsPreflight(request);
+  if (preflight) return preflight;
+  const requestId = getRequestId(request);
 
-  if (request.method !== "POST") {
-    return jsonResponse({ success: false, error: "Method not allowed." }, 405);
-  }
-
-  const auth = await getAuthContext(request);
-  if (!auth) {
-    return jsonResponse(
-      { success: false, error: "You must be signed in to use jacket similarity." },
-      401,
-    );
-  }
-
-  let body: RawObject;
   try {
-    body = await request.json() as RawObject;
-  } catch {
-    return jsonResponse({ success: false, error: "Invalid request body." }, 400);
-  }
+    if (!isOriginAllowed(request)) throw new SafeHttpError(403, "origin_not_allowed", "This request origin is not allowed.");
+    if (request.method !== "POST") throw new SafeHttpError(405, "method_not_allowed", "POST is required.");
 
-  const action = asString(body.action) || "generate";
-  const config = getEmbeddingConfiguration();
-
-  if (action === "configuration") {
-    return jsonResponse({ success: true, configuration: config });
-  }
-
-  if (action === "preview") {
-    const draft = body.jacket && typeof body.jacket === "object"
-      ? body.jacket as RawObject
-      : null;
-
-    if (!draft) {
-      return jsonResponse(
-        { success: false, error: "Jacket details are required for preview matching." },
-        400,
-      );
+    const authenticated = await requireAuthenticatedUser(request);
+    const auth = { supabase: authenticated.userClient, userId: authenticated.user.id };
+    await enforceRateLimit({ request, functionName: "generate-jacket-embedding", userId: auth.userId, limit: 30, windowSeconds: 3600 });
+    const body = await readJsonBody<RawObject>(request, 64 * 1024);
+    const action = asString(body.action) || "generate";
+    if (!["configuration", "preview", "generate", "similar"].includes(action)) {
+      throw new SafeHttpError(400, "unsupported_action", "The requested embedding action is not supported.");
     }
 
-    try {
-      const descriptor = buildCanonicalJacketDescriptor(draft);
-      const embedding = await generateEmbedding(descriptor);
-      const matches = await findMatches({
-        supabase: auth.supabase,
-        vector: embedding.values,
-        provider: embedding.provider,
-        model: embedding.model,
-        excludeJacketId: asString(body.excludeJacketId) || null,
-        queryItem: draft,
-        threshold: Number(body.threshold) || MATCH_THRESHOLD,
-        limit: Number(body.limit) || MATCH_LIMIT,
-      });
+    const config = getEmbeddingConfiguration();
+    if (action === "configuration") {
+      return jsonResponse(request, { success: true, configuration: config }, 200, requestId);
+    }
 
-      return jsonResponse({
-        success: true,
-        action,
-        provider: embedding.provider,
-        model: embedding.model,
-        dimensions: EMBEDDING_DIMENSIONS,
-        matches,
-      });
-    } catch (error) {
-      console.error("Preview similarity failed:", error instanceof Error ? error.message : error);
-      return jsonResponse(
-        {
+    const thresholdValue = Number(body.threshold);
+    const threshold = Number.isFinite(thresholdValue)
+      ? Math.min(0.99, Math.max(0.5, thresholdValue))
+      : MATCH_THRESHOLD;
+    const limitValue = Number(body.limit);
+    const limit = Number.isFinite(limitValue)
+      ? Math.min(12, Math.max(1, Math.round(limitValue)))
+      : MATCH_LIMIT;
+
+    if (action === "preview") {
+      const draft = body.jacket && typeof body.jacket === "object" && !Array.isArray(body.jacket)
+        ? body.jacket as RawObject
+        : null;
+      if (!draft) throw new SafeHttpError(400, "jacket_required", "Jacket details are required for preview matching.");
+      const safeDraft = { ...draft, category: "jacket" };
+      const descriptor = buildCanonicalJacketDescriptor(safeDraft);
+      if (descriptor.length > 4000) throw new SafeHttpError(400, "descriptor_too_large", "The jacket description is too large.");
+
+      try {
+        const embedding = await generateEmbedding(descriptor);
+        if (embedding.values.length !== EMBEDDING_DIMENSIONS) {
+          throw new SafeHttpError(502, "invalid_embedding_dimensions", "The embedding provider returned an incompatible result.");
+        }
+        const matches = await findMatches({
+          supabase: auth.supabase,
+          vector: embedding.values,
+          provider: embedding.provider,
+          model: embedding.model,
+          excludeJacketId: asString(body.excludeJacketId) || null,
+          queryItem: safeDraft,
+          threshold,
+          limit,
+        });
+        return jsonResponse(request, {
+          success: true,
+          action,
+          provider: embedding.provider,
+          model: embedding.model,
+          dimensions: EMBEDDING_DIMENSIONS,
+          matches,
+        }, 200, requestId);
+      } catch (error) {
+        logSecurityEvent("warn", "embedding_preview_failed", { requestId, code: error instanceof AiProviderError ? error.code : "preview_failed" });
+        return jsonResponse(request, {
           success: false,
           retryable: error instanceof AiProviderError ? error.retryable : true,
           error: cleanErrorMessage(error),
-        },
-        error instanceof AiProviderError ? error.status : 500,
-      );
+        }, error instanceof AiProviderError ? error.status : 500, requestId);
+      }
     }
-  }
 
-  const jacketId = asString(body.jacketId);
-  if (!jacketId) {
-    return jsonResponse({ success: false, error: "A jacket ID is required." }, 400);
-  }
+    const jacketId = asString(body.jacketId);
+    if (!/^[0-9a-f-]{36}$/i.test(jacketId)) {
+      throw new SafeHttpError(400, "invalid_jacket_id", "A valid jacket ID is required.");
+    }
 
-  let ownedJacket: { jacket: RawObject; primaryImagePath: string | null };
-  try {
-    ownedJacket = await getOwnedJacket(auth.supabase, auth.userId, jacketId);
-  } catch (error) {
-    return jsonResponse(
-      { success: false, error: cleanErrorMessage(error) },
-      error instanceof AiProviderError ? error.status : 500,
-    );
-  }
+    let ownedJacket: { jacket: RawObject; primaryImagePath: string | null };
+    try {
+      ownedJacket = await getOwnedJacket(auth.supabase, auth.userId, jacketId);
+    } catch (error) {
+      return jsonResponse(request, { success: false, error: cleanErrorMessage(error) }, error instanceof AiProviderError ? error.status : 500, requestId);
+    }
 
-  const descriptor = buildCanonicalJacketDescriptor(ownedJacket.jacket);
-  const sourceHash = await hashSource(
-    [
+    const descriptor = buildCanonicalJacketDescriptor({ ...ownedJacket.jacket, category: "jacket" });
+    if (descriptor.length > 4000) throw new SafeHttpError(400, "descriptor_too_large", "The jacket description is too large.");
+    const sourceHash = await hashSource([
       descriptor,
       ownedJacket.primaryImagePath || "no-image",
       config.provider,
       config.model,
       String(EMBEDDING_DIMENSIONS),
-    ].join("|"),
-  );
+    ].join("|"));
 
-  const { data: existing } = await auth.supabase
-    .from("jacket_embeddings")
-    .select("*")
-    .eq("wardrobe_item_id", jacketId)
-    .eq("user_id", auth.userId)
-    .eq("provider", config.provider)
-    .eq("model", config.model)
-    .maybeSingle();
+    const { data: existing } = await auth.supabase
+      .from("jacket_embeddings")
+      .select("*")
+      .eq("wardrobe_item_id", jacketId)
+      .eq("user_id", auth.userId)
+      .eq("provider", config.provider)
+      .eq("model", config.model)
+      .maybeSingle();
 
-  if (action === "similar") {
-    if (!existing || existing.status !== "ready" || !existing.embedding) {
-      return jsonResponse({
-        success: true,
-        action,
-        status: existing?.status || "missing",
-        error: existing?.error_message || null,
-        matches: [],
-      });
+    if (action === "similar") {
+      if (!existing || existing.status !== "ready" || !existing.embedding) {
+        return jsonResponse(request, {
+          success: true,
+          action,
+          status: existing?.status || "missing",
+          error: existing?.error_message || null,
+          matches: [],
+        }, 200, requestId);
+      }
+      try {
+        const matches = await findMatches({
+          supabase: auth.supabase,
+          vector: existing.embedding,
+          provider: config.provider,
+          model: config.model,
+          excludeJacketId: jacketId,
+          queryItem: ownedJacket.jacket,
+          threshold,
+          limit,
+        });
+        return jsonResponse(request, {
+          success: true,
+          action,
+          status: existing.status,
+          provider: config.provider,
+          model: config.model,
+          sourceHash: existing.source_hash,
+          matches,
+        }, 200, requestId);
+      } catch (error) {
+        return jsonResponse(request, { success: false, error: cleanErrorMessage(error), matches: [] }, 500, requestId);
+      }
     }
 
-    try {
+    const force = body.force === true;
+    if (!force && existing?.status === "ready" && existing.source_hash === sourceHash && existing.embedding) {
       const matches = await findMatches({
         supabase: auth.supabase,
         vector: existing.embedding,
@@ -471,160 +448,100 @@ Deno.serve(async (request: Request): Promise<Response> => {
         model: config.model,
         excludeJacketId: jacketId,
         queryItem: ownedJacket.jacket,
-        threshold: Number(body.threshold) || MATCH_THRESHOLD,
-        limit: Number(body.limit) || MATCH_LIMIT,
       });
-
-      return jsonResponse({
+      return jsonResponse(request, {
         success: true,
-        action,
-        status: existing.status,
-        provider: config.provider,
-        model: config.model,
-        sourceHash: existing.source_hash,
-        matches,
-      });
-    } catch (error) {
-      return jsonResponse(
-        { success: false, error: cleanErrorMessage(error), matches: [] },
-        500,
-      );
-    }
-  }
-
-  const force = body.force === true;
-  if (
-    !force &&
-    existing?.status === "ready" &&
-    existing.source_hash === sourceHash &&
-    existing.embedding
-  ) {
-    const matches = await findMatches({
-      supabase: auth.supabase,
-      vector: existing.embedding,
-      provider: config.provider,
-      model: config.model,
-      excludeJacketId: jacketId,
-      queryItem: ownedJacket.jacket,
-    });
-
-    return jsonResponse({
-      success: true,
-      action: "generate",
-      cached: true,
-      status: "ready",
-      provider: config.provider,
-      model: config.model,
-      dimensions: EMBEDDING_DIMENSIONS,
-      sourceHash,
-      matches,
-    });
-  }
-
-  const attemptCount = Number(existing?.attempt_count || 0) + 1;
-
-  const { error: processingError } = await auth.supabase
-    .from("jacket_embeddings")
-    .upsert(
-      {
-        user_id: auth.userId,
-        wardrobe_item_id: jacketId,
+        action: "generate",
+        cached: true,
+        status: "ready",
         provider: config.provider,
         model: config.model,
         dimensions: EMBEDDING_DIMENSIONS,
+        sourceHash,
+        matches,
+      }, 200, requestId);
+    }
+
+    const attemptCount = Number(existing?.attempt_count || 0) + 1;
+    const { error: processingError } = await auth.supabase.from("jacket_embeddings").upsert({
+      user_id: auth.userId,
+      wardrobe_item_id: jacketId,
+      provider: config.provider,
+      model: config.model,
+      dimensions: EMBEDDING_DIMENSIONS,
+      descriptor,
+      source_hash: sourceHash,
+      primary_image_path: ownedJacket.primaryImagePath,
+      status: "processing",
+      error_message: null,
+      attempt_count: attemptCount,
+    }, { onConflict: "wardrobe_item_id,provider,model" });
+    if (processingError) throw new SafeHttpError(500, "embedding_state_failed", "Similarity matching could not be prepared.");
+
+    try {
+      const embedding = await generateEmbedding(descriptor);
+      if (embedding.values.length !== EMBEDDING_DIMENSIONS) {
+        throw new SafeHttpError(502, "invalid_embedding_dimensions", "The embedding provider returned an incompatible result.");
+      }
+      const vectorLiteral = toVectorLiteral(embedding.values);
+      const { error: saveError } = await auth.supabase.from("jacket_embeddings").upsert({
+        user_id: auth.userId,
+        wardrobe_item_id: jacketId,
+        provider: embedding.provider,
+        model: embedding.model,
+        dimensions: EMBEDDING_DIMENSIONS,
+        embedding: vectorLiteral,
         descriptor,
         source_hash: sourceHash,
         primary_image_path: ownedJacket.primaryImagePath,
-        status: "processing",
+        status: "ready",
         error_message: null,
         attempt_count: attemptCount,
-      },
-      { onConflict: "wardrobe_item_id,provider,model" },
-    );
+        generated_at: new Date().toISOString(),
+      }, { onConflict: "wardrobe_item_id,provider,model" });
+      if (saveError) throw saveError;
 
-  if (processingError) {
-    return jsonResponse(
-      { success: false, error: processingError.message },
-      500,
-    );
-  }
-
-  try {
-    const embedding = await generateEmbedding(descriptor);
-    const vectorLiteral = toVectorLiteral(embedding.values);
-
-    const { error: saveError } = await auth.supabase
-      .from("jacket_embeddings")
-      .upsert(
-        {
-          user_id: auth.userId,
-          wardrobe_item_id: jacketId,
-          provider: embedding.provider,
-          model: embedding.model,
-          dimensions: EMBEDDING_DIMENSIONS,
-          embedding: vectorLiteral,
-          descriptor,
-          source_hash: sourceHash,
-          primary_image_path: ownedJacket.primaryImagePath,
-          status: "ready",
-          error_message: null,
-          attempt_count: attemptCount,
-          generated_at: new Date().toISOString(),
-        },
-        { onConflict: "wardrobe_item_id,provider,model" },
-      );
-
-    if (saveError) {
-      throw saveError;
-    }
-
-    const matches = await findMatches({
-      supabase: auth.supabase,
-      vector: embedding.values,
-      provider: embedding.provider,
-      model: embedding.model,
-      excludeJacketId: jacketId,
-      queryItem: ownedJacket.jacket,
-    });
-
-    return jsonResponse({
-      success: true,
-      action: "generate",
-      cached: false,
-      status: "ready",
-      provider: embedding.provider,
-      model: embedding.model,
-      dimensions: EMBEDDING_DIMENSIONS,
-      sourceHash,
-      matches,
-    });
-  } catch (error) {
-    console.error(
-      "Generate jacket embedding failed:",
-      error instanceof Error ? error.message : error,
-    );
-
-    const safeMessage = await markEmbeddingFailure({
-      supabase: auth.supabase,
-      userId: auth.userId,
-      jacketId,
-      provider: config.provider,
-      model: config.model,
-      descriptor,
-      sourceHash,
-      primaryImagePath: ownedJacket.primaryImagePath,
-      attemptCount,
-      error,
-    });
-
-    return jsonResponse(
-      {
+      const matches = await findMatches({
+        supabase: auth.supabase,
+        vector: embedding.values,
+        provider: embedding.provider,
+        model: embedding.model,
+        excludeJacketId: jacketId,
+        queryItem: ownedJacket.jacket,
+      });
+      return jsonResponse(request, {
+        success: true,
+        action: "generate",
+        cached: false,
+        status: "ready",
+        provider: embedding.provider,
+        model: embedding.model,
+        dimensions: EMBEDDING_DIMENSIONS,
+        sourceHash,
+        matches,
+      }, 200, requestId);
+    } catch (error) {
+      logSecurityEvent("warn", "embedding_generation_failed", { requestId, code: error instanceof AiProviderError ? error.code : "embedding_failed" });
+      const safeMessage = await markEmbeddingFailure({
+        supabase: auth.supabase,
+        userId: auth.userId,
+        jacketId,
+        provider: config.provider,
+        model: config.model,
+        descriptor,
+        sourceHash,
+        primaryImagePath: ownedJacket.primaryImagePath,
+        attemptCount,
+        error,
+      });
+      return jsonResponse(request, {
         success: false,
         status: "failed",
         retryable: error instanceof AiProviderError ? error.retryable : true,
         error: safeMessage,
-      },
-      error instanceof AiProviderError ? error.status : 500,
-    );
+      }, error instanceof AiProviderError ? error.status : 500, requestId);
+    }
+  } catch (error) {
+    return safeErrorResponse(request, error, requestId);
   }
 });

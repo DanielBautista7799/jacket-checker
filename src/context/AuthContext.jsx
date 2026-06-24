@@ -1,70 +1,87 @@
-import { createContext, useEffect, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import clearClientCaches from "../utils/clearClientCaches";
 
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-const [session, setSession] = useState(null);
-const [user, setUser] = useState(null);
-const [authLoading, setAuthLoading] = useState(true);
-const [authError, setAuthError] = useState("");
+  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState("");
+  const mountedRef = useRef(true);
 
-useEffect(() => {
-let isMounted = true;
-
-async function loadAuth() {
-    try {
-    const { data, error } = await supabase.auth.getSession();
-
-    if (error) {
-        throw error;
-    }
-
-    if (!isMounted) return;
-
-    setSession(data.session);
-    setUser(data.session?.user || null);
-    } catch (err) {
-    if (!isMounted) return;
-
-    setAuthError(err.message || "Could not load auth.");
-    setSession(null);
-    setUser(null);
-    } finally {
-    if (isMounted) {
-        setAuthLoading(false);
-    }
-    }
-}
-
-loadAuth();
-
-const { data } = supabase.auth.onAuthStateChange(
-    (_event, currentSession) => {
-    if (!isMounted) return;
-
-    setSession(currentSession);
-    setUser(currentSession?.user || null);
+  const applySession = useCallback((nextSession) => {
+    if (!mountedRef.current) return;
+    setSession(nextSession || null);
+    setUser(nextSession?.user || null);
     setAuthLoading(false);
+  }, []);
+
+  const refreshSession = useCallback(async () => {
+    setAuthError("");
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      applySession(data.session);
+      return data.session;
+    } catch (error) {
+      if (mountedRef.current) {
+        setAuthError(error?.message || "Could not restore your session.");
+        applySession(null);
+      }
+      return null;
     }
-);
+  }, [applySession]);
 
-return () => {
-    isMounted = false;
-    data.subscription.unsubscribe();
-};
-}, []);
+  const signOut = useCallback(async () => {
+    setAuthError("");
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setAuthError(error.message || "Could not sign out.");
+      return false;
+    }
+    clearClientCaches();
+    applySession(null);
+    return true;
+  }, [applySession]);
 
-return (
-<AuthContext.Provider
-    value={{
+  useEffect(() => {
+    mountedRef.current = true;
+    let timeoutId = window.setTimeout(() => {
+      if (mountedRef.current) {
+        setAuthLoading(false);
+        setAuthError((current) => current || "Session restoration took too long. Refresh or sign in again.");
+      }
+    }, 12_000);
+
+    void refreshSession().finally(() => window.clearTimeout(timeoutId));
+
+    const { data } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      applySession(currentSession);
+      if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+        clearClientCaches();
+      }
+      if (event === "TOKEN_REFRESHED") {
+        setAuthError("");
+      }
+    });
+
+    return () => {
+      mountedRef.current = false;
+      window.clearTimeout(timeoutId);
+      data.subscription.unsubscribe();
+    };
+  }, [applySession, refreshSession]);
+
+  const value = useMemo(() => ({
     session,
     user,
     authLoading,
     authError,
-    }}
->
-    {children}
-</AuthContext.Provider>
-);
+    refreshSession,
+    signOut,
+  }), [session, user, authLoading, authError, refreshSession, signOut]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -1,11 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json",
-};
+import { createServiceClient, resolveOptionalUser } from "../_shared/security/auth.ts";
+import { handleCorsPreflight, isOriginAllowed } from "../_shared/security/cors.ts";
+import { enforceRateLimit } from "../_shared/security/rateLimit.ts";
+import { getRequestId } from "../_shared/security/requestId.ts";
+import { jsonResponse, safeErrorResponse, SafeHttpError } from "../_shared/security/safeError.ts";
+import { readJsonBody } from "../_shared/security/validateJsonBody.ts";
 
 const allowedEvents = new Set([
   "guest_page_view", "guest_location_search", "guest_browser_location", "guest_forecast_window_changed",
@@ -25,10 +23,7 @@ const safeModes = new Set(["guest", "personalized", "developer"]);
 const safeKey = /^[a-z][a-z0-9_]{0,47}$/;
 const blockedKey = /(?:email|token|secret|password|authorization|cookie|coordinate|latitude|longitude|\blat\b|\blon\b|image|path|url|prompt|response|vector|address|city|location_name|query_text)/i;
 const safeRoute = /^\/[a-z0-9_\-/]*$/i;
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: corsHeaders });
-}
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function sanitizeValue(value: unknown): string | number | boolean | string[] | number[] | boolean[] | null {
   if (typeof value === "boolean") return value;
@@ -41,9 +36,7 @@ function sanitizeValue(value: unknown): string | number | boolean | string[] | n
 }
 
 function sanitizeMetadata(value: unknown) {
-  const source = value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   return Object.fromEntries(
     Object.entries(source)
       .filter(([key]) => safeKey.test(key) && !blockedKey.test(key))
@@ -54,16 +47,16 @@ function sanitizeMetadata(value: unknown) {
 }
 
 function normalizeEvent(value: unknown) {
-  if (!value || typeof value !== "object") throw new Error("Event must be an object.");
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new SafeHttpError(400, "invalid_event", "Each analytics event must be an object.");
+  }
   const source = value as Record<string, unknown>;
   const eventName = String(source.event_name || "");
   const mode = String(source.experience_mode || "guest");
   const route = String(source.route || "/");
   const duration = Number(source.duration_ms);
-
-  if (!allowedEvents.has(eventName)) throw new Error(`Unsupported analytics event: ${eventName || "missing"}.`);
-  if (!safeModes.has(mode)) throw new Error("Unsupported analytics experience mode.");
-
+  if (!allowedEvents.has(eventName)) throw new SafeHttpError(400, "unsupported_event", "An analytics event is not supported.");
+  if (!safeModes.has(mode)) throw new SafeHttpError(400, "unsupported_mode", "The analytics experience mode is invalid.");
   return {
     event_name: eventName,
     route: safeRoute.test(route) ? route.slice(0, 120) : "/",
@@ -74,34 +67,31 @@ function normalizeEvent(value: unknown) {
   };
 }
 
-async function resolveUser(request: Request, supabaseUrl: string, anonKey: string) {
-  const authorization = request.headers.get("Authorization") || "";
-  if (!authorization.startsWith("Bearer ")) return null;
-  const token = authorization.slice("Bearer ".length);
-  const client = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } });
-  const { data } = await client.auth.getUser(token);
-  return data.user || null;
-}
-
-Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (request.method !== "POST") return json({ error: { code: "method_not_allowed", message: "POST is required." } }, 405);
+Deno.serve(async (request: Request) => {
+  const preflight = handleCorsPreflight(request);
+  if (preflight) return preflight;
+  const requestId = getRequestId(request);
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!supabaseUrl || !anonKey || !serviceRoleKey) throw new Error("Analytics server configuration is incomplete.");
+    if (!isOriginAllowed(request)) throw new SafeHttpError(403, "origin_not_allowed", "This request origin is not allowed.");
+    if (request.method !== "POST") throw new SafeHttpError(405, "method_not_allowed", "POST is required.");
 
-    const body = await request.json();
-    const rawEvents = Array.isArray(body?.events) ? body.events.slice(0, 12) : [];
-    if (!rawEvents.length) return json({ accepted: 0 });
+    const user = await resolveOptionalUser(request);
+    await enforceRateLimit({
+      request,
+      functionName: "track-analytics",
+      userId: user?.id || null,
+      limit: user ? 600 : 240,
+      windowSeconds: 3600,
+    });
 
-    const anonymousSessionId = String(body?.anonymous_session_id || "");
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    const user = await resolveUser(request, supabaseUrl, anonKey);
+    const body = await readJsonBody<Record<string, unknown>>(request, 48 * 1024);
+    const rawEvents = Array.isArray(body.events) ? body.events.slice(0, 12) : [];
+    if (rawEvents.length === 0) return jsonResponse(request, { accepted: 0 }, 200, requestId);
+
+    const anonymousSessionId = String(body.anonymous_session_id || "");
     if (!user && !uuidPattern.test(anonymousSessionId)) {
-      return json({ error: { code: "invalid_session", message: "A valid anonymous session is required." } }, 400);
+      throw new SafeHttpError(400, "invalid_session", "A valid anonymous session is required.");
     }
 
     const rows = rawEvents.map(normalizeEvent).map((event) => ({
@@ -110,13 +100,11 @@ Deno.serve(async (request) => {
       anonymous_session_id: user ? null : anonymousSessionId,
     }));
 
-    const service = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+    const service = createServiceClient();
     const { error } = await service.from("analytics_events").insert(rows);
-    if (error) throw error;
-
-    return json({ accepted: rows.length });
+    if (error) throw new SafeHttpError(503, "analytics_unavailable", "Analytics could not be recorded.");
+    return jsonResponse(request, { accepted: rows.length }, 200, requestId);
   } catch (error) {
-    console.error("Analytics event rejected:", { message: error instanceof Error ? error.message : "Unknown error" });
-    return json({ error: { code: "invalid_analytics_payload", message: "Analytics could not be recorded." } }, 400);
+    return safeErrorResponse(request, error, requestId);
   }
 });

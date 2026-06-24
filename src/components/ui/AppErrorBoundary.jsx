@@ -12,11 +12,16 @@ export default class AppErrorBoundary extends Component {
   }
 
   componentDidCatch(error) {
-    console.error("Unexpected UI error:", error);
+    if (import.meta.env.DEV) {
+      console.error("Unexpected UI error:", error);
+    }
     window.dispatchEvent(new CustomEvent("jacketcheck:analytics", {
       detail: {
         eventName: "unexpected_ui_error",
-        options: { success: false, metadata: { error_code: error?.name || "ui_error" } },
+        options: {
+          success: false,
+          metadata: { error_code: error?.name || "ui_error" },
+        },
       },
     }));
   }

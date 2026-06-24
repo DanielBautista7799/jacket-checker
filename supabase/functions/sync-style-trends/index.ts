@@ -1,11 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json",
-};
+import { createServiceClient } from "../_shared/security/auth.ts";
+import { requireDeveloper } from "../_shared/security/adminAccess.ts";
+import { handleCorsPreflight, isOriginAllowed } from "../_shared/security/cors.ts";
+import { enforceRateLimit } from "../_shared/security/rateLimit.ts";
+import { getRequestId } from "../_shared/security/requestId.ts";
+import { jsonResponse, safeErrorResponse, SafeHttpError } from "../_shared/security/safeError.ts";
+import { readJsonBody } from "../_shared/security/validateJsonBody.ts";
+import { logSecurityEvent } from "../_shared/security/logSecurityEvent.ts";
 
 const VALID_STYLES = new Set([
   "streetwear",
@@ -18,14 +18,7 @@ const VALID_STYLES = new Set([
   "outdoor",
 ]);
 
-const VALID_SEASONS = new Set([
-  "spring",
-  "summer",
-  "fall",
-  "winter",
-  "transitional",
-]);
-
+const VALID_SEASONS = new Set(["spring", "summer", "fall", "winter", "transitional"]);
 const VALID_CLIMATE_TAGS = new Set([
   "hot",
   "warm",
@@ -37,91 +30,44 @@ const VALID_CLIMATE_TAGS = new Set([
   "dry",
   "transitional",
 ]);
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: corsHeaders,
-  });
-}
-
-function safeError(message: string, code = "invalid_request", status = 400) {
-  return json({ error: { code, message } }, status);
-}
-
-function parseCsvSecret(value: string | undefined) {
-  return new Set(
-    String(value || "")
-      .split(",")
-      .map((entry) => entry.trim().toLowerCase())
-      .filter(Boolean)
-  );
-}
+const VALID_ACTIONS = new Set(["list", "preview", "create", "update", "enable", "disable", "import"]);
 
 function ensureNoExternalLinks(value: unknown, field: string) {
   const text = String(value || "");
   if (/https?:\/\/|www\./i.test(text)) {
-    throw new Error(`${field} cannot contain external links.`);
+    throw new SafeHttpError(400, "external_links_not_allowed", `${field} cannot contain external links.`);
   }
   return text;
 }
 
-function normalizeStringArray(
-  value: unknown,
-  field: string,
-  allowed: Set<string> | null = null,
-) {
-  const entries = Array.isArray(value)
-    ? value
-    : typeof value === "string"
-      ? value.split(",")
-      : [];
-
-  const normalized = [...new Set(
-    entries
-      .map((entry) => String(entry).trim().toLowerCase())
-      .filter(Boolean),
-  )];
-
+function normalizeStringArray(value: unknown, field: string, allowed: Set<string> | null = null) {
+  const entries = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+  const normalized = [...new Set(entries.map((entry) => String(entry).trim().toLowerCase()).filter(Boolean))];
   if (normalized.length > 20) {
-    throw new Error(`${field} can contain at most 20 values.`);
+    throw new SafeHttpError(400, "too_many_values", `${field} can contain at most 20 values.`);
   }
-
   if (allowed) {
     const invalid = normalized.find((entry) => !allowed.has(entry));
     if (invalid) {
-      throw new Error(`${field} contains unsupported value: ${invalid}.`);
+      throw new SafeHttpError(400, "unsupported_value", `${field} contains unsupported value: ${invalid}.`);
     }
   }
-
   return normalized;
 }
 
 function normalizePhrases(value: unknown) {
-  const object = value && typeof value === "object"
+  const object = value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
 
   const normalizeList = (input: unknown, label: string) => {
     const list = Array.isArray(input) ? input : input ? [input] : [];
-    const phrases = list
-      .map((entry) => ensureNoExternalLinks(entry, label).trim())
-      .filter(Boolean);
-
-    if (phrases.length === 0) {
-      throw new Error(`${label} requires at least one phrase.`);
-    }
-
-    if (phrases.length > 8) {
-      throw new Error(`${label} can contain at most 8 phrases.`);
-    }
-
+    const phrases = list.map((entry) => ensureNoExternalLinks(entry, label).trim()).filter(Boolean);
+    if (phrases.length === 0) throw new SafeHttpError(400, "missing_phrase", `${label} requires at least one phrase.`);
+    if (phrases.length > 8) throw new SafeHttpError(400, "too_many_phrases", `${label} can contain at most 8 phrases.`);
     phrases.forEach((phrase) => {
-      if (phrase.length > 280) {
-        throw new Error(`${label} phrases must be 280 characters or fewer.`);
-      }
+      if (phrase.length > 280) throw new SafeHttpError(400, "phrase_too_long", `${label} phrases must be 280 characters or fewer.`);
     });
-
     return phrases;
   };
 
@@ -132,25 +78,16 @@ function normalizePhrases(value: unknown) {
 }
 
 function normalizeDate(value: unknown, field: string, endOfDay = false) {
-  if (!value) {
-    throw new Error(`${field} is required.`);
-  }
-
+  if (!value) throw new SafeHttpError(400, "date_required", `${field} is required.`);
   const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) {
-    throw new Error(`${field} is not a valid date.`);
-  }
-
-  if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
-    date.setUTCHours(23, 59, 59, 999);
-  }
-
+  if (Number.isNaN(date.getTime())) throw new SafeHttpError(400, "invalid_date", `${field} is not a valid date.`);
+  if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) date.setUTCHours(23, 59, 59, 999);
   return date.toISOString();
 }
 
 function normalizeRule(input: unknown, userId: string, forUpdate = false) {
-  if (!input || typeof input !== "object") {
-    throw new Error("Trend rule payload must be an object.");
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new SafeHttpError(400, "invalid_rule", "Trend rule payload must be an object.");
   }
 
   const source = input as Record<string, unknown>;
@@ -163,32 +100,22 @@ function normalizeRule(input: unknown, userId: string, forUpdate = false) {
   const description = ensureNoExternalLinks(source.description, "Description").trim();
   const sourceLabel = ensureNoExternalLinks(source.source_label, "Source label").trim();
 
-  if (!name || name.length > 120) {
-    throw new Error("Name is required and must be 120 characters or fewer.");
-  }
-
+  if (!name || name.length > 120) throw new SafeHttpError(400, "invalid_name", "Name is required and must be 120 characters or fewer.");
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-    throw new Error("Slug must contain lowercase letters, numbers, and hyphens only.");
+    throw new SafeHttpError(400, "invalid_slug", "Slug must contain lowercase letters, numbers, and hyphens only.");
   }
-
-  if (description.length > 500) {
-    throw new Error("Description must be 500 characters or fewer.");
-  }
-
-  if (!sourceLabel || sourceLabel.length > 120) {
-    throw new Error("Source label is required and must be 120 characters or fewer.");
-  }
+  if (description.length > 500) throw new SafeHttpError(400, "description_too_long", "Description must be 500 characters or fewer.");
+  if (!sourceLabel || sourceLabel.length > 120) throw new SafeHttpError(400, "invalid_source_label", "Source label is required and must be 120 characters or fewer.");
 
   const startsAt = normalizeDate(source.starts_at, "Start date");
   const expiresAt = normalizeDate(source.expires_at, "Expiration date", true);
-
   if (new Date(expiresAt) <= new Date(startsAt)) {
-    throw new Error("Expiration date must be after the start date.");
+    throw new SafeHttpError(400, "invalid_date_range", "Expiration date must be after the start date.");
   }
 
   const weight = Number(source.weight ?? 0.5);
   if (!Number.isFinite(weight) || weight < 0 || weight > 1) {
-    throw new Error("Weight must be between 0 and 1.");
+    throw new SafeHttpError(400, "invalid_weight", "Weight must be between 0 and 1.");
   }
 
   const result: Record<string, unknown> = {
@@ -212,165 +139,85 @@ function normalizeRule(input: unknown, userId: string, forUpdate = false) {
     updated_by: userId,
   };
 
-  if (!forUpdate) {
-    result.created_by = userId;
-  }
-
-  if (source.id) {
-    result.id = String(source.id);
-  }
-
+  if (!forUpdate) result.created_by = userId;
+  if (source.id) result.id = String(source.id);
   return result;
 }
 
-async function requireAdmin(request: Request) {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    throw new Error("Supabase server configuration is incomplete.");
-  }
-
-  const authorization = request.headers.get("Authorization") || "";
-  if (!authorization.startsWith("Bearer ")) {
-    throw new Error("Authentication is required.");
-  }
-
-  const token = authorization.slice("Bearer ".length);
-  const authClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authorization } },
-  });
-  const { data, error } = await authClient.auth.getUser(token);
-
-  if (error || !data.user) {
-    throw new Error("The authenticated user could not be verified.");
-  }
-
-  const allowedIds = parseCsvSecret(Deno.env.get("TREND_ADMIN_USER_IDS"));
-  const allowedEmails = parseCsvSecret(Deno.env.get("TREND_ADMIN_EMAILS"));
-  const userId = data.user.id.toLowerCase();
-  const email = String(data.user.email || "").toLowerCase();
-
-  if (!allowedIds.has(userId) && !allowedEmails.has(email)) {
-    throw new Error(
-      "Trend administration is not enabled for this account. Configure TREND_ADMIN_EMAILS or TREND_ADMIN_USER_IDS in Supabase secrets.",
-    );
-  }
-
-  return {
-    user: data.user,
-    serviceClient: createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false },
-    }),
-  };
-}
-
-Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
-  if (request.method !== "POST") {
-    return safeError("Only POST requests are supported.", "method_not_allowed", 405);
-  }
+Deno.serve(async (request: Request) => {
+  const preflight = handleCorsPreflight(request);
+  if (preflight) return preflight;
+  const requestId = getRequestId(request);
 
   try {
-    const { user, serviceClient } = await requireAdmin(request);
-    const body = await request.json().catch(() => ({}));
-    const action = String(body?.action || "list").toLowerCase();
-    const payload = body?.payload || {};
+    if (!isOriginAllowed(request)) throw new SafeHttpError(403, "origin_not_allowed", "This request origin is not allowed.");
+    if (request.method !== "POST") throw new SafeHttpError(405, "method_not_allowed", "POST is required.");
+
+    const { user } = await requireDeveloper(request);
+    await enforceRateLimit({ request, functionName: "sync-style-trends", userId: user.id, limit: 60, windowSeconds: 3600 });
+    const body = await readJsonBody<Record<string, unknown>>(request, 256 * 1024);
+    const action = String(body.action || "list").toLowerCase();
+    if (!VALID_ACTIONS.has(action)) throw new SafeHttpError(400, "unsupported_action", "Unsupported trend action.");
+    const payload = body.payload && typeof body.payload === "object" && !Array.isArray(body.payload)
+      ? body.payload as Record<string, unknown>
+      : {};
+    const serviceClient = createServiceClient();
 
     if (action === "list") {
-      const { data, error } = await serviceClient
-        .from("style_trend_rules")
-        .select("*")
-        .order("created_at", { ascending: false });
-
+      const { data, error } = await serviceClient.from("style_trend_rules").select("*").order("created_at", { ascending: false }).limit(500);
       if (error) throw error;
-      return json({ rules: data || [] });
+      return jsonResponse(request, { rules: data || [] }, 200, requestId);
     }
 
     if (action === "preview") {
-      const normalized = normalizeRule(payload, user.id, Boolean(payload?.id));
-      return json({ rule: normalized });
+      return jsonResponse(request, { rule: normalizeRule(payload, user.id, Boolean(payload.id)) }, 200, requestId);
     }
 
     if (action === "create") {
       const normalized = normalizeRule(payload, user.id, false);
       delete normalized.id;
-
-      const { data, error } = await serviceClient
-        .from("style_trend_rules")
-        .insert(normalized)
-        .select()
-        .single();
-
+      const { data, error } = await serviceClient.from("style_trend_rules").insert(normalized).select().single();
       if (error) throw error;
-      return json({ rule: data }, 201);
+      return jsonResponse(request, { rule: data }, 201, requestId);
     }
 
     if (action === "update") {
-      if (!payload?.id) return safeError("Rule id is required for update.");
+      if (!payload.id) throw new SafeHttpError(400, "rule_id_required", "Rule id is required for update.");
       const normalized = normalizeRule(payload, user.id, true);
       const id = String(normalized.id);
       delete normalized.id;
-
-      const { data, error } = await serviceClient
-        .from("style_trend_rules")
-        .update(normalized)
-        .eq("id", id)
-        .select()
-        .single();
-
+      const { data, error } = await serviceClient.from("style_trend_rules").update(normalized).eq("id", id).select().single();
       if (error) throw error;
-      return json({ rule: data });
+      return jsonResponse(request, { rule: data }, 200, requestId);
     }
 
     if (action === "enable" || action === "disable") {
-      if (!payload?.id) return safeError("Rule id is required.");
-
-      const { data, error } = await serviceClient
-        .from("style_trend_rules")
-        .update({
-          is_active: action === "enable",
-          updated_by: user.id,
-        })
-        .eq("id", String(payload.id))
-        .select()
-        .single();
-
+      if (!payload.id) throw new SafeHttpError(400, "rule_id_required", "Rule id is required.");
+      const { data, error } = await serviceClient.from("style_trend_rules").update({
+        is_active: action === "enable",
+        updated_by: user.id,
+      }).eq("id", String(payload.id)).select().single();
       if (error) throw error;
-      return json({ rule: data });
+      return jsonResponse(request, { rule: data }, 200, requestId);
     }
 
-    if (action === "import") {
-      if (!Array.isArray(payload?.rules)) {
-        return safeError("Import payload must contain a rules array.");
-      }
-
-      if (payload.rules.length === 0 || payload.rules.length > 100) {
-        return safeError("Import between 1 and 100 rules at a time.");
-      }
-
-      const normalizedRules = payload.rules.map((rule) =>
-        normalizeRule(rule, user.id, Boolean(rule?.id))
-      );
-
-      const { data, error } = await serviceClient
-        .from("style_trend_rules")
-        .upsert(normalizedRules, { onConflict: "slug" })
-        .select();
-
-      if (error) throw error;
-      return json({ rules: data || [], importedCount: data?.length || 0 });
+    const rules = Array.isArray(payload.rules) ? payload.rules : [];
+    if (rules.length === 0 || rules.length > 100) {
+      throw new SafeHttpError(400, "invalid_import_count", "Import between 1 and 100 rules at a time.");
     }
-
-    return safeError("Unsupported trend action.");
+    const normalizedRules = rules.map((rule) => normalizeRule(rule, user.id, Boolean((rule as Record<string, unknown>)?.id)));
+    const slugs = normalizedRules.map((rule) => String(rule.slug));
+    if (new Set(slugs).size !== slugs.length) {
+      throw new SafeHttpError(400, "duplicate_rules", "The import contains duplicate trend slugs.");
+    }
+    const { data, error } = await serviceClient.from("style_trend_rules").upsert(normalizedRules, { onConflict: "slug" }).select();
+    if (error) throw error;
+    return jsonResponse(request, { rules: data || [], importedCount: data?.length || 0 }, 200, requestId);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Trend administration failed.";
-    const status = /Authentication|enabled for this account|verified/.test(message) ? 403 : 400;
-    console.error("sync-style-trends error:", { message });
-    return safeError(message, status === 403 ? "forbidden" : "invalid_request", status);
+    logSecurityEvent("warn", "trend_admin_request_rejected", {
+      requestId,
+      code: error instanceof SafeHttpError ? error.code : "trend_admin_error",
+    });
+    return safeErrorResponse(request, error, requestId);
   }
 });

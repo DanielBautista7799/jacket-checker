@@ -4,13 +4,16 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ProfileProvider } from "./context/ProfileContext";
 import { AnalyticsProvider } from "./context/AnalyticsContext";
+import { NetworkStatusProvider } from "./context/NetworkStatusContext";
 import { RecommendationLearningProvider } from "./context/RecommendationLearningContext";
 import { StyleTrendProvider } from "./context/StyleTrendContext";
 import { WardrobeProvider } from "./context/WardrobeContext";
 import { WeatherProvider } from "./context/WeatherContext";
 
 import AppHeader from "./components/AppHeader";
+import OfflineBanner from "./components/OfflineBanner";
 import ProtectedRoute from "./components/ProtectedRoute";
+import RouteErrorBoundary from "./components/RouteErrorBoundary";
 import AppErrorBoundary from "./components/ui/AppErrorBoundary";
 import LoadingState from "./components/ui/LoadingState";
 import RouteAnnouncer from "./components/ui/RouteAnnouncer";
@@ -37,9 +40,14 @@ function ProtectedPage({ children }) {
   return <ProtectedRoute>{children}</ProtectedRoute>;
 }
 
+function SafeRoute({ children }) {
+  return <RouteErrorBoundary>{children}</RouteErrorBoundary>;
+}
+
 function AppShell() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-950 text-white">
+      <OfflineBanner />
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <RouteAnnouncer />
 
@@ -51,7 +59,6 @@ function AppShell() {
 
       <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
         <AppHeader />
-
         <main
           id="main-content"
           tabIndex={-1}
@@ -60,24 +67,24 @@ function AppShell() {
           <AppErrorBoundary>
             <Suspense fallback={<PageFallback />}>
               <Routes>
-                <Route path="/" element={<GuestPage />} />
-                <Route path="/auth" element={<AuthPage />} />
-                <Route path="/profile" element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
-                <Route path="/wardrobe" element={<ProtectedPage><WardrobePage /></ProtectedPage>} />
+                <Route path="/" element={<SafeRoute><GuestPage /></SafeRoute>} />
+                <Route path="/auth" element={<SafeRoute><AuthPage /></SafeRoute>} />
+                <Route path="/profile" element={<ProtectedPage><SafeRoute><ProfilePage /></SafeRoute></ProtectedPage>} />
+                <Route path="/wardrobe" element={<ProtectedPage><SafeRoute><WardrobePage /></SafeRoute></ProtectedPage>} />
                 <Route path="/closet" element={<Navigate to="/wardrobe" replace />} />
-                <Route path="/history" element={<ProtectedPage><HistoryPage /></ProtectedPage>} />
-                <Route path="/app" element={<ProtectedPage><PersonalizedPage /></ProtectedPage>} />
+                <Route path="/history" element={<ProtectedPage><SafeRoute><HistoryPage /></SafeRoute></ProtectedPage>} />
+                <Route path="/app" element={<ProtectedPage><SafeRoute><PersonalizedPage /></SafeRoute></ProtectedPage>} />
                 <Route
                   path="/dev/scoring"
-                  element={developerScoringEnabled ? <ProtectedPage><DeveloperScoringPage /></ProtectedPage> : <Navigate to="/" replace />}
+                  element={developerScoringEnabled ? <ProtectedPage><SafeRoute><DeveloperScoringPage /></SafeRoute></ProtectedPage> : <Navigate to="/" replace />}
                 />
                 <Route
                   path="/dev/trends"
-                  element={developerTrendsEnabled ? <ProtectedPage><DeveloperTrendsPage /></ProtectedPage> : <Navigate to="/" replace />}
+                  element={developerTrendsEnabled ? <ProtectedPage><SafeRoute><DeveloperTrendsPage /></SafeRoute></ProtectedPage> : <Navigate to="/" replace />}
                 />
                 <Route
                   path="/dev/analytics"
-                  element={developerAnalyticsEnabled ? <ProtectedPage><DeveloperAnalyticsPage /></ProtectedPage> : <Navigate to="/" replace />}
+                  element={developerAnalyticsEnabled ? <ProtectedPage><SafeRoute><DeveloperAnalyticsPage /></SafeRoute></ProtectedPage> : <Navigate to="/" replace />}
                 />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
@@ -92,21 +99,23 @@ function AppShell() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <ProfileProvider>
-          <AnalyticsProvider>
-            <WeatherProvider>
-              <StyleTrendProvider>
-                <WardrobeProvider>
-                  <RecommendationLearningProvider>
-                    <AppShell />
-                  </RecommendationLearningProvider>
-                </WardrobeProvider>
-              </StyleTrendProvider>
-            </WeatherProvider>
-          </AnalyticsProvider>
-        </ProfileProvider>
-      </AuthProvider>
+      <NetworkStatusProvider>
+        <AuthProvider>
+          <ProfileProvider>
+            <AnalyticsProvider>
+              <WeatherProvider>
+                <StyleTrendProvider>
+                  <WardrobeProvider>
+                    <RecommendationLearningProvider>
+                      <AppShell />
+                    </RecommendationLearningProvider>
+                  </WardrobeProvider>
+                </StyleTrendProvider>
+              </WeatherProvider>
+            </AnalyticsProvider>
+          </ProfileProvider>
+        </AuthProvider>
+      </NetworkStatusProvider>
     </BrowserRouter>
   );
 }

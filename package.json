@@ -11,7 +11,17 @@
     "test:recommendations": "node scripts/run-recommendation-scenarios.mjs",
     "test:phase10": "node scripts/run-phase10-tests.mjs",
     "test:phase11": "node scripts/run-phase11-tests.mjs",
-    "test:phase12": "node scripts/test-phase12.mjs"
+    "test:phase12": "node scripts/test-phase12.mjs",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:security": "npm run security:secrets && npm run security:env && npm run security:audit && npm run security:schema && npm run security:functions",
+    "security:secrets": "node scripts/audit-secrets.mjs",
+    "security:env": "node scripts/audit-client-env.mjs",
+    "security:audit": "node scripts/audit-project-security.mjs",
+    "security:schema": "node scripts/test-supabase-schema.mjs",
+    "security:functions": "node scripts/test-edge-function-contracts.mjs",
+    "test:all": "npm run lint && npm run test:recommendations && npm run test:phase10 && npm run test:phase11 && npm run test:phase12 && npm run test:phase13 && npm run test:unit && npm run test:security && npm run build",
+    "test:phase13": "node scripts/test-phase13.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
@@ -31,6 +41,16 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "@playwright/test": "^1.52.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.4",
+    "esbuild": "^0.28.1"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1"
   }
 }

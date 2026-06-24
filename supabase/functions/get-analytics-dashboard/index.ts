@@ -1,79 +1,52 @@
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json",
-};
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: corsHeaders });
-}
-
-function parseCsv(value: string | undefined) {
-  return new Set(String(value || "").split(",").map((entry) => entry.trim().toLowerCase()).filter(Boolean));
-}
-
-async function requireDeveloper(request: Request) {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) throw new Error("Supabase server configuration is incomplete.");
-
-  const authorization = request.headers.get("Authorization") || "";
-  if (!authorization.startsWith("Bearer ")) throw new Error("Authentication is required.");
-  const token = authorization.slice("Bearer ".length);
-  const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } });
-  const { data, error } = await authClient.auth.getUser(token);
-  if (error || !data.user) throw new Error("The authenticated user could not be verified.");
-
-  const allowedIds = new Set([...parseCsv(Deno.env.get("DEVELOPER_USER_IDS")), ...parseCsv(Deno.env.get("TREND_ADMIN_USER_IDS"))]);
-  const allowedEmails = new Set([...parseCsv(Deno.env.get("DEVELOPER_EMAILS")), ...parseCsv(Deno.env.get("TREND_ADMIN_EMAILS"))]);
-  if (!allowedIds.has(data.user.id.toLowerCase()) && !allowedEmails.has(String(data.user.email || "").toLowerCase())) {
-    throw new Error("Developer analytics are not enabled for this account.");
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
-}
+import { createServiceClient } from "../_shared/security/auth.ts";
+import { requireDeveloper } from "../_shared/security/adminAccess.ts";
+import { handleCorsPreflight, isOriginAllowed } from "../_shared/security/cors.ts";
+import { enforceRateLimit } from "../_shared/security/rateLimit.ts";
+import { getRequestId } from "../_shared/security/requestId.ts";
+import { jsonResponse, safeErrorResponse, SafeHttpError } from "../_shared/security/safeError.ts";
+import { readJsonBody } from "../_shared/security/validateJsonBody.ts";
 
 function percent(part: number, total: number) {
   return total > 0 ? Math.round((part / total) * 100) : 0;
 }
 
-Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (request.method !== "POST") return json({ error: { code: "method_not_allowed", message: "POST is required." } }, 405);
+Deno.serve(async (request: Request) => {
+  const preflight = handleCorsPreflight(request);
+  if (preflight) return preflight;
+  const requestId = getRequestId(request);
 
   try {
-    const service = await requireDeveloper(request);
-    const body = await request.json().catch(() => ({}));
-    const days = Math.min(90, Math.max(1, Math.round(Number(body?.days) || 7)));
+    if (!isOriginAllowed(request)) throw new SafeHttpError(403, "origin_not_allowed", "This request origin is not allowed.");
+    if (request.method !== "POST") throw new SafeHttpError(405, "method_not_allowed", "POST is required.");
+
+    const { user } = await requireDeveloper(request);
+    await enforceRateLimit({ request, functionName: "get-analytics-dashboard", userId: user.id, limit: 120, windowSeconds: 3600 });
+    const body = await readJsonBody<Record<string, unknown>>(request, 16 * 1024);
+    const days = Math.min(90, Math.max(1, Math.round(Number(body.days) || 7)));
     let fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     let toDate = new Date();
 
-    if (body?.from && body?.to) {
+    if (body.from && body.to) {
       fromDate = new Date(String(body.from));
       toDate = new Date(String(body.to));
       toDate.setUTCHours(23, 59, 59, 999);
       if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime()) || fromDate > toDate) {
-        throw new Error("The custom analytics date range is invalid.");
+        throw new SafeHttpError(400, "invalid_date_range", "The custom analytics date range is invalid.");
       }
       if (toDate.getTime() - fromDate.getTime() > 90 * 24 * 60 * 60 * 1000) {
-        throw new Error("Analytics date ranges cannot exceed 90 days.");
+        throw new SafeHttpError(400, "date_range_too_large", "Analytics date ranges cannot exceed 90 days.");
       }
     }
 
-    const from = fromDate.toISOString();
-    const to = toDate.toISOString();
+    const service = createServiceClient();
     const { data, error } = await service
       .from("analytics_events")
       .select("event_name, experience_mode, success, duration_ms, metadata, created_at")
-      .gte("created_at", from)
-      .lte("created_at", to)
+      .gte("created_at", fromDate.toISOString())
+      .lte("created_at", toDate.toISOString())
       .order("created_at", { ascending: true })
       .limit(20000);
-    if (error) throw error;
+    if (error) throw new SafeHttpError(503, "analytics_query_failed", "Analytics could not be loaded.");
 
     const events = data || [];
     const completed = events.filter((event) => ["guest_check_completed", "personalized_check_completed"].includes(event.event_name));
@@ -83,21 +56,20 @@ Deno.serve(async (request) => {
     const aiFailed = events.filter((event) => event.event_name === "jacket_ai_analysis_failed").length;
     const positiveFeedback = events.filter((event) => event.event_name === "jacket_feedback_submitted" && ["fire", "good"].includes(String(event.metadata?.feedback_type || ""))).length;
     const allFeedback = events.filter((event) => event.event_name === "jacket_feedback_submitted").length;
-
     const count = (name: string) => events.filter((event) => event.event_name === name).length;
+
     const outcomes = [
       { label: "YES", value: completed.filter((event) => event.metadata?.decision === "YES").length },
       { label: "NO", value: completed.filter((event) => event.metadata?.decision === "NO").length },
       { label: "Failed", value: failed.length },
     ];
-    const featureNames = [
+    const features = [
       ["AI analyses", "jacket_ai_analysis_completed"],
       ["Alternate jackets", "alternate_jacket_selected"],
       ["Duplicate warnings", "duplicate_warning_shown"],
       ["Similar jackets", "similar_jackets_opened"],
       ["Trend feedback", "trend_feedback_submitted"],
-    ];
-    const features = featureNames.map(([label, name]) => ({ label, value: count(name) }));
+    ].map(([label, name]) => ({ label, value: count(name) }));
     const feedback = ["fire", "good", "not_it"].map((rating) => ({
       label: rating === "not_it" ? "Not It" : `${rating[0].toUpperCase()}${rating.slice(1)}`,
       value: events.filter((event) => event.event_name === "jacket_feedback_submitted" && event.metadata?.feedback_type === rating).length,
@@ -134,7 +106,7 @@ Deno.serve(async (request) => {
       errorMap.set(code, previous);
     }
 
-    return json({ dashboard: {
+    return jsonResponse(request, { dashboard: {
       overview: {
         total_events: events.length,
         total_checks: completed.length + failed.length,
@@ -148,10 +120,8 @@ Deno.serve(async (request) => {
       feedback,
       daily,
       errors: [...errorMap.values()].sort((a, b) => b.count - a.count).slice(0, 12),
-    } });
+    } }, 200, requestId);
   } catch (error) {
-    console.error("Analytics dashboard request rejected:", { message: error instanceof Error ? error.message : "Unknown error" });
-    const message = error instanceof Error ? error.message : "Analytics dashboard request failed.";
-    return json({ error: { code: message.includes("enabled") ? "forbidden" : "dashboard_error", message } }, message.includes("enabled") ? 403 : 400);
+    return safeErrorResponse(request, error, requestId);
   }
 });
