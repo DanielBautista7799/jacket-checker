@@ -1,22 +1,55 @@
 import { AlertCircle, CheckCircle2, Info, TriangleAlert } from "lucide-react";
 
-const styles = {
-  info: { icon: Info, className: "border-sky-400/25 bg-sky-400/10 text-sky-100" },
-  success: { icon: CheckCircle2, className: "border-emerald-400/25 bg-emerald-400/10 text-emerald-100" },
-  warning: { icon: TriangleAlert, className: "border-amber-400/25 bg-amber-400/10 text-amber-100" },
-  error: { icon: AlertCircle, className: "border-red-400/25 bg-red-400/10 text-red-100" },
+const tones = {
+  error: {
+    container: "border-rose-400/25 bg-rose-950/30 text-rose-100",
+    icon: AlertCircle,
+    iconClass: "text-rose-300",
+  },
+  success: {
+    container: "border-emerald-400/25 bg-emerald-950/25 text-emerald-100",
+    icon: CheckCircle2,
+    iconClass: "text-emerald-300",
+  },
+  warning: {
+    container: "border-amber-400/25 bg-amber-950/25 text-amber-100",
+    icon: TriangleAlert,
+    iconClass: "text-amber-300",
+  },
+  info: {
+    container: "border-sky-400/25 bg-sky-950/25 text-sky-100",
+    icon: Info,
+    iconClass: "text-sky-300",
+  },
 };
 
-export default function Alert({ tone = "info", title, children, className = "", role }) {
-  const config = styles[tone] || styles.info;
-  const Icon = config.icon;
+export default function Alert({
+  tone = "info",
+  title = "",
+  children,
+  className = "",
+}) {
+  const selected = tones[tone] || tones.info;
+  const Icon = selected.icon;
+  const liveRole = tone === "error" ? "alert" : "status";
+
   return (
-    <div role={role || (tone === "error" ? "alert" : "status")} className={`rounded-2xl border p-4 ${config.className} ${className}`}>
-      <div className="flex gap-3">
-        <Icon size={19} className="mt-0.5 shrink-0" aria-hidden="true" />
-        <div>
-          {title && <p className="font-black">{title}</p>}
-          <div className={`${title ? "mt-1" : ""} text-sm leading-6`}>{children}</div>
+    <div
+      role={liveRole}
+      aria-live={tone === "error" ? "assertive" : "polite"}
+      className={`rounded-2xl border p-4 ${selected.container} ${className}`}
+    >
+      <div className="flex items-start gap-3">
+        <Icon
+          size={19}
+          className={`mt-0.5 shrink-0 ${selected.iconClass}`}
+          aria-hidden="true"
+        />
+        <div className="min-w-0 flex-1">
+          {title && <p className="font-black text-white">{title}</p>}
+          <div className={`${title ? "mt-1" : ""} text-sm leading-6`}>
+            {children}
+          </div>
         </div>
       </div>
     </div>

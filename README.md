@@ -4,9 +4,29 @@ A weather intelligence and personal wardrobe recommendation application that ans
 
 > Should I wear a jacket for the place and time window I care about?
 
-The application combines real-time weather, hourly forecast trends, location data, user comfort preferences, personal style preferences, private closet inventory, AI-assisted clothing analysis, recommendation history, and explicit user feedback.
+The application combines live weather, hourly forecast trends, location data, user comfort preferences, personal style preferences, a private jacket wardrobe, AI-assisted jacket analysis, visual similarity, recommendation history, explicit user feedback, curated style-trend guidance, privacy-safe analytics, and production security controls.
 
-The goal is to keep the user experience simple while the recommendation logic remains explainable and personalized under the hood.
+The goal is to keep the user experience simple while the recommendation logic remains explainable, secure, and personalized under the hood.
+
+---
+
+# Project Status
+
+- Product implementation: complete through Phase 13
+- Phase 14 predeployment setup: implemented and being validated locally
+- Deployment status: pending
+- Planned frontend host: Netlify
+- Backend, authentication, database, storage, and Edge Functions: Supabase
+- Final live production verification: not run yet
+- Phase 15 portfolio polish: not started
+
+Phase 14 deployment is intentionally the last step. The project should not be described as live until the production URL, live Edge Functions, database checks, Storage checks, and production smoke tests have all been completed.
+
+The live-results document remains marked `NOT RUN` until deployment:
+
+```text
+docs/PHASE14_LIVE_TEST_RESULTS.md
+```
 
 ---
 
@@ -19,7 +39,7 @@ The application has two intentionally separate experiences:
 
 Guest Mode is fast and low-friction.
 
-Personalized Mode uses saved profile information, owned jackets, style preferences, recommendation history, and feedback learning.
+Personalized Mode uses saved profile information, owned jackets, style preferences, forecast context, recommendation history, learned feedback, visual similarity, and curated style-trend rules.
 
 ---
 
@@ -33,7 +53,7 @@ Guest Mode does not require an account.
 2. Select a forecast window
 3. Press **Check Jacket**
 4. Receive a YES or NO recommendation
-5. Review a short forecast-aware explanation
+5. Review a concise forecast-aware explanation
 
 ## Guest Location Options
 
@@ -72,9 +92,9 @@ The result includes:
 
 A NO result stays intentionally minimal.
 
-It does not display full jacket rankings or detailed closet-style recommendations.
+It does not display jacket rankings, profile diagnostics, or detailed wardrobe-style recommendations.
 
-It may still say that an optional light layer, hoodie, windbreaker, or rain shell could be useful if forecast conditions justify it.
+It may still say that an optional light layer, hoodie, windbreaker, or rain shell could be useful when rain, wind, or a temperature drop justifies it.
 
 ### YES behavior
 
@@ -103,16 +123,21 @@ It combines:
 - Saved default location
 - Alternate location selection
 - Browser current location
-- Personal jacket closet
-- Private jacket images
+- Private owned-jacket wardrobe
+- Multiple private images per jacket
 - AI-assisted jacket analysis
+- Manual analysis fallback
 - User-confirmed metadata
-- Forecast-aware closet ranking
-- Top-three owned jacket matches
-- Rule-based outfit styling
+- Forecast-aware owned-jacket ranking
+- Up to three ranked jacket matches
+- Visual similarity and duplicate warnings
+- Rule-based style suggestions
+- Curated style-trend guidance
 - Fire / Good / Not It feedback
 - Recommendation history
-- Learned item preference scores
+- Context-aware preference learning
+- Privacy-safe analytics controls
+- Secure account deletion
 - Shared application caching
 
 A recommendation is not generated automatically when the page loads.
@@ -131,15 +156,16 @@ Run Personalized Check
 2. Complete the comfort and style profile
 3. Save a default location
 4. Add jackets manually or with AI assistance
-5. Review and correct AI-generated metadata
-6. Save the jacket to the private closet
-7. Choose a location
-8. Choose a forecast window
-9. Run a personalized check
-10. Receive a YES or NO decision
-11. Review the top owned-jacket matches when the result is YES
-12. Submit Fire, Good, or Not It feedback
-13. Review previous recommendations in History
+5. Upload one or more private jacket images
+6. Review and correct AI-generated metadata
+7. Save the jacket to the private wardrobe
+8. Choose a location
+9. Choose a forecast window
+10. Run a personalized check
+11. Receive a YES or NO decision
+12. Review the best owned jacket and alternatives when the result is YES
+13. Submit Fire, Good, or Not It feedback
+14. Review previous recommendations in History
 
 ---
 
@@ -153,7 +179,7 @@ The user can still:
 - Use browser current location
 - Return to the saved default location
 
-This allows the application to work when the user is traveling or away from their normal location.
+This allows the application to work when the user is traveling or away from the normal location.
 
 Changing the location clears the previous recommendation.
 
@@ -176,7 +202,7 @@ Changing the forecast window also clears the previous recommendation.
 - Usual time outside
 - Default location
 
-## Style Fields
+## Style and Privacy Fields
 
 - Style preference
 - Fit preference
@@ -184,6 +210,9 @@ Changing the forecast window also clears the previous recommendation.
 - Favorite shoes
 - Default bottoms
 - Style influence
+- Style-trend opt-in
+- Trend influence level
+- Anonymous analytics preference
 
 Example style preferences include:
 
@@ -196,45 +225,50 @@ Example style preferences include:
 - Skater
 - Outdoor
 
-Example style influences include:
-
-- American streetwear
-- Korean casual
-- Japanese minimal
-- European clean
-- Skater
-- Outdoor
-- Athletic
-- Techwear
-
 The project uses **style influence** rather than nationality because style preference is not determined by nationality.
+
+Trend influence can be disabled, subtle, or balanced. Trend rules are curated internally and do not scrape live social-media feeds.
 
 ---
 
-# Personal Closet
+# Personal Jacket Wardrobe
 
-Authenticated users can maintain a private jacket closet.
+Authenticated users can maintain a private wardrobe of owned jackets.
 
-## Current Closet Features
+The broader data model preserves some legacy non-jacket records, but the active MVP is jacket-only. New unsupported non-jacket records are blocked, and recommendation ranking considers only active jacket records.
 
-- Add jacket manually
-- Upload a private jacket image
+## Current Jacket Features
+
+- Add a jacket manually
+- Upload multiple private jacket images
 - Analyze an image with AI
+- Choose an available AI provider
+- Fall back to manual entry
 - Review AI suggestions before saving
 - Correct AI-generated fields
-- Edit existing closet items
+- Edit existing jackets
+- Archive and restore jackets
+- Mark favorites
+- Set a primary image
+- Reorder images
 - Replace an existing image
-- Delete closet items
+- Delete images
+- Delete jackets
 - View private signed images
+- Generate jacket embeddings
+- Detect likely duplicates
+- View similar owned jackets
 - Use saved jackets in recommendations
 
 ## Current Jacket Metadata
 
 - Name
 - Category
-- Type
+- Subtype
 - Primary color
 - Secondary color
+- Materials
+- Fit
 - Warmth rating
 - Rain protection rating
 - Wind protection rating
@@ -242,44 +276,52 @@ Authenticated users can maintain a private jacket closet.
 - Style tags
 - Weather-use tags
 - Description
+- Favorite state
+- Archive state
+- AI provider and model
 - AI confidence
 - Original AI result
 - User-confirmed values
 - Recommendation preference score
 - Times recommended
-- Image storage path
+- Stable image storage paths
+- Embedding status and source hash
 - Created and updated timestamps
 
 ---
 
 # AI-Assisted Jacket Analysis
 
-The application uses a Supabase Edge Function to send jacket images to Gemini.
+The application uses a Supabase Edge Function to analyze jacket images server-side.
 
-The Gemini API key is stored as a Supabase Edge Function secret:
+The provider architecture supports:
+
+- Gemini
+- Optional OpenAI
+- Manual entry fallback
+
+Provider keys are stored as Supabase Edge Function secrets and are never exposed to the React frontend.
+
+Examples of server-side secret names include:
 
 ```text
 GEMINI_API_KEY
+OPENAI_API_KEY
 ```
 
-The key is read server-side:
-
-```ts
-Deno.env.get("GEMINI_API_KEY")
-```
-
-The key is never exposed to the React frontend.
+Only secrets for configured providers are required.
 
 ## AI Flow
 
 1. User selects an image
-2. Frontend converts the image to Base64
-3. Frontend calls the Supabase Edge Function
-4. Edge Function sends the image to Gemini
-5. Gemini returns structured jacket metadata
-6. Edge Function validates and normalizes the response
-7. User reviews and corrects the result
-8. Confirmed values are saved
+2. Frontend validates the image
+3. Frontend converts the image to Base64 for analysis
+4. Frontend calls the `analyze-wardrobe-item` Edge Function
+5. The Edge Function authenticates the caller
+6. The selected provider returns structured jacket metadata
+7. Shared validation and normalization sanitize the result
+8. The user reviews and corrects the result
+9. Confirmed values are saved
 
 ## AI Output
 
@@ -287,9 +329,11 @@ The normalized analysis can include:
 
 - Name
 - Category
-- Jacket type
+- Jacket subtype
 - Primary color
 - Secondary color
+- Materials
+- Fit
 - Warmth rating
 - Rain rating
 - Wind rating
@@ -301,22 +345,54 @@ The normalized analysis can include:
 
 ## AI Reliability
 
-The Edge Function now handles:
+The provider layer handles:
 
-- Temporary Gemini overload
+- Temporary provider overload
 - Retryable 429 and 5xx responses
+- Timeouts
 - Incomplete JSON
 - Markdown-wrapped JSON
 - Invalid model output
 - Missing candidates
+- Provider-specific errors
 - Manual-entry fallback
 - Input validation
 - Image type validation
 - Image-size limits
+- Safe client-facing error messages
 
 AI analysis is optional.
 
-The core closet and recommendation systems work without it.
+The core wardrobe and recommendation systems continue to work without it.
+
+---
+
+# Visual Intelligence
+
+Jacket embeddings add private visual and descriptive similarity features.
+
+The embedding system stores metadata such as:
+
+- Provider
+- Model
+- Dimensions
+- Source hash
+- Status
+- Attempt count
+- Generated timestamp
+- Safe error message
+
+Visual intelligence supports:
+
+- Duplicate warnings before saving
+- Similar-owned-jacket results
+- Embedding backfill
+- Stale embedding detection
+- Provider configuration checks
+- Nonblocking failure behavior
+- Near-duplicate diversity adjustments in recommendation alternatives
+
+Embedding failure never blocks jacket creation or the main weather recommendation.
 
 ---
 
@@ -329,13 +405,14 @@ The recommendation engine evaluates the selected forecast window rather than onl
 - Feels-like temperature
 - Current temperature
 - Hourly forecast
-- Daily high and low
+- Forecast low and high
 - Rain probability
+- Precipitation condition
 - Wind speed
 - Maximum projected wind
 - Temperature drop
 - Selected forecast window
-- Current weather condition
+- Forecast coverage
 
 ## Personalized Factors
 
@@ -346,14 +423,17 @@ The recommendation engine evaluates the selected forecast window rather than onl
 - Usual time outside
 - Saved style preference
 - Preferred color
+- Favorite jacket state
 - Jacket warmth rating
 - Jacket rain rating
 - Jacket wind rating
-- Jacket formality rating
 - Jacket style tags
+- Weather-protection deficiencies
 - Overkill penalty
 - Previous feedback
-- Per-item recommendation score
+- Context-specific learning
+- Recent recommendation rotation
+- Visual near-duplicate adjustment
 
 ## Internal Output
 
@@ -367,10 +447,12 @@ The engine produces:
 6. Forecast alerts
 7. Optional backup-layer suggestions
 8. Weather-needs profile
-9. Ranked closet matches
-10. Style suggestion
+9. Ranked jacket matches
+10. Confidence summary
+11. Style suggestion
+12. Sanitized developer diagnostics
 
-Internal scores remain hidden from normal users.
+Internal scores and diagnostic details remain hidden from normal users.
 
 ---
 
@@ -380,7 +462,7 @@ Internal scores remain hidden from normal users.
 
 When the final decision is NO:
 
-- Full closet rankings are hidden
+- Full jacket rankings are hidden
 - Jacket detail cards are hidden
 - Feedback controls are hidden
 - A small optional layer may appear
@@ -392,44 +474,52 @@ When the final decision is NO:
 When the final decision is YES:
 
 - The best owned jacket is selected
-- Up to three ranked closet matches are shown
+- Up to three ranked jacket matches are shown
 - The user can select an alternate ranked jacket
 - The selected jacket image is displayed
 - Match reasoning is displayed
 - A style suggestion is displayed
+- Trend guidance may be displayed when enabled
 - Feedback controls are available
 
 ---
 
-# Closet Ranking
+# Jacket Ranking
 
-The closet-ranking system compares weather needs with each owned jacket.
+The jacket-ranking system compares forecast needs with each eligible owned jacket.
 
 Example need profile:
 
 ```js
 {
   warmthNeeded: 3,
-  rainProtectionNeeded: 4,
-  windProtectionNeeded: 2,
-  formalityNeeded: 1
+  rainNeeded: 4,
+  windNeeded: 2
 }
 ```
 
-Each jacket can receive scores for:
+Each jacket can receive adjustments for:
 
 - Warmth match
 - Rain match
 - Wind match
+- Weather-safety level
 - Style match
 - Color match
-- Learned preference boost
-- Previous recommendation score
+- Favorite bonus
+- Stored preference score
+- Context-specific feedback learning
+- Exploration bonus
+- Recent-use penalty
 - Overkill penalty
+- Protection-deficit penalty
+- Near-duplicate diversity penalty
 
-The engine ranks all valid jackets and returns the strongest matches.
+The engine ranks valid jackets and returns the strongest matches.
 
-A jacket that is too heavy can rank lower than a lighter jacket even when it offers more total protection.
+A jacket that is too heavy can rank lower than a lighter jacket even when it offers more total protection. A jacket with inadequate rain or wind protection cannot outrank a safer option only because of style preference.
+
+Archived jackets, explicitly excluded jackets, invalid records, and non-jacket records do not participate in ranking.
 
 ---
 
@@ -444,43 +534,47 @@ The user can:
 - See the selected jacket image
 - Review match reasons
 - Submit feedback on the active option
+- Open similar-jacket information
 
-If fewer than three jackets are available, the interface displays only the available matches.
+If fewer than three eligible jackets are available, the interface displays only the available matches.
 
 ---
 
-# Style Suggestions
+# Style Suggestions and Trends
 
-The application currently uses a local rule-based style library.
+The application uses a local rule-based style library plus curated internal trend rules.
 
-The selected jacket is combined with the user profile to suggest:
+The selected jacket can be combined with the user profile to suggest:
 
-- Top or base layer
-- Bottoms
-- Shoes
-- Optional accessory
-- Color note
-- Reason for the outfit
+- Top or base layer direction
+- Bottoms direction
+- Shoes direction
+- Color strategy
+- Fit direction
+- Weather note
+- Optional trend note
 
-Rule-based outfit generation is used because it is:
+Rule-based guidance is used because it is:
 
 - Reliable
 - Explainable
 - Fast
-- Easy to debug
+- Easy to test
 - Independent of external AI availability
+- Restricted to broad styling guidance rather than claiming the user owns exact pieces
 
-Example:
+Trend rules are filtered by:
 
-```text
-Style It
+- Selected style
+- Season
+- Forecast climate tags
+- Jacket subtype
+- Jacket color family
+- Fit
+- Materials
+- Previous trend feedback
 
-Grey hoodie
-Black cargos
-Jordan 1s
-```
-
-The style section is shown only in Personalized Mode.
+Trend guidance is jacket-focused. It does not include shopping links, prices, retailer recommendations, affiliate links, or live external trend scraping.
 
 ---
 
@@ -505,12 +599,13 @@ Not It: -1
 - Running a recommendation does not automatically alter preference scores
 - A score changes only when feedback is submitted
 - Changing an existing rating applies only the score difference
-- Scores are not capped
-- Not It immediately reduces the current jacket score
 - Not It removes the current jacket from the active result
-- The next-ranked jacket becomes active
+- The next-ranked jacket becomes active when available
+- Learning can consider jacket, subtype, color, style tags, weather context, and forecast window
+- Recent recommendations may receive a rotation penalty
 - Feedback remains connected to recommendation history
 - Internal scores remain hidden
+- Learned preferences can be reset without deleting jackets or history
 
 Example:
 
@@ -534,7 +629,8 @@ History stores:
 - Summary
 - Forecast window
 - Weather snapshot
-- Outfit snapshot
+- Style snapshot
+- Learning context
 - Created timestamp
 - Associated feedback
 
@@ -543,9 +639,45 @@ Users can delete a history entry.
 Deleting a history entry:
 
 - Removes the recommendation record
-- Removes associated feedback
-- Reverses the feedback score from the jacket
+- Removes associated feedback through database relationships
 - Updates shared state immediately
+- Rebuilds the preference model from the remaining data
+
+---
+
+# Privacy-Safe Analytics
+
+The application includes first-party product analytics with an allowlisted event catalog.
+
+Analytics can measure:
+
+- Guest and personalized page use
+- Weather-check success or failure
+- Wardrobe actions
+- AI-analysis outcomes
+- Embedding outcomes
+- Feedback actions
+- History actions
+- Cache behavior
+- Safe error categories
+- Developer dashboard use
+
+Analytics metadata is sanitized before submission.
+
+The system blocks or omits:
+
+- Email addresses
+- Passwords or tokens
+- Authorization headers
+- Exact coordinates
+- Raw city search text
+- Image paths and signed URLs
+- AI prompts and raw provider responses
+- Embedding vectors
+- Stack traces
+- Private free-form location data
+
+Guest analytics use an anonymous session UUID. Authenticated analytics are user-scoped. Analytics failure never blocks the core recommendation flow.
 
 ---
 
@@ -556,40 +688,50 @@ The application uses shared React context providers instead of separate page-lev
 ## Providers
 
 ```text
+NetworkStatusContext
 AuthContext
-WeatherContext
 ProfileContext
-ClosetContext
+AnalyticsContext
+WeatherContext
+StyleTrendContext
+WardrobeContext
 RecommendationLearningContext
 ```
 
 ## Cached Data
 
+- Authentication session state
 - Profile
-- Closet items
+- Wardrobe items
+- Wardrobe images
 - Signed image URLs
+- Embedding metadata
 - Recommendation history
 - Feedback
+- Style-trend rules and feedback
 - Weather responses
+- Analytics queue and anonymous session state
 
 ## Cache Behavior
 
-- Cached content appears immediately
+- Cached content can appear immediately
 - Background refresh retrieves current Supabase data
 - Multiple pages share one live state
 - Duplicate requests are deduplicated
-- Add/edit/delete actions update the shared cache
+- Add, edit, archive, restore, and delete actions update shared state
 - Feedback updates are reflected across pages
 - Signed image URLs are refreshed
-- Stale recommendation images are synchronized with current closet state
+- Broken signed images can retry or fall back safely
+- Cache state is cleared on sign-out and account deletion
 
 ## Storage Choices
 
-- Profile, closet, and learning data use local browser storage
-- Weather responses use short-lived session caching
-- Signed URLs use in-memory TTL caching
-- Stable image paths are saved in the database
-- Expiring signed URLs are not stored as permanent database values
+- Stable database records store object paths, not signed URLs
+- Weather responses use short-lived caching
+- Signed URLs use in-memory caching and refresh
+- Anonymous analytics session IDs use session storage
+- User-facing preferences may use browser storage where appropriate
+- Expiring signed URLs are never stored as permanent database values
 
 ---
 
@@ -599,67 +741,99 @@ The application uses Supabase email/password authentication.
 
 ## Current Security Features
 
+- One shared Supabase browser client
 - Protected routes
+- Timeout-safe session restoration
+- Expired-session recovery
+- Cache clearing on sign-out
 - Row Level Security
 - User-scoped profile rows
-- User-scoped closet rows
+- User-scoped wardrobe rows
+- User-scoped image rows
 - User-scoped feedback rows
 - User-scoped recommendation history
+- User-scoped embedding rows
 - Private Storage bucket
 - User-scoped Storage paths
 - Temporary signed image URLs
 - Edge Function secret storage
-- Environment files excluded from Git
 - Service-role key excluded from frontend
-- Gemini key excluded from frontend
+- Weather and AI keys excluded from frontend
+- Shared Edge Function CORS and preflight handling
+- `x-application-name` CORS compatibility
+- HTTP method restrictions
+- JSON body-size validation
+- Request IDs
+- Sanitized errors
+- Security headers
+- Safe security logging
+- Hashed server-side rate limiting
+- Server-side developer authorization
+- No production stack traces
 
 ## Private Image Path
 
-```text
-closet-images/<user-id>/<random-file-name>
-```
-
-## Frontend Environment Variables
-
-Current frontend environment variables:
-
-```env
-VITE_WEATHER_API_KEY=YOUR_WEATHERAPI_KEY
-VITE_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
-VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-```
-
-`VITE_SUPABASE_URL` and the Supabase anon/publishable key are designed for browser use.
-
-`VITE_WEATHER_API_KEY` is still browser-visible and is the next architecture/security task.
-
-## Server-Side Secret
+Images use generated UUID filenames under user- and jacket-scoped paths:
 
 ```text
-GEMINI_API_KEY
+closet-images/<user-id>/<jacket-id>/<generated-uuid>.<extension>
 ```
 
-The WeatherAPI key will later move to:
+Uploaded filenames are not used as permanent Storage object names.
 
-```text
-WEATHER_API_KEY
-```
+## Secure Account Deletion
 
-inside Supabase secrets.
+The Profile page contains a separate danger-zone workflow.
+
+The deletion flow:
+
+1. Authenticates the caller
+2. Requires the exact phrase `DELETE MY ACCOUNT`
+3. Uses the authenticated token as the deletion target
+4. Deletes private jacket images
+5. Hard-deletes the Supabase Auth account
+6. Allows database cascades to remove account-owned rows
+7. Clears client caches
+8. Signs the browser out
+
+The client never submits a selectable target user ID.
 
 ---
 
-# Location System
+# Frontend Environment Variables
 
-The application currently supports:
+The frontend uses only browser-safe Supabase values:
+
+```env
+VITE_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
+VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_OR_PUBLISHABLE_KEY
+```
+
+Do not place any of the following in a `VITE_` variable:
+
+- Weather provider keys
+- Gemini keys
+- OpenAI keys
+- Supabase service-role keys
+- Database passwords
+- Developer allowlists
+- Rate-limit salts
+
+Weather, AI, analytics administration, account deletion, and other protected operations run through Supabase Edge Functions.
+
+---
+
+# Location and Weather System
+
+The application supports:
 
 ## Manual Search
 
-WeatherAPI location autocomplete returns exact location options.
+The `get-weather` Edge Function performs server-side location autocomplete and returns exact location options.
 
 ## Browser Geolocation
 
-The browser Geolocation API retrieves coordinates.
+The browser Geolocation API retrieves coordinates after permission is granted. Coordinates are sent to the weather function for the requested forecast and are not included in analytics metadata.
 
 ## Default Personalized Location
 
@@ -667,107 +841,233 @@ The saved profile location is preselected in Personalized Mode.
 
 The user can still choose another location without modifying the saved default.
 
+## Server-Side Weather Secret
+
+The weather provider key is stored as a Supabase secret:
+
+```text
+WEATHER_API_KEY
+```
+
+The weather key is no longer required in the browser environment.
+
 ---
 
 # Current Architecture
 
 ```text
 src/
+├── assets/
 ├── components/
+│   ├── AccountPanel.jsx
 │   ├── AppHeader.jsx
 │   ├── AuthPanel.jsx
 │   ├── CheckResultCard.jsx
-│   ├── ClosetItemCard.jsx
-│   ├── ClosetItemForm.jsx
+│   ├── DeleteAccountPanel.jsx
 │   ├── JacketForm.jsx
 │   ├── LocationSearch.jsx
 │   ├── PersonalizedJacketCheck.jsx
 │   ├── ProfileForm.jsx
 │   ├── ProtectedRoute.jsx
+│   ├── RecommendationCard.jsx
 │   ├── RecommendationFeedback.jsx
-│   ├── TimeWindowSelect.jsx
-│   └── ...
-│
+│   ├── SimilarJacketsPanel.jsx
+│   ├── WardrobeImage.jsx
+│   ├── WardrobeItemCard.jsx
+│   ├── WardrobeItemForm.jsx
+│   ├── WeatherCard.jsx
+│   └── ui/
+│       ├── Alert.jsx
+│       ├── AppErrorBoundary.jsx
+│       ├── Button.jsx
+│       ├── Card.jsx
+│       ├── ErrorState.jsx
+│       ├── LoadingState.jsx
+│       └── ...
+├── config/
+│   ├── aiConfig.js
+│   ├── analyticsConfig.js
+│   ├── recommendationConfig.js
+│   ├── trendConfig.js
+│   ├── uploadSecurityConfig.js
+│   └── visualIntelligenceConfig.js
 ├── context/
+│   ├── AnalyticsContext.jsx
 │   ├── AuthContext.jsx
-│   ├── ClosetContext.jsx
+│   ├── NetworkStatusContext.jsx
 │   ├── ProfileContext.jsx
 │   ├── RecommendationLearningContext.jsx
+│   ├── StyleTrendContext.jsx
+│   ├── WardrobeContext.jsx
 │   └── WeatherContext.jsx
-│
 ├── data/
-│   └── styleLibrary.js
-│
+│   ├── defaultTrendRules.js
+│   ├── recommendationTestScenarios.js
+│   ├── styleLibrary.js
+│   ├── styleSuggestionLibrary.js
+│   └── wardrobeOptions.js
 ├── hooks/
+│   ├── useAccountDeletion.js
+│   ├── useAnalytics.js
 │   ├── useAuth.js
 │   ├── useBrowserLocation.js
-│   ├── useClosetImageAnalysis.js
-│   ├── useClosetItems.js
+│   ├── useJacketEmbeddings.js
+│   ├── useJacketSimilarity.js
 │   ├── useLocationSearch.js
+│   ├── useNetworkStatus.js
 │   ├── useProfile.js
 │   ├── useRecommendationLearning.js
+│   ├── useStyleTrends.js
+│   ├── useWardrobeImageAnalysis.js
+│   ├── useWardrobeImages.js
+│   ├── useWardrobeItems.js
 │   └── useWeather.js
-│
 ├── lib/
 │   └── supabaseClient.js
-│
 ├── pages/
 │   ├── AuthPage.jsx
-│   ├── ClosetPage.jsx
+│   ├── DeveloperAnalyticsPage.jsx
+│   ├── DeveloperScoringPage.jsx
+│   ├── DeveloperTrendsPage.jsx
 │   ├── GuestPage.jsx
 │   ├── HistoryPage.jsx
 │   ├── PersonalizedPage.jsx
-│   └── ProfilePage.jsx
-│
+│   ├── ProfilePage.jsx
+│   └── WardrobePage.jsx
+├── styles/
+│   ├── tokens.css
+│   └── utilities.css
 ├── utils/
+│   ├── analyticsEvents.js
 │   ├── analyzeForecast.js
+│   ├── applyTrendRules.js
 │   ├── buildPreferenceModel.js
+│   ├── buildRecommendationDiagnostics.js
 │   ├── calculateJacketScore.js
 │   ├── calculatePersonalizedRecommendation.js
-│   ├── calculateProfileModifier.js
 │   ├── generateStyleSuggestion.js
-│   ├── mapScoreToRecommendation.js
-│   ├── normalizeClosetAnalysis.js
+│   ├── jacketEmbeddingApi.js
 │   ├── rankClosetItems.js
-│   ├── timeWindows.js
-│   └── uploadClosetImage.js
-│
+│   ├── sanitizeAnalyticsPayload.js
+│   ├── validateJacketImageFile.js
+│   ├── wardrobeImageStorage.js
+│   └── ...
 ├── App.jsx
+├── index.css
 └── main.jsx
 
 supabase/
 ├── config.toml
-└── functions/
-    ├── deno.json
-    └── analyze-closet-item/
-        └── index.ts
+├── functions/
+│   ├── _shared/
+│   │   ├── ai/
+│   │   └── security/
+│   ├── analyze-closet-item/
+│   ├── analyze-wardrobe-item/
+│   ├── delete-account/
+│   ├── generate-jacket-embedding/
+│   ├── get-analytics-dashboard/
+│   ├── get-weather/
+│   ├── sync-style-trends/
+│   └── track-analytics/
+├── migrations/
+└── verification/
 ```
+
+---
+
+# Application Routes
+
+## Public
+
+```text
+/
+/auth
+```
+
+## Protected
+
+```text
+/app
+/profile
+/wardrobe
+/history
+```
+
+`/closet` redirects to `/wardrobe` for compatibility.
+
+## Developer Routes
+
+```text
+/dev/scoring
+/dev/trends
+/dev/analytics
+```
+
+Developer routes are hidden from normal production navigation and require both an enabled frontend flag and server-side authorization for protected data operations.
 
 ---
 
 # Current Database Areas
 
-The application currently uses Supabase data for:
+The application uses Supabase data for:
 
 ## Profiles
 
-Stores comfort, style, and default-location preferences.
+Stores comfort, style, trend, analytics, and default-location preferences.
 
-## Closet Items
+## Wardrobe Items
 
-Stores user-owned jacket metadata and stable private image paths.
+Stores owned jacket metadata and stable private image relationships.
+
+## Wardrobe Images
+
+Stores private image object paths, ordering, and primary-image state.
+
+## Recommendation History
+
+Stores decisions, selected jackets, weather snapshots, style snapshots, learning context, and time windows.
 
 ## Style Feedback
 
 Stores Fire, Good, or Not It ratings associated with recommendation history.
 
-## Recommendation History
+## Jacket Embeddings
 
-Stores decisions, selected jackets, weather snapshots, outfit snapshots, and time windows.
+Stores user-isolated embedding vectors and generation metadata.
+
+## Style Trend Rules and Feedback
+
+Stores curated trend rules and user feedback used to adjust rule selection.
+
+## Privacy-Safe Analytics
+
+Stores allowlisted events and safe aggregate data for the developer dashboard.
+
+## Edge Rate Limits
+
+Stores only hashed rate-limit scopes and time buckets. Raw IP addresses are not persisted.
 
 ## Storage
 
 The private `closet-images` bucket stores uploaded jacket images.
+
+---
+
+# Active Supabase Edge Functions
+
+```text
+get-weather
+analyze-closet-item
+analyze-wardrobe-item
+generate-jacket-embedding
+sync-style-trends
+track-analytics
+get-analytics-dashboard
+delete-account
+```
+
+All active functions use shared security modules for CORS, request IDs, method restrictions, input validation, authentication where required, sanitized errors, security headers, rate limiting, and safe logging.
 
 ---
 
@@ -783,6 +1083,9 @@ Current build optimizations include:
 - Separate React bundle
 - Separate Supabase bundle
 - Separate icon bundle
+- Production asset hashing
+- Long-lived immutable asset caching
+- SPA route fallback for Netlify
 
 Build command:
 
@@ -796,102 +1099,124 @@ Development command:
 npm run dev
 ```
 
-The project currently builds successfully.
+Preview command:
 
----
-
-# Current Completed Features
-
-- React and Vite setup
-- Tailwind CSS
-- Lucide React
-- React Router
-- Guest Mode
-- Personalized Mode
-- Separate authenticated and guest experiences
-- WeatherAPI current weather
-- Two-day forecast
-- Hourly forecast processing
-- Location autocomplete
-- Browser geolocation
-- Coordinate-based weather lookup
-- Four forecast windows
-- Forecast-aware YES / NO logic
-- Rain-aware recommendations
-- Wind-aware recommendations
-- Temperature-drop detection
-- Optional backup layers
-- Minimal NO results
-- Full YES results
-- Comfort profile
-- Style profile
-- Default location
-- Alternate personalized locations
-- Supabase authentication
-- Protected routes
-- Profile persistence
-- Private closet database
-- Manual jacket creation
-- Jacket editing
-- Image replacement
-- Jacket deletion
-- Private image uploads
-- Signed image URLs
-- Signed image URL caching
-- AI-assisted jacket analysis
-- Structured Gemini output
-- AI normalization
-- AI retry handling
-- Manual AI fallback
-- User-confirmed AI values
-- Closet ranking
-- Weather-needs calculation
-- Overkill penalties
-- Top-three owned jacket recommendations
-- Selected-jacket image display
-- Rule-based outfit generation
-- Fire / Good / Not It feedback
-- Delta-only feedback changes
-- Immediate Not It fallback
-- Recommendation history
-- History deletion
-- Feedback score reversal
-- Shared profile cache
-- Shared closet cache
-- Shared feedback/history cache
-- Weather cache
-- Background refresh
-- Request deduplication
-- No automatic personalized recommendation on load
-- Route-level code splitting
-- Environment files excluded from Git
-- Gemini secret stored server-side
-
----
-
-# Current Known Limitation
-
-The WeatherAPI key is still used as:
-
-```env
-VITE_WEATHER_API_KEY
+```bash
+npm run preview
 ```
 
-This means it is visible to the browser.
+---
 
-The next architecture task is to move forecast and location-search requests behind Supabase Edge Functions and store:
+# Testing and Quality Assurance
+
+The repository includes:
+
+- Recommendation regression scenarios
+- Phase 10 provider checks
+- Phase 11 trend checks
+- Phase 12 analytics and accessibility checks
+- Phase 13 security and reliability checks
+- Phase 14 production-readiness checks
+- Vitest unit and component tests
+- Playwright desktop and mobile tests
+- Production smoke-test configuration
+- Secret scanning
+- Client-environment auditing
+- Project security auditing
+- Supabase schema checks
+- Recursive Edge Function contract checks
+- Production configuration validation
+- Production bundle validation
+
+## Main Commands
+
+```bash
+npm run lint
+npm run test:recommendations
+npm run test:phase10
+npm run test:phase11
+npm run test:phase12
+npm run test:phase13
+npm run test:phase14
+npm run test:unit
+npm run test:security
+npm run test:e2e
+npm run test:all
+npm run test:production-config
+npm run test:production-config:strict
+npm run test:production-build
+npm run test:predeploy
+npm run test:production-smoke
+```
+
+Install the Chromium browser once before local Playwright testing:
+
+```bash
+npx playwright install chromium
+```
+
+## Phase 14 Predeployment Gate
+
+```bash
+npm run test:predeploy
+```
+
+This gate runs the full local validation sequence before deployment.
+
+Deployment remains pending until the predeployment gate, manual checklist, production environment setup, live SQL checks, and production smoke tests are complete.
+
+---
+
+# Production Readiness Files
+
+Phase 14 adds or maintains:
 
 ```text
-WEATHER_API_KEY
+.nvmrc
+.env.example
+netlify.toml
+public/_headers
+public/_redirects
+playwright.production.config.js
+scripts/verify-production-config.mjs
+scripts/check-production-build.mjs
+scripts/test-phase14.mjs
+tests/e2e/production-smoke.spec.js
+supabase/verification/phase14_production_verify.sql
+docs/CURRENT_STATE_AUDIT.md
+docs/ARCHITECTURE.md
+docs/PRODUCTION_ENVIRONMENT.md
+docs/DEPLOYMENT.md
+docs/PRODUCTION_TEST_CHECKLIST.md
+docs/SECURITY_OVERVIEW.md
+docs/INCIDENT_RESPONSE.md
+docs/KNOWN_LIMITATIONS.md
+docs/PHASE14_LIVE_TEST_RESULTS.md
 ```
 
-as a Supabase secret.
-
-This change should preserve the current weather response shape and all recommendation behavior.
+Node 22 is pinned in `.nvmrc` for local and Netlify consistency.
 
 ---
 
 # Local Setup
+
+## Requirements
+
+- Node.js 20.19 or newer
+- Node.js 22 recommended and pinned by `.nvmrc`
+- npm
+- A configured Supabase project
+- Supabase CLI for database and Edge Function work
+- Docker only when serving Supabase locally
+
+## Select the Pinned Node Version
+
+With `nvm` installed:
+
+```bash
+nvm install
+nvm use
+```
 
 ## Install
 
@@ -907,12 +1232,11 @@ Create:
 .env
 ```
 
-Current variables:
+Use only browser-safe values:
 
 ```env
-VITE_WEATHER_API_KEY=YOUR_WEATHERAPI_KEY
 VITE_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
-VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_OR_PUBLISHABLE_KEY
 ```
 
 Do not commit `.env`.
@@ -937,27 +1261,85 @@ npm run build
 
 ---
 
-# Edge Function Setup
+# Supabase Secret Setup
 
-## Gemini Secret
+The exact required secret set depends on the enabled providers and developer-access configuration.
+
+Common production secrets include:
+
+```text
+ALLOWED_ORIGINS
+RATE_LIMIT_SALT
+WEATHER_API_KEY
+GEMINI_API_KEY
+OPENAI_API_KEY
+```
+
+Developer authorization secrets used by `adminAccess.ts` must also be configured without exposing their values in the repository.
+
+Example commands:
 
 ```bash
+npx supabase secrets set ALLOWED_ORIGINS=https://YOUR_DEPLOYED_DOMAIN
+npx supabase secrets set RATE_LIMIT_SALT="$(openssl rand -hex 32)"
+npx supabase secrets set WEATHER_API_KEY=YOUR_REAL_KEY
 npx supabase secrets set GEMINI_API_KEY=YOUR_REAL_KEY
 ```
 
-## Deploy Jacket Analysis
+Only set `OPENAI_API_KEY` when the OpenAI provider is enabled.
 
-```bash
-npx supabase functions deploy analyze-closet-item
-```
-
-## Confirm Secrets
+Confirm secret names without exposing full values:
 
 ```bash
 npx supabase secrets list
 ```
 
-This should display secret names without exposing their full values.
+---
+
+# Edge Function Deployment
+
+Deployment is intentionally postponed until the Phase 14 predeployment gate passes.
+
+The final deployment sequence will include all active functions:
+
+```bash
+npx supabase functions deploy get-weather
+npx supabase functions deploy analyze-closet-item
+npx supabase functions deploy analyze-wardrobe-item
+npx supabase functions deploy generate-jacket-embedding
+npx supabase functions deploy sync-style-trends
+npx supabase functions deploy track-analytics
+npx supabase functions deploy get-analytics-dashboard
+npx supabase functions deploy delete-account
+```
+
+Do not treat this list as proof that deployment has already occurred.
+
+---
+
+# Production Security Headers
+
+The Netlify publish output includes:
+
+- Content Security Policy
+- Frame blocking
+- MIME-sniffing protection
+- Referrer Policy
+- Permissions Policy
+- HSTS
+- Immutable caching for generated assets
+
+The source file is:
+
+```text
+public/_headers
+```
+
+React deep-link support is configured through:
+
+```text
+public/_redirects
+```
 
 ---
 
@@ -983,16 +1365,152 @@ Confirm only `.env.example` is tracked:
 git ls-files | grep -E '(^|/)\.env($|\.)'
 ```
 
-Scan staged files:
+Run the project security checks:
 
 ```bash
-git grep --cached -n -I -E \
-'GEMINI_API_KEY|SERVICE_ROLE|service_role|SUPABASE_SECRET|DATABASE_URL|DB_PASSWORD|PRIVATE_KEY|BEGIN RSA|ghp_|github_pat_|sk-[A-Za-z0-9]|AIza[A-Za-z0-9_-]+'
+npm run test:security
 ```
 
 Environment variable names are safe.
 
 Actual secret values are not.
+
+---
+
+# Current Completed Features
+
+- React and Vite setup
+- Tailwind CSS
+- Lucide React
+- React Router
+- Guest Mode
+- Personalized Mode
+- Separate authenticated and guest experiences
+- Server-side weather access
+- Two-day forecast processing
+- Hourly forecast processing
+- Location autocomplete
+- Browser geolocation
+- Coordinate-based weather lookup
+- Four forecast windows
+- Forecast-aware YES / NO logic
+- Rain protection overrides
+- Wind protection overrides
+- Temperature-drop detection
+- Optional backup layers
+- Minimal NO results
+- Full YES results
+- Comfort profile
+- Style profile
+- Trend and analytics preferences
+- Default location
+- Alternate personalized locations
+- Supabase authentication
+- Protected routes
+- Profile persistence
+- Private jacket wardrobe
+- Manual jacket creation
+- Jacket editing
+- Jacket archiving and restoration
+- Favorite jackets
+- Multiple jacket images
+- Primary-image selection
+- Image reordering and replacement
+- Private image uploads
+- Signed image URLs
+- Signed image URL caching and retry
+- AI-assisted jacket analysis
+- Provider registry
+- Gemini provider
+- Optional OpenAI provider
+- Manual fallback
+- Structured AI output
+- AI normalization and schema validation
+- AI retry handling
+- User-confirmed AI values
+- Jacket embeddings
+- Similarity matching
+- Duplicate warnings
+- Embedding backfill
+- Forecast-aware jacket ranking
+- Weather-needs calculation
+- Safety tiers
+- Overkill penalties
+- Protection-deficit penalties
+- Near-duplicate diversity adjustments
+- Top-three owned jacket recommendations
+- Selected-jacket image display
+- Rule-based style suggestions
+- Curated style-trend rules
+- Trend feedback
+- Fire / Good / Not It feedback
+- Delta-only feedback changes
+- Immediate Not It fallback
+- Context-aware learning
+- Recent-use rotation
+- Recommendation history
+- History deletion
+- Shared profile cache
+- Shared wardrobe cache
+- Shared feedback/history cache
+- Weather cache
+- Background refresh
+- Request deduplication
+- Privacy-safe analytics
+- Developer analytics dashboard
+- Developer scoring diagnostics
+- Developer trend diagnostics
+- Secure account deletion
+- Offline detection
+- Accessible offline banner
+- Route-level error boundaries
+- Safe client errors
+- No automatic personalized recommendation on load
+- Route-level code splitting
+- Environment files excluded from Git
+- Server secrets excluded from frontend
+- Hashed rate limiting
+- Security headers
+- Automated security audits
+- Phase 10–14 validation scripts
+- Unit and component tests
+- Desktop and mobile Playwright coverage
+- Production configuration and build checks
+
+---
+
+# Current Known Limitations
+
+- Recommendations depend on weather-provider accuracy
+- Browser location requires permission
+- AI jacket analysis can be wrong and should be reviewed
+- Manual entry remains necessary when providers are unavailable
+- Style suggestions are broad guidance and do not know the user’s complete outfit inventory
+- Style trends are internally curated rather than live-scraped
+- Guest history is not persisted
+- Visual similarity depends on successful embedding generation
+- Production deployment and live validation are still pending
+- The current recommendation inventory remains jacket-only
+
+---
+
+# Future Enhancements
+
+The following are intentionally outside the finished jacket MVP:
+
+- Full wardrobe recommendation inventory for tops, bottoms, shoes, and accessories
+- Full outfit generation from owned wardrobe pieces
+- Multiple generated outfit alternatives
+- Automatic background removal
+- External live trend ingestion
+- Shopping recommendations
+- Retailer links
+- Product pricing
+- Affiliate links
+- Expanded analytics dashboards
+- Additional provider experimentation
+
+These items are not required to call the current Jacket Checker MVP complete.
 
 ---
 

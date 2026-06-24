@@ -15,6 +15,39 @@ import { buildRecommendationDiagnostics } from "../src/utils/buildRecommendation
 
 const tests = [];
 
+
+function hasForbiddenKey(value, forbiddenKeys) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((entry) => hasForbiddenKey(entry, forbiddenKeys));
+  }
+
+  return Object.entries(value).some(([key, entry]) =>
+    forbiddenKeys.has(key) || hasForbiddenKey(entry, forbiddenKeys)
+  );
+}
+
+function containsStringValue(value, searchText) {
+  if (typeof value === "string") {
+    return value.includes(searchText);
+  }
+
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsStringValue(entry, searchText));
+  }
+
+  return Object.values(value).some((entry) =>
+    containsStringValue(entry, searchText)
+  );
+}
+
 function test(name, run) {
   tests.push({ name, run });
 }
@@ -185,12 +218,27 @@ test("diagnostic JSON includes visual metadata but excludes raw vectors and priv
     ranking,
   });
 
-  const serialized = JSON.stringify(diagnostics);
+  const forbiddenKeys = new Set([
+    "embedding",
+    "vector",
+    "image_url",
+    "imageUrl",
+    "signed_url",
+    "signedUrl",
+    "source_hash",
+    "sourceHash",
+  ]);
+
   assert.match(diagnostics.schemaVersion, /^phase1[01]-v1$/);
   assert.equal(diagnostics.visualIntelligence.statusCounts.ready, 1);
-  assert.equal(serialized.includes("0.1"), false);
-  assert.equal(serialized.includes("signed-image"), false);
-  assert.equal(serialized.includes("abcdef"), false);
+  assert.equal(
+    diagnostics.jacketRanking.selectedJacket.visualIntelligence
+      .sourceHashPresent,
+    true
+  );
+  assert.equal(hasForbiddenKey(diagnostics, forbiddenKeys), false);
+  assert.equal(containsStringValue(diagnostics, "signed-image"), false);
+  assert.equal(containsStringValue(diagnostics, "abcdef"), false);
 });
 
 test("migration contains pgvector, RLS, HNSW, lifecycle triggers, and authenticated RPCs", () => {

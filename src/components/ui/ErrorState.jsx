@@ -1,13 +1,39 @@
 import { AlertTriangle } from "lucide-react";
 import Button from "./Button";
 
-export default function ErrorState({ title = "Something went wrong", message, onRetry }) {
+export default function ErrorState({
+  title = "Something went wrong",
+  message = "The request could not be completed.",
+  onRetry,
+  retryLabel = "Try again",
+  className = "",
+}) {
   return (
-    <div role="alert" className="rounded-3xl border border-red-400/25 bg-red-400/10 p-6 text-center text-red-100">
-      <AlertTriangle size={28} className="mx-auto" aria-hidden="true" />
-      <h2 className="mt-3 text-lg font-black">{title}</h2>
-      {message && <p className="mt-2 text-sm leading-6 text-red-100/80">{message}</p>}
-      {onRetry && <Button type="button" variant="secondary" className="mt-4" onClick={onRetry}>Try again</Button>}
-    </div>
+    <section
+      role="alert"
+      aria-labelledby="error-state-title"
+      className={`rounded-3xl border border-rose-400/25 bg-rose-950/30 p-6 ${className}`}
+    >
+      <div className="flex items-start gap-4">
+        <div className="rounded-2xl bg-rose-500/10 p-3 text-rose-300">
+          <AlertTriangle size={24} aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 id="error-state-title" className="text-xl font-black text-white">
+            {title}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-rose-100/80">
+            {message}
+          </p>
+          {onRetry && (
+            <div className="mt-5">
+              <Button type="button" variant="secondary" onClick={onRetry}>
+                {retryLabel}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

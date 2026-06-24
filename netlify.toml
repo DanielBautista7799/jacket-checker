@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NPM_FLAGS = "--no-audit --no-fund"
+
+[context.production.environment]
+  VITE_ENABLE_DEV_SCORING = "false"
+  VITE_ENABLE_DEV_TRENDS = "false"
+  VITE_ENABLE_DEV_ANALYTICS = "false"
