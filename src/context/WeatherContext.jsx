@@ -7,6 +7,8 @@ import {
 } from "react";
 
 import { supabase } from "../lib/supabaseClient";
+import useAnalytics from "../hooks/useAnalytics";
+import { getSafeErrorCode } from "../utils/analyticsEvents";
 
 export const WeatherContext =
   createContext(null);
@@ -324,6 +326,7 @@ async function requestWeather(
 export function WeatherProvider({
   children,
 }) {
+  const { track } = useAnalytics();
   const [
     weather,
     setWeather,
@@ -377,6 +380,7 @@ export function WeatherProvider({
           !force &&
           cached
         ) {
+          track("weather_cache_hit", { metadata: { background_refresh: background } });
           setWeather(
             cached.weather
           );
@@ -386,6 +390,10 @@ export function WeatherProvider({
           if (!background) {
             return cached.weather;
           }
+        }
+
+        if (!cached) {
+          track("weather_cache_miss", { metadata: { forced: force } });
         }
 
         if (
@@ -431,6 +439,11 @@ export function WeatherProvider({
             requestError
           );
 
+          track("edge_function_error", {
+            success: false,
+            metadata: { operation: "weather", error_code: getSafeErrorCode(requestError) },
+          });
+
           if (
             activeLocationKeyRef.current ===
             locationKey
@@ -466,7 +479,7 @@ export function WeatherProvider({
           }
         }
       },
-      []
+      [track]
     );
 
   const clearWeather =

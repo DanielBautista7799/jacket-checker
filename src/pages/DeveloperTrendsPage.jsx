@@ -197,12 +197,12 @@ export default function DeveloperTrendsPage() {
   const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
   return (
-    <section className="space-y-6">
+    <section className="page-enter space-y-6" aria-labelledby="developer-trends-title">
       <div className="rounded-3xl border border-violet-400/20 bg-violet-400/10 p-5">
         <p className="text-sm font-black uppercase tracking-[0.2em] text-violet-200">Developer-only trends</p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight text-white">Trend rule studio</h1>
+        <h1 id="developer-trends-title" className="mt-2 text-4xl font-black tracking-tight text-white">Trend rule studio</h1>
         <p className="mt-3 max-w-3xl leading-7 text-slate-300">
-          Manage seasonal style language without scraping, shopping, prices, brands, or external links. Current source: {trendSource}.
+          Manage seasonal style language with validated, time-bound rules. Current source: {trendSource}.
         </p>
       </div>
 

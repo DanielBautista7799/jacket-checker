@@ -11,6 +11,8 @@ import {
   normalizeJacketSimilarityMatches,
 } from "../utils/jacketSimilarity";
 import { needsEmbeddingGeneration } from "../utils/jacketEmbeddingStatus";
+import useAnalytics from "./useAnalytics";
+import { createOperationTimer, getSafeErrorCode } from "../utils/analyticsEvents";
 
 async function runWithConcurrency(items, worker, concurrency) {
   const queue = [...items];
@@ -34,6 +36,7 @@ async function runWithConcurrency(items, worker, concurrency) {
 }
 
 function useJacketEmbeddings() {
+  const { track } = useAnalytics();
   const {
     wardrobeItems,
     fetchWardrobeItems,
@@ -94,6 +97,7 @@ function useJacketEmbeddings() {
         return null;
       }
 
+      const finishTimer = createOperationTimer();
       setLoading(jacketId, true);
       if (!silent) {
         setEmbeddingError("");
@@ -102,8 +106,10 @@ function useJacketEmbeddings() {
       try {
         const result = await requestJacketEmbedding(jacketId, { force });
         await fetchWardrobeItems({ force: true, silent: true });
+        track("jacket_embedding_completed", { experienceMode: "personalized", durationMs: finishTimer(), metadata: { forced: force, embedding_status: result?.status || "ready" } });
         return result;
       } catch (error) {
+        track("jacket_embedding_failed", { experienceMode: "personalized", success: false, durationMs: finishTimer(), metadata: { forced: force, error_code: getSafeErrorCode(error) } });
         if (!silent) {
           setEmbeddingError(
             error.message || "Could not prepare jacket similarity."
@@ -114,7 +120,7 @@ function useJacketEmbeddings() {
         setLoading(jacketId, false);
       }
     },
-    [fetchWardrobeItems, setLoading]
+    [fetchWardrobeItems, setLoading, track]
   );
 
   const previewDuplicates = useCallback(

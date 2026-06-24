@@ -3,8 +3,10 @@ import { useCallback, useState } from "react";
 import useWardrobeItems from "./useWardrobeItems";
 import { requestJacketSimilarity } from "../utils/jacketEmbeddingApi";
 import { normalizeJacketSimilarityMatches } from "../utils/jacketSimilarity";
+import useAnalytics from "./useAnalytics";
 
 function useJacketSimilarity(jacketId, { enabled = false } = {}) {
+  const { track } = useAnalytics();
   const { wardrobeItems } = useWardrobeItems();
   const [matches, setMatches] = useState([]);
   const [similarityLoading, setSimilarityLoading] = useState(false);
@@ -28,6 +30,7 @@ function useJacketSimilarity(jacketId, { enabled = false } = {}) {
       );
       setMatches(normalized);
       setEmbeddingStatus(result.status || null);
+      track("similar_jackets_opened", { experienceMode: "personalized", metadata: { result_count: normalized.length, embedding_status: result.status || "unknown" } });
       return normalized;
     } catch (error) {
       setMatches([]);
@@ -38,7 +41,7 @@ function useJacketSimilarity(jacketId, { enabled = false } = {}) {
     } finally {
       setSimilarityLoading(false);
     }
-  }, [jacketId, wardrobeItems]);
+  }, [jacketId, wardrobeItems, track]);
 
   void enabled;
 

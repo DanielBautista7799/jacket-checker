@@ -83,7 +83,7 @@ function CheckResultCard({
 
   if (!weather && !recommendation) {
     return (
-      <div className="rounded-3xl border border-dashed border-white/10 bg-slate-950/40 p-8 text-center">
+      <div className="rounded-3xl border border-dashed border-white/10 bg-slate-950/40 p-8 text-center" role="status">
         <Shield className="mx-auto text-slate-600" size={42} />
 
         <p className="mt-4 font-semibold text-slate-300">
@@ -95,7 +95,7 @@ function CheckResultCard({
 
   if (weather && !recommendation) {
     return (
-      <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-6">
+      <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-6" role="status" aria-live="polite" aria-busy="true">
         <p className="text-sm text-slate-400">
           Checking forecast...
         </p>
@@ -155,20 +155,21 @@ function CheckResultCard({
   );
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-xl">
+    <article className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl sm:p-6" aria-labelledby="recommendation-decision">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
             {isPersonalized ? "Personalized Check" : "Jacket Check"}
           </p>
 
-          <h3
-            className={`mt-1 text-6xl font-black tracking-tight ${
+          <h2
+            id="recommendation-decision"
+            className={`mt-1 text-5xl sm:text-6xl font-black tracking-tight ${
               isYes ? "text-sky-300" : "text-emerald-300"
             }`}
           >
             {recommendation.decision}
-          </h3>
+          </h2>
         </div>
 
         <div
@@ -246,6 +247,8 @@ function CheckResultCard({
                   key={match.item.id}
                   type="button"
                   onClick={() => onSelectRank?.(originalIndex)}
+                  aria-pressed={active}
+                  aria-label={`Select ${match.item.name} as jacket option ${displayIndex + 1}`}
                   className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
                     active
                       ? "border-purple-400/60 bg-purple-500/20"
@@ -283,6 +286,7 @@ function CheckResultCard({
                     <CheckCircle2
                       className="shrink-0 text-purple-200"
                       size={22}
+                      aria-label="Selected"
                     />
                   )}
                 </button>
@@ -438,53 +442,53 @@ function CheckResultCard({
       )}
 
       {weather && (
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <dl className="grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-2xl bg-white/[0.03] p-4">
-            <div className="mb-2 flex items-center gap-2 text-slate-400">
-              <Thermometer size={16} />
+            <dt className="mb-2 flex items-center gap-2 text-slate-400">
+              <Thermometer size={16} aria-hidden="true" />
               Window feels
-            </div>
+            </dt>
 
-            <p className="text-xl font-black text-white">
+            <dd className="text-xl font-black text-white">
               {Math.round(selectedConditions.feelsLike)}°F
-            </p>
+            </dd>
           </div>
 
           <div className="rounded-2xl bg-white/[0.03] p-4">
-            <div className="mb-2 flex items-center gap-2 text-slate-400">
-              <Wind size={16} />
+            <dt className="mb-2 flex items-center gap-2 text-slate-400">
+              <Wind size={16} aria-hidden="true" />
               Peak wind
-            </div>
+            </dt>
 
-            <p className="text-xl font-black text-white">
+            <dd className="text-xl font-black text-white">
               {Math.round(selectedConditions.windSpeed)} mph
-            </p>
+            </dd>
           </div>
 
           <div className="rounded-2xl bg-white/[0.03] p-4">
-            <div className="mb-2 flex items-center gap-2 text-slate-400">
-              <CloudRain size={16} />
+            <dt className="mb-2 flex items-center gap-2 text-slate-400">
+              <CloudRain size={16} aria-hidden="true" />
               Rain risk
-            </div>
+            </dt>
 
-            <p className="text-xl font-black text-white">
+            <dd className="text-xl font-black text-white">
               {Math.round(selectedConditions.rainChance)}%
-            </p>
+            </dd>
           </div>
 
           <div className="rounded-2xl bg-white/[0.03] p-4">
-            <div className="mb-2 flex items-center gap-2 text-slate-400">
-              <MapPin size={16} />
+            <dt className="mb-2 flex items-center gap-2 text-slate-400">
+              <MapPin size={16} aria-hidden="true" />
               Location
-            </div>
+            </dt>
 
-            <p className="truncate text-sm font-bold text-white">
+            <dd className="truncate text-sm font-bold text-white">
               {weather.city}
-            </p>
+            </dd>
           </div>
-        </div>
+        </dl>
       )}
-    </div>
+    </article>
   );
 }
 

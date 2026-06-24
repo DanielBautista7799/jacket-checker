@@ -871,6 +871,7 @@ function WardrobeItemFormInner({
   return (
     <form
       onSubmit={handleSubmit}
+      aria-labelledby="jacket-form-title"
       className="h-fit rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-xl"
     >
       <div className="mb-6 flex items-center gap-3">
@@ -883,7 +884,7 @@ function WardrobeItemFormInner({
             {isEditing ? "Edit Item" : "Add Item"}
           </p>
 
-          <h2 className="text-2xl font-black text-white">
+          <h2 id="jacket-form-title" className="text-2xl font-black text-white">
             {isEditing ? editingItem.name : "Build your jacket closet"}
           </h2>
         </div>
@@ -906,12 +907,12 @@ function WardrobeItemFormInner({
         className="hidden"
       />
 
-      <section className="mb-6 rounded-3xl border border-white/10 bg-white/[0.025] p-4">
+      <section aria-labelledby="jacket-images-title" className="mb-6 rounded-3xl border border-white/10 bg-white/[0.025] p-4">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-white">
               <Images size={19} className="text-sky-300" />
-              <h3 className="font-black">Item images</h3>
+              <h3 id="jacket-images-title" className="font-black">Jacket images</h3>
             </div>
 
             <p className="mt-1 text-sm text-slate-400">
@@ -978,6 +979,7 @@ function WardrobeItemFormInner({
                             <img
                               src={imageUrl}
                               alt={`${editingItem.name} image ${index + 1}`}
+                              loading="lazy"
                               className="h-full w-full object-cover"
                             />
                           ) : (

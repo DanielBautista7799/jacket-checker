@@ -445,3 +445,15 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/sync-style-trends/deno.json"
 entrypoint = "./functions/sync-style-trends/index.ts"
+
+[functions.track-analytics]
+enabled = true
+verify_jwt = false
+import_map = "./functions/track-analytics/deno.json"
+entrypoint = "./functions/track-analytics/index.ts"
+
+[functions.get-analytics-dashboard]
+enabled = true
+verify_jwt = false
+import_map = "./functions/get-analytics-dashboard/deno.json"
+entrypoint = "./functions/get-analytics-dashboard/index.ts"

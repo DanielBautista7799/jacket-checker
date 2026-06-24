@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { normalizeWardrobeAnalysis } from "../utils/normalizeWardrobeAnalysis";
 import { validateWardrobeImage } from "../utils/wardrobeImageStorage";
+import useAnalytics from "./useAnalytics";
+import { createOperationTimer } from "../utils/analyticsEvents";
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -79,6 +81,7 @@ async function getFunctionError(error) {
 }
 
 function useWardrobeImageAnalysis() {
+  const { track } = useAnalytics();
   const [analysis, setAnalysis] = useState(null);
   const [analysisStatus, setAnalysisStatus] = useState("idle");
   const [analysisError, setAnalysisError] = useState("");
@@ -160,6 +163,7 @@ function useWardrobeImageAnalysis() {
     }
 
     const provider = providerOverride || analysisProvider;
+    const finishTimer = createOperationTimer();
 
     if (provider === "manual") {
       setAnalysis(null);
@@ -173,6 +177,10 @@ function useWardrobeImageAnalysis() {
     setAnalysisError("");
     setAnalysisRetryable(false);
     setAnalysisStatus("analyzing");
+    track("jacket_ai_analysis_started", {
+      experienceMode: "personalized",
+      metadata: { ai_provider: provider, mime_type: file.type || "unknown" },
+    });
 
     try {
       const imageBase64 = await fileToBase64(file);
@@ -217,6 +225,15 @@ function useWardrobeImageAnalysis() {
       setAnalysis(result);
       setAnalysisProviderState(result.provider);
       setAnalysisStatus("success");
+      track("jacket_ai_analysis_completed", {
+        experienceMode: "personalized",
+        durationMs: finishTimer(),
+        metadata: {
+          ai_provider: result.provider || provider,
+          ai_model: result.model || "unknown",
+          jacket_subtype: result.subtype || "unknown",
+        },
+      });
       return result;
     } catch (error) {
       const details = await getFunctionError(error);
@@ -236,6 +253,12 @@ function useWardrobeImageAnalysis() {
       setAnalysisError(details.message);
       setAnalysisRetryable(details.retryable);
       setAnalysisStatus("error");
+      track("jacket_ai_analysis_failed", {
+        experienceMode: "personalized",
+        success: false,
+        durationMs: finishTimer(),
+        metadata: { ai_provider: details.provider || provider, error_code: details.code, retryable: details.retryable },
+      });
       return null;
     }
   };

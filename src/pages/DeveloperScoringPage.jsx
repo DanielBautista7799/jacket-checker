@@ -151,7 +151,7 @@ function DeveloperScoringPage() {
     Number(defaultLocation.lon) === Number(selectedLocation.lon);
 
   return (
-    <section className="space-y-6">
+    <section className="page-enter space-y-6" aria-labelledby="developer-scoring-title">
       <div className="rounded-3xl border border-purple-400/20 bg-purple-400/10 p-5">
         <div className="flex items-start gap-3">
           <Bug size={24} className="mt-1 shrink-0 text-purple-200" />
@@ -159,7 +159,7 @@ function DeveloperScoringPage() {
             <p className="text-sm font-black uppercase tracking-[0.2em] text-purple-200">
               Developer-only diagnostics
             </p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight text-white">
+            <h1 id="developer-scoring-title" className="mt-2 text-4xl font-black tracking-tight text-white">
               Recommendation scoring panel
             </h1>
             <p className="mt-3 max-w-3xl leading-7 text-slate-300">

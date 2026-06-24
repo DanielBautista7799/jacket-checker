@@ -129,7 +129,7 @@ function HistoryCard({
         : "No saved jacket was attached to this recommendation";
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-white/10 bg-slate-950/60">
+    <article aria-labelledby={`history-${entry.id}-title`} className="overflow-hidden rounded-3xl border border-white/10 bg-slate-950/60">
       {shouldShowImage && (
         <div className="relative h-48 w-full bg-slate-900/70">
           {wardrobeLoading ? (
@@ -159,12 +159,13 @@ function HistoryCard({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <Clock size={14} />
+              <Clock size={14} aria-hidden="true" />
               {formatDate(entry.created_at)}
             </div>
 
             <div className="mt-3 flex items-center gap-3">
               <span
+                aria-label={`Decision ${entry.decision}`}
                 className={`text-3xl font-black ${
                   entry.decision === "YES"
                     ? "text-sky-300"
@@ -175,9 +176,9 @@ function HistoryCard({
               </span>
 
               <div className="min-w-0">
-                <p className="truncate font-black text-white">
+                <h3 id={`history-${entry.id}-title`} className="truncate font-black text-white">
                   {wardrobeItem?.name || entry.jacket_name}
-                </p>
+                </h3>
 
                 <p className="text-sm capitalize text-slate-400">
                   {formatLabel(entry.time_window)}
@@ -200,7 +201,7 @@ function HistoryCard({
             className="rounded-xl bg-red-500/10 p-2 text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Delete history entry"
           >
-            <Trash2 size={17} />
+            <Trash2 size={17} aria-hidden="true" />
           </button>
         </div>
 
@@ -213,7 +214,7 @@ function HistoryCard({
         <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
           {weather.city && (
             <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-3 py-2 text-slate-300">
-              <MapPin size={13} />
+              <MapPin size={13} aria-hidden="true" />
               {weather.city}
             </span>
           )}
@@ -228,7 +229,7 @@ function HistoryCard({
           {weather.rainChance !== null &&
             weather.rainChance !== undefined && (
               <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-3 py-2 text-slate-300">
-                <CloudRain size={13} />
+                <CloudRain size={13} aria-hidden="true" />
                 {weather.rainChance}%
               </span>
             )}
@@ -236,7 +237,7 @@ function HistoryCard({
           {weather.windSpeed !== null &&
             weather.windSpeed !== undefined && (
               <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-3 py-2 text-slate-300">
-                <Wind size={13} />
+                <Wind size={13} aria-hidden="true" />
                 {Math.round(weather.windSpeed)} mph
               </span>
             )}
@@ -245,7 +246,7 @@ function HistoryCard({
         {styleIdea && (
           <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
             <div className="flex items-center gap-2 font-bold text-emerald-200">
-              <Sparkles size={16} />
+              <Sparkles size={16} aria-hidden="true" />
               Style idea
             </div>
 

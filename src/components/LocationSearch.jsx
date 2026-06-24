@@ -1,142 +1,123 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { LocateFixed, MapPin, Search } from "lucide-react";
+
 import useLocationSearch from "../hooks/useLocationSearch";
 import useBrowserLocation from "../hooks/useBrowserLocation";
+import useAnalytics from "../hooks/useAnalytics";
+import Alert from "./ui/Alert";
+import Button from "./ui/Button";
+import Input from "./ui/Input";
 
-function LocationSearch({ selectedLocation, onSelectLocation }) {
-const [query, setQuery] = useState("");
+export default function LocationSearch({ selectedLocation, onSelectLocation, analyticsMode = "guest" }) {
+  const [query, setQuery] = useState("");
+  const listId = useId();
+  const { track } = useAnalytics();
+  const { locations, locationLoading, locationError, searchLocations, setLocations } = useLocationSearch();
+  const { geoLoading, geoError, getCurrentLocation } = useBrowserLocation();
 
-const {
-locations,
-locationLoading,
-locationError,
-searchLocations,
-setLocations,
-} = useLocationSearch();
+  const handleChange = (event) => {
+    const value = event.target.value;
+    setQuery(value);
+    onSelectLocation(null);
+    searchLocations(value);
+  };
 
-const { geoLoading, geoError, getCurrentLocation } = useBrowserLocation();
+  const handleSelect = (location) => {
+    onSelectLocation(location);
+    setQuery([location.name, location.region, location.country].filter(Boolean).join(", "));
+    setLocations([]);
+    track(analyticsMode === "guest" ? "guest_location_search" : "personalized_location_search", {
+      experienceMode: analyticsMode,
+      metadata: { location_source: "search", result_selected: true },
+    });
+  };
 
-const handleChange = (e) => {
-const value = e.target.value;
-setQuery(value);
-onSelectLocation(null);
-searchLocations(value);
-};
+  const handleUseCurrentLocation = async () => {
+    const browserLocation = await getCurrentLocation();
+    if (!browserLocation) return;
+    onSelectLocation(browserLocation);
+    setQuery("Current Location");
+    setLocations([]);
+    track(analyticsMode === "guest" ? "guest_browser_location" : "personalized_browser_location", {
+      experienceMode: analyticsMode,
+      metadata: { location_source: "browser" },
+    });
+  };
 
-const handleSelect = (location) => {
-onSelectLocation(location);
-setQuery(`${location.name}, ${location.region}, ${location.country}`);
-setLocations([]);
-};
-
-const handleUseCurrentLocation = async () => {
-const browserLocation = await getCurrentLocation();
-
-if (!browserLocation) return;
-
-onSelectLocation(browserLocation);
-setQuery("Current Location");
-setLocations([]);
-};
-
-const selectedLocationLabel =
-selectedLocation?.source === "browser"
+  const selectedLocationLabel = selectedLocation?.source === "browser"
     ? "Current Location"
     : selectedLocation
-    ? `${selectedLocation.name}, ${selectedLocation.region}, ${selectedLocation.country}`
-    : "";
+      ? [selectedLocation.name, selectedLocation.region, selectedLocation.country].filter(Boolean).join(", ")
+      : "";
 
-return (
-<div className="space-y-4">
-    <button
-    type="button"
-    onClick={handleUseCurrentLocation}
-    disabled={geoLoading}
-    className="group flex w-full items-center justify-center gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-4 py-4 font-bold text-sky-100 transition hover:border-sky-400/60 hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-400"
-    >
-    <LocateFixed size={19} className="transition group-hover:scale-110" />
-    {geoLoading ? "Getting Your Location..." : "Use My Location"}
-    </button>
+  return (
+    <div className="space-y-4">
+      <Button type="button" variant="secondary" size="lg" onClick={handleUseCurrentLocation} disabled={geoLoading} loading={geoLoading} className="w-full border-sky-500/30 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20">
+        <LocateFixed size={19} aria-hidden="true" />
+        {geoLoading ? "Getting your location" : "Use my location"}
+      </Button>
 
-    {geoError && (
-    <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-        {geoError}
-    </p>
-    )}
+      {geoError && <Alert tone="error">{geoError}</Alert>}
 
-    <div className="flex items-center gap-3">
-    <div className="h-px flex-1 bg-white/10" />
-    <span className="text-xs uppercase tracking-wide text-slate-500">
-        or search manually
-    </span>
-    <div className="h-px flex-1 bg-white/10" />
-    </div>
+      <div className="flex items-center gap-3" aria-hidden="true">
+        <div className="h-px flex-1 bg-white/10" />
+        <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">or search manually</span>
+        <div className="h-px flex-1 bg-white/10" />
+      </div>
 
-    <div className="space-y-2">
-    <label className="block text-sm font-semibold text-slate-200">
-        Location
-    </label>
-
-    <div className="relative">
-        <Search
-        size={18}
-        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-        />
-
-        <input
-        type="text"
-        placeholder="Search a city, town, or country"
-        value={query}
-        onChange={handleChange}
-        className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-4 pl-11 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-500/70 focus:ring-4 focus:ring-sky-500/10"
-        />
-    </div>
-
-    {locationLoading && (
-        <p className="text-sm text-slate-400">Searching locations...</p>
-    )}
-
-    {locationError && (
-        <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-        {locationError}
-        </p>
-    )}
-
-    {locations.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 shadow-xl">
-        {locations.map((location) => (
-            <button
-            key={`${location.id}-${location.lat}-${location.lon}`}
-            type="button"
-            onClick={() => handleSelect(location)}
-            className="flex w-full items-start gap-3 border-b border-white/5 px-4 py-3 text-left transition last:border-b-0 hover:bg-white/[0.06]"
-            >
-            <MapPin size={17} className="mt-0.5 text-sky-300" />
-
-            <span>
-                <span className="block text-sm font-semibold text-white">
-                {location.name}
-                </span>
-                <span className="block text-xs text-slate-400">
-                {[location.region, location.country]
-                    .filter(Boolean)
-                    .join(", ")}
-                </span>
-            </span>
-            </button>
-        ))}
+      <div>
+        <label htmlFor={`${listId}-input`} className="mb-2 block text-sm font-bold text-slate-200">Location</label>
+        <div className="relative">
+          <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+          <Input
+            id={`${listId}-input`}
+            type="search"
+            placeholder="Search a city, town, or country"
+            value={query}
+            onChange={handleChange}
+            className="pl-11"
+            autoComplete="off"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={locations.length > 0}
+            aria-controls={listId}
+            aria-describedby={`${listId}-status`}
+          />
         </div>
-    )}
-    </div>
 
-    {selectedLocation && (
-    <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
-        <MapPin size={17} />
-        <span>Selected: {selectedLocationLabel}</span>
+        <div id={`${listId}-status`} className="mt-2 min-h-5 text-sm text-slate-400" aria-live="polite">
+          {locationLoading ? "Searching locations…" : locations.length ? `${locations.length} location options available.` : ""}
+        </div>
+
+        {locationError && <div className="mt-2"><Alert tone="error">{locationError}</Alert></div>}
+
+        {locations.length > 0 && (
+          <div id={listId} role="listbox" aria-label="Location suggestions" className="mt-2 max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/95 shadow-xl scrollbar-subtle">
+            {locations.map((location) => (
+              <button
+                key={`${location.id}-${location.lat}-${location.lon}`}
+                type="button"
+                role="option"
+                aria-selected="false"
+                onClick={() => handleSelect(location)}
+                className="flex min-h-14 w-full items-start gap-3 border-b border-white/5 px-4 py-3 text-left transition last:border-b-0 hover:bg-white/[0.06] focus-visible:bg-white/[0.08]"
+              >
+                <MapPin size={17} className="mt-0.5 shrink-0 text-sky-300" aria-hidden="true" />
+                <span>
+                  <span className="block text-sm font-bold text-white">{location.name}</span>
+                  <span className="block text-xs text-slate-400">{[location.region, location.country].filter(Boolean).join(", ")}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selectedLocation && (
+        <Alert tone="success" title="Selected location">
+          <span className="inline-flex items-center gap-2"><MapPin size={16} aria-hidden="true" />{selectedLocationLabel}</span>
+        </Alert>
+      )}
     </div>
-    )}
-</div>
-);
+  );
 }
-
-export default LocationSearch;

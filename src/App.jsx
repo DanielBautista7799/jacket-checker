@@ -1,14 +1,9 @@
 import { lazy, Suspense } from "react";
-
-import {
-  BrowserRouter,
-  Navigate,
-  Route,
-  Routes,
-} from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "./context/AuthContext";
 import { ProfileProvider } from "./context/ProfileContext";
+import { AnalyticsProvider } from "./context/AnalyticsContext";
 import { RecommendationLearningProvider } from "./context/RecommendationLearningContext";
 import { StyleTrendProvider } from "./context/StyleTrendContext";
 import { WardrobeProvider } from "./context/WardrobeContext";
@@ -16,150 +11,102 @@ import { WeatherProvider } from "./context/WeatherContext";
 
 import AppHeader from "./components/AppHeader";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AppErrorBoundary from "./components/ui/AppErrorBoundary";
+import LoadingState from "./components/ui/LoadingState";
+import RouteAnnouncer from "./components/ui/RouteAnnouncer";
 
 const GuestPage = lazy(() => import("./pages/GuestPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const PersonalizedPage = lazy(() =>
-  import("./pages/PersonalizedPage")
-);
+const PersonalizedPage = lazy(() => import("./pages/PersonalizedPage"));
 const WardrobePage = lazy(() => import("./pages/WardrobePage"));
 const HistoryPage = lazy(() => import("./pages/HistoryPage"));
-const DeveloperScoringPage = lazy(() =>
-  import("./pages/DeveloperScoringPage")
-);
-const DeveloperTrendsPage = lazy(() =>
-  import("./pages/DeveloperTrendsPage")
-);
+const DeveloperScoringPage = lazy(() => import("./pages/DeveloperScoringPage"));
+const DeveloperTrendsPage = lazy(() => import("./pages/DeveloperTrendsPage"));
+const DeveloperAnalyticsPage = lazy(() => import("./pages/DeveloperAnalyticsPage"));
 
-const developerScoringEnabled =
-  import.meta.env.DEV ||
-  import.meta.env.VITE_ENABLE_DEV_SCORING === "true";
-
-const developerTrendsEnabled =
-  import.meta.env.DEV ||
-  import.meta.env.VITE_ENABLE_DEV_TRENDS === "true";
+const developerScoringEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_SCORING === "true";
+const developerTrendsEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_TRENDS === "true";
+const developerAnalyticsEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_ANALYTICS === "true";
 
 function PageFallback() {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-8 text-center text-slate-300">
-      Loading page...
-    </div>
-  );
+  return <LoadingState label="Loading page" rows={4} />;
+}
+
+function ProtectedPage({ children }) {
+  return <ProtectedRoute>{children}</ProtectedRoute>;
 }
 
 function AppShell() {
   return (
-    <main className="min-h-screen overflow-hidden bg-slate-950 px-4 py-6 text-white sm:px-6 lg:px-8">
-      <div className="pointer-events-none fixed inset-0 -z-10">
+    <div className="min-h-screen overflow-x-hidden bg-slate-950 text-white">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
+      <RouteAnnouncer />
+
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
         <div className="absolute left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-sky-500/20 blur-3xl" />
         <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-indigo-500/10 blur-3xl" />
         <div className="absolute bottom-1/3 left-0 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
       </div>
 
-      <div className="mx-auto w-full max-w-5xl">
+      <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
         <AppHeader />
 
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-4 shadow-2xl backdrop-blur-xl sm:p-6 lg:p-8">
-          <Suspense fallback={<PageFallback />}>
-            <Routes>
-              <Route path="/" element={<GuestPage />} />
-              <Route path="/auth" element={<AuthPage />} />
-
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <ProfilePage />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/wardrobe"
-                element={
-                  <ProtectedRoute>
-                    <WardrobePage />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/closet"
-                element={<Navigate to="/wardrobe" replace />}
-              />
-
-              <Route
-                path="/history"
-                element={
-                  <ProtectedRoute>
-                    <HistoryPage />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/app"
-                element={
-                  <ProtectedRoute>
-                    <PersonalizedPage />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/dev/scoring"
-                element={
-                  developerScoringEnabled ? (
-                    <ProtectedRoute>
-                      <DeveloperScoringPage />
-                    </ProtectedRoute>
-                  ) : (
-                    <Navigate to="/" replace />
-                  )
-                }
-              />
-
-              <Route
-                path="/dev/trends"
-                element={
-                  developerTrendsEnabled ? (
-                    <ProtectedRoute>
-                      <DeveloperTrendsPage />
-                    </ProtectedRoute>
-                  ) : (
-                    <Navigate to="/" replace />
-                  )
-                }
-              />
-
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </div>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="page-enter rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-4 shadow-2xl backdrop-blur-xl focus:outline-none sm:rounded-[2rem] sm:p-6 lg:p-8"
+        >
+          <AppErrorBoundary>
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
+                <Route path="/" element={<GuestPage />} />
+                <Route path="/auth" element={<AuthPage />} />
+                <Route path="/profile" element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
+                <Route path="/wardrobe" element={<ProtectedPage><WardrobePage /></ProtectedPage>} />
+                <Route path="/closet" element={<Navigate to="/wardrobe" replace />} />
+                <Route path="/history" element={<ProtectedPage><HistoryPage /></ProtectedPage>} />
+                <Route path="/app" element={<ProtectedPage><PersonalizedPage /></ProtectedPage>} />
+                <Route
+                  path="/dev/scoring"
+                  element={developerScoringEnabled ? <ProtectedPage><DeveloperScoringPage /></ProtectedPage> : <Navigate to="/" replace />}
+                />
+                <Route
+                  path="/dev/trends"
+                  element={developerTrendsEnabled ? <ProtectedPage><DeveloperTrendsPage /></ProtectedPage> : <Navigate to="/" replace />}
+                />
+                <Route
+                  path="/dev/analytics"
+                  element={developerAnalyticsEnabled ? <ProtectedPage><DeveloperAnalyticsPage /></ProtectedPage> : <Navigate to="/" replace />}
+                />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </AppErrorBoundary>
+        </main>
       </div>
-    </main>
+    </div>
   );
 }
 
-function App() {
+export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <WeatherProvider>
-          <ProfileProvider>
-            <StyleTrendProvider>
-              <WardrobeProvider>
-                <RecommendationLearningProvider>
-                  <AppShell />
-                </RecommendationLearningProvider>
-              </WardrobeProvider>
-            </StyleTrendProvider>
-          </ProfileProvider>
-        </WeatherProvider>
+        <ProfileProvider>
+          <AnalyticsProvider>
+            <WeatherProvider>
+              <StyleTrendProvider>
+                <WardrobeProvider>
+                  <RecommendationLearningProvider>
+                    <AppShell />
+                  </RecommendationLearningProvider>
+                </WardrobeProvider>
+              </StyleTrendProvider>
+            </WeatherProvider>
+          </AnalyticsProvider>
+        </ProfileProvider>
       </AuthProvider>
     </BrowserRouter>
   );
 }
-
-export default App;

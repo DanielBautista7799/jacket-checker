@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import useRecommendationLearning from "../hooks/useRecommendationLearning";
+import useAnalytics from "../hooks/useAnalytics";
 import useStyleTrends from "../hooks/useStyleTrends";
 import useWardrobeItems from "../hooks/useWardrobeItems";
 import useWeather from "../hooks/useWeather";
@@ -18,6 +19,7 @@ import {
   calculatePersonalizedRecommendation,
 } from "../utils/calculatePersonalizedRecommendation";
 import { rankClosetItems } from "../utils/rankClosetItems";
+import { createOperationTimer, getSafeErrorCode } from "../utils/analyticsEvents";
 
 import CheckResultCard from "./CheckResultCard";
 import LocationSearch from "./LocationSearch";
@@ -152,6 +154,7 @@ function syncRecommendationWithJackets({
 }
 
 function PersonalizedJacketCheck({ profile }) {
+  const { track } = useAnalytics();
   const {
     activeJacketItems,
     wardrobeLoading,
@@ -266,6 +269,10 @@ function PersonalizedJacketCheck({ profile }) {
   const handleTimeWindowChange = (nextWindow) => {
     setTimeWindow(nextWindow);
     clearResult();
+    track("personalized_forecast_window_changed", {
+      experienceMode: "personalized",
+      metadata: { forecast_window: nextWindow },
+    });
   };
 
   const useDefaultLocation = () => {
@@ -301,6 +308,7 @@ function PersonalizedJacketCheck({ profile }) {
     });
 
   const handlePersonalizedCheck = async () => {
+    const finishTimer = createOperationTimer();
     if (!selectedLocation) {
       setLocalError(
         "Choose a location or use your current location first."
@@ -309,6 +317,14 @@ function PersonalizedJacketCheck({ profile }) {
     }
 
     setLocalError("");
+    track("personalized_check_started", {
+      experienceMode: "personalized",
+      metadata: {
+        forecast_window: timeWindow,
+        location_source: selectedLocation?.source === "browser" ? "browser" : "search",
+        jacket_count: activeJacketItems.length,
+      },
+    });
     setRecommendation(null);
     setResultWeather(null);
     setRejectedItemIds([]);
@@ -319,6 +335,12 @@ function PersonalizedJacketCheck({ profile }) {
     });
 
     if (!weatherData) {
+      track("personalized_check_failed", {
+        experienceMode: "personalized",
+        success: false,
+        durationMs: finishTimer(),
+        metadata: { forecast_window: timeWindow, error_code: "weather_error" },
+      });
       return;
     }
 
@@ -338,6 +360,20 @@ function PersonalizedJacketCheck({ profile }) {
     setRecommendation({
       ...calculated,
       historyId: null,
+    });
+
+    track("personalized_check_completed", {
+      experienceMode: "personalized",
+      durationMs: finishTimer(),
+      metadata: {
+        forecast_window: timeWindow,
+        decision: calculated.decision,
+        jacket_subtype: calculated.closetMatch?.item?.subtype || "none",
+        confidence: calculated.confidence?.label || calculated.confidence || "unknown",
+        eligible_jackets: calculated.allRankedClosetMatches?.length || 0,
+        trend_applied: Boolean(calculated.styleSuggestion?.trend?.applied),
+        similarity_applied: Boolean(calculated.visualIntelligence?.diversityApplied),
+      },
     });
   };
 
@@ -360,6 +396,10 @@ function PersonalizedJacketCheck({ profile }) {
       rankedMatches,
     });
 
+    track("alternate_jacket_selected", {
+      experienceMode: "personalized",
+      metadata: { rank_index: rankIndex, jacket_subtype: selectedMatch.item?.subtype || "unknown" },
+    });
     setSelectedRankIndex(rankIndex);
     setRecommendation({
       ...nextRecommendation,
@@ -496,6 +536,15 @@ function PersonalizedJacketCheck({ profile }) {
         historyId,
       };
 
+      track(savedFeedback?.rating ? "jacket_feedback_changed" : "jacket_feedback_submitted", {
+        experienceMode: "personalized",
+        metadata: {
+          feedback_type: rating,
+          rating_changed: Boolean(savedFeedback?.rating),
+          jacket_subtype: currentItem.subtype || "unknown",
+        },
+      });
+
       const feedbackResult = await submitFeedback({
         recommendationId: historyId,
         recommendation: recommendationWithHistory,
@@ -578,6 +627,7 @@ function PersonalizedJacketCheck({ profile }) {
         }
       }
     } catch (feedbackError) {
+      track("edge_function_error", { experienceMode: "personalized", success: false, metadata: { error_code: getSafeErrorCode(feedbackError), operation: "feedback" } });
       console.error(
         "Could not process feedback:",
         feedbackError
@@ -616,14 +666,14 @@ function PersonalizedJacketCheck({ profile }) {
       Number(selectedLocation.lon);
 
   return (
-    <section>
+    <section className="page-enter" aria-labelledby="personalized-check-title">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-purple-400">
             Personalized
           </p>
 
-          <h1 className="mt-2 text-4xl font-black tracking-tight text-white">
+          <h1 id="personalized-check-title" className="mt-2 text-4xl font-black tracking-tight text-white">
             Your jacket check
           </h1>
         </div>
@@ -740,6 +790,7 @@ function PersonalizedJacketCheck({ profile }) {
               <LocationSearch
                 selectedLocation={selectedLocation}
                 onSelectLocation={handleLocationChange}
+                analyticsMode="personalized"
               />
             </div>
 
@@ -776,6 +827,7 @@ function PersonalizedJacketCheck({ profile }) {
           )}
         </div>
 
+        <div aria-live="polite" aria-atomic="true">
         <CheckResultCard
           weather={resultWeather}
           recommendation={activeRecommendation}
@@ -789,6 +841,7 @@ function PersonalizedJacketCheck({ profile }) {
           selectedRankIndex={displayedRankIndex}
           onSelectRank={selectRankedMatch}
         />
+        </div>
       </div>
     </section>
   );

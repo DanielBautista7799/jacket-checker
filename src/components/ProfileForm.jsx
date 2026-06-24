@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { cloneElement, useEffect, useMemo, useState } from "react";
 import {
   CloudRain,
   Clock,
@@ -10,19 +10,25 @@ import {
   Sparkles,
   Thermometer,
   TrendingUp,
+  ShieldCheck,
   UserRound,
   Waves,
 } from "lucide-react";
 import LocationSearch from "./LocationSearch";
 
 function FieldShell({ icon: Icon, label, children }) {
+  const fieldId = useMemo(
+    () => `profile-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    [label]
+  );
+
   return (
     <div>
-      <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
-        {Icon && <Icon size={16} className="text-sky-300" />}
+      <label htmlFor={fieldId} className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
+        {Icon && <Icon size={16} className="text-sky-300" aria-hidden="true" />}
         {label}
       </label>
-      {children}
+      {cloneElement(children, { id: children.props.id || fieldId })}
     </div>
   );
 }
@@ -48,11 +54,13 @@ const initialForm = {
   style_influence: "american_streetwear",
   use_style_trends: true,
   trend_influence: "subtle",
+  analytics_enabled: true,
 };
 
 function ProfileForm({ profile, onSave, profileLoading }) {
   const [form, setForm] = useState(initialForm);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -75,6 +83,7 @@ function ProfileForm({ profile, onSave, profileLoading }) {
       style_influence: profile.style_influence || "american_streetwear",
       use_style_trends: profile.use_style_trends !== false,
       trend_influence: profile.trend_influence || "subtle",
+      analytics_enabled: profile.analytics_enabled !== false,
     });
 
     if (profile.default_location_lat && profile.default_location_lon) {
@@ -86,16 +95,33 @@ function ProfileForm({ profile, onSave, profileLoading }) {
         lon: profile.default_location_lon,
       });
     }
+    setHasChanges(false);
   }, [profile]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (!hasChanges) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasChanges]);
 
   const updateField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
+    setHasChanges(true);
+  };
+
+  const updateLocation = (location) => {
+    setSelectedLocation(location);
+    setHasChanges(true);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    await onSave({
+    const saved = await onSave({
       ...form,
       age: form.age ? Number(form.age) : null,
       height_inches: form.height_inches ? Number(form.height_inches) : null,
@@ -106,18 +132,23 @@ function ProfileForm({ profile, onSave, profileLoading }) {
       default_location_lat: selectedLocation?.lat || null,
       default_location_lon: selectedLocation?.lon || null,
     });
+
+    if (saved) {
+      setHasChanges(false);
+    }
   };
 
   return (
     <form
       onSubmit={handleSubmit}
+      aria-labelledby="profile-form-title"
       className="rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-xl"
     >
       <div className="mb-6">
         <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
           Saved Profile
         </p>
-        <h3 className="mt-1 text-2xl font-black text-white">
+        <h3 id="profile-form-title" className="mt-1 text-2xl font-black text-white">
           Comfort & style settings
         </h3>
       </div>
@@ -365,16 +396,47 @@ function ProfileForm({ profile, onSave, profileLoading }) {
           )}
         </div>
 
+        <div className="md:col-span-2 rounded-3xl border border-sky-400/20 bg-sky-400/10 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-sky-200">
+                <ShieldCheck size={16} aria-hidden="true" />
+                Privacy
+              </p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+                Anonymous product analytics help measure reliability and feature usage. Exact locations, images, emails, and private jacket details are never included.
+              </p>
+            </div>
+
+            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-bold text-white">
+              <input
+                type="checkbox"
+                checked={form.analytics_enabled}
+                onChange={(event) => updateField("analytics_enabled", event.target.checked)}
+                className="h-4 w-4 accent-sky-400"
+              />
+              Share anonymous usage analytics
+            </label>
+          </div>
+        </div>
+
         <div className="md:col-span-2 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
           <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
             Default Location
           </p>
           <LocationSearch
             selectedLocation={selectedLocation}
-            onSelectLocation={setSelectedLocation}
+            onSelectLocation={updateLocation}
+            analyticsMode="personalized"
           />
         </div>
       </div>
+
+      {hasChanges && (
+        <p className="mt-5 text-center text-sm font-bold text-amber-200" role="status">
+          You have unsaved changes.
+        </p>
+      )}
 
       <button
         type="submit"
