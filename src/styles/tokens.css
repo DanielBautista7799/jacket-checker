@@ -1,17 +1,148 @@
 :root {
+  --font-body: "Manrope Variable", Manrope, ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk Variable", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-control: 0.875rem;
+  --radius-card: 1.25rem;
+  --radius-large: 1.5rem;
+  --radius-hero: 1.75rem;
+  --radius-nav: 1.65rem;
+  --content-width: 76rem;
+  --nav-height: 4.25rem;
+  --motion-fast: 150ms;
+  --motion-normal: 220ms;
+  --motion-slow: 300ms;
+}
+
+:root,
+[data-theme="dark"] {
   color-scheme: dark;
-  --app-bg: #020617;
-  --surface-1: rgba(15, 23, 42, 0.78);
-  --surface-2: rgba(255, 255, 255, 0.045);
-  --border-subtle: rgba(255, 255, 255, 0.1);
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --focus-ring: rgba(56, 189, 248, 0.38);
-  --radius-sm: 0.75rem;
-  --radius-md: 1rem;
-  --radius-lg: 1.5rem;
-  --radius-xl: 2rem;
-  --shadow-card: 0 24px 70px rgba(0, 0, 0, 0.22);
-  --content-width: 72rem;
+
+  --storm-background: #070b14;
+  --storm-surface: #0f172a;
+  --storm-surface-elevated: #172033;
+  --storm-surface-soft: #101827;
+  --storm-text: #f8fafc;
+  --storm-text-muted: #94a3b8;
+  --storm-text-subtle: #64748b;
+  --storm-text-inverse: #07111f;
+  --storm-on-accent: #ffffff;
+  --storm-primary: #60a5fa;
+  --storm-primary-strong: #3b82f6;
+  --storm-secondary: #a78bfa;
+  --storm-atmospheric: #22d3ee;
+  --storm-success: #34d399;
+  --storm-warning: #fbbf24;
+  --storm-danger: #fb7185;
+  --storm-border: rgba(148, 163, 184, 0.16);
+  --storm-border-strong: rgba(148, 163, 184, 0.28);
+  --storm-nav-background: rgba(15, 23, 42, 0.72);
+  --storm-card-background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(9, 15, 27, 0.94));
+  --storm-card-soft-background: rgba(16, 24, 39, 0.76);
+  --storm-card-elevated-background: linear-gradient(145deg, rgba(23, 32, 51, 0.96), rgba(15, 23, 42, 0.96));
+  --storm-recommendation-background: linear-gradient(145deg, rgba(11, 19, 34, 0.98), rgba(15, 23, 42, 0.96));
+  --storm-field-background: rgba(7, 11, 20, 0.58);
+  --storm-field-focus-background: rgba(15, 23, 42, 0.86);
+  --storm-overlay-background: rgba(0, 0, 0, 0.75);
+  --storm-grid-line: rgba(148, 163, 184, 0.18);
+  --storm-selection-background: rgba(34, 211, 238, 0.3);
+  --storm-skeleton: rgba(255, 255, 255, 0.075);
+  --storm-scrollbar: rgba(148, 163, 184, 0.28);
+  --storm-shimmer-start: #94a3b8;
+  --storm-shimmer-mid: #f8fafc;
+  --storm-glow-cyan: rgba(34, 211, 238, 0.13);
+  --storm-shadow-card: 0 24px 72px rgba(0, 0, 0, 0.24);
+  --storm-shadow-raised: 0 30px 90px rgba(0, 0, 0, 0.32);
+  --storm-shadow-nav: 0 22px 70px rgba(0, 0, 0, 0.28);
+  --storm-body-background:
+    radial-gradient(circle at 15% -5%, rgba(59, 130, 246, 0.16), transparent 31rem),
+    radial-gradient(circle at 88% 12%, rgba(167, 139, 250, 0.12), transparent 29rem),
+    radial-gradient(circle at 55% 102%, rgba(34, 211, 238, 0.06), transparent 34rem),
+    var(--storm-background);
+
+  --background: 222 48% 5%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 11%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 40% 10%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 213 94% 68%;
+  --primary-foreground: 222 47% 8%;
+  --secondary: 252 88% 75%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 187 86% 53%;
+  --accent-foreground: 222 47% 8%;
+  --destructive: 350 89% 72%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 215 20% 65% / 0.16;
+  --input: 215 20% 65% / 0.2;
+  --ring: 213 94% 68%;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --storm-background: #eef4fb;
+  --storm-surface: #ffffff;
+  --storm-surface-elevated: #f8fbff;
+  --storm-surface-soft: #f4f7fb;
+  --storm-text: #0f172a;
+  --storm-text-muted: #475569;
+  --storm-text-subtle: #64748b;
+  --storm-text-inverse: #f8fafc;
+  --storm-on-accent: #ffffff;
+  --storm-primary: #2563eb;
+  --storm-primary-strong: #1d4ed8;
+  --storm-secondary: #7c3aed;
+  --storm-atmospheric: #0891b2;
+  --storm-success: #047857;
+  --storm-warning: #a16207;
+  --storm-danger: #be123c;
+  --storm-border: rgba(15, 23, 42, 0.12);
+  --storm-border-strong: rgba(15, 23, 42, 0.22);
+  --storm-nav-background: rgba(255, 255, 255, 0.82);
+  --storm-card-background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.96));
+  --storm-card-soft-background: rgba(255, 255, 255, 0.74);
+  --storm-card-elevated-background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(239, 246, 255, 0.96));
+  --storm-recommendation-background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(244, 248, 255, 0.98));
+  --storm-field-background: rgba(255, 255, 255, 0.82);
+  --storm-field-focus-background: #ffffff;
+  --storm-overlay-background: rgba(15, 23, 42, 0.42);
+  --storm-grid-line: rgba(71, 85, 105, 0.08);
+  --storm-selection-background: rgba(14, 165, 233, 0.2);
+  --storm-skeleton: rgba(15, 23, 42, 0.08);
+  --storm-scrollbar: rgba(71, 85, 105, 0.28);
+  --storm-shimmer-start: #64748b;
+  --storm-shimmer-mid: #0f172a;
+  --storm-glow-cyan: rgba(14, 165, 233, 0.12);
+  --storm-shadow-card: 0 22px 64px rgba(30, 64, 175, 0.09), 0 8px 24px rgba(15, 23, 42, 0.06);
+  --storm-shadow-raised: 0 28px 80px rgba(30, 64, 175, 0.12), 0 12px 32px rgba(15, 23, 42, 0.08);
+  --storm-shadow-nav: 0 18px 52px rgba(30, 64, 175, 0.1), 0 6px 18px rgba(15, 23, 42, 0.07);
+  --storm-body-background:
+    radial-gradient(circle at 13% -4%, rgba(59, 130, 246, 0.17), transparent 31rem),
+    radial-gradient(circle at 89% 10%, rgba(139, 92, 246, 0.13), transparent 29rem),
+    radial-gradient(circle at 54% 102%, rgba(6, 182, 212, 0.1), transparent 34rem),
+    var(--storm-background);
+
+  --background: 210 50% 96%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 263 70% 50%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 214 32% 91%;
+  --muted-foreground: 215 25% 27%;
+  --accent: 189 94% 35%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 347 77% 42%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 222 47% 11% / 0.12;
+  --input: 222 47% 11% / 0.16;
+  --ring: 221 83% 53%;
 }

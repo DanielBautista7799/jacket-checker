@@ -57,6 +57,7 @@ function getSelectedConditions(weather, forecastAnalysis) {
     condition: String(
       selected.condition || weather?.condition || ""
     ).toLowerCase(),
+    sustainedRainRisk: selected.sustainedRainRisk === true,
   };
 }
 
@@ -137,7 +138,7 @@ export function getWeatherNeeds(weather, forecastAnalysis) {
     }
   }
 
-  if (precipitationCondition) {
+  if (precipitationCondition || selectedConditions.sustainedRainRisk) {
     rainNeeded = Math.max(
       rainNeeded,
       RECOMMENDATION_CONFIG.weatherNeeds

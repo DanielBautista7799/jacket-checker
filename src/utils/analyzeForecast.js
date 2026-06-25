@@ -52,6 +52,16 @@ function getAverage(values, fallback) {
   );
 }
 
+function getCoolerHalfAverage(values, fallback) {
+  if (values.length === 0) {
+    return fallback;
+  }
+
+  const sorted = [...values].sort((first, second) => first - second);
+  const coolerHalfCount = Math.max(1, Math.ceil(sorted.length / 2));
+  return getAverage(sorted.slice(0, coolerHalfCount), fallback);
+}
+
 function getCurrentForecastHour(weather) {
   const forecastHours = Array.isArray(weather?.forecastHours)
     ? weather.forecastHours
@@ -96,13 +106,50 @@ function getSelectedCondition(windowHours, fallbackCondition) {
     return fallbackCondition;
   }
 
-  const rainiestHour = [...windowHours].sort(
-    (first, second) =>
-      toFiniteNumber(second?.rainChance, 0) -
-      toFiniteNumber(first?.rainChance, 0)
-  )[0];
+  const mostRelevantHour = [...windowHours].sort((first, second) => {
+    const firstRain = toFiniteNumber(first?.rainChance, 0);
+    const secondRain = toFiniteNumber(second?.rainChance, 0);
+    const firstFeelsLike = toFiniteNumber(first?.feelsLike, 100);
+    const secondFeelsLike = toFiniteNumber(second?.feelsLike, 100);
+    const firstWind = toFiniteNumber(first?.windSpeed, 0);
+    const secondWind = toFiniteNumber(second?.windSpeed, 0);
 
-  return rainiestHour?.condition || fallbackCondition;
+    const firstRisk = firstRain * 0.08 + firstWind * 0.18 + Math.max(0, 66 - firstFeelsLike) * 0.24;
+    const secondRisk = secondRain * 0.08 + secondWind * 0.18 + Math.max(0, 66 - secondFeelsLike) * 0.24;
+
+    return secondRisk - firstRisk;
+  })[0];
+
+  return mostRelevantHour?.condition || fallbackCondition;
+}
+
+function formatHour(value = "") {
+  const time = String(value).split(" ")[1] || value;
+  const [rawHour, minute = "00"] = time.split(":");
+  const hour = Number(rawHour);
+
+  if (!Number.isFinite(hour)) {
+    return time;
+  }
+
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const normalized = hour % 12 || 12;
+  return `${normalized}:${minute} ${suffix}`;
+}
+
+function getWindowTimeRange(windowHours) {
+  if (windowHours.length === 0) {
+    return "";
+  }
+
+  const first = formatHour(windowHours[0]?.time);
+  const last = formatHour(windowHours[windowHours.length - 1]?.time);
+
+  if (!first) {
+    return "";
+  }
+
+  return first === last || !last ? first : `${first}–${last}`;
 }
 
 function getCoverageLevel(windowId, hourCount) {
@@ -135,9 +182,11 @@ export function analyzeForecast(
 ) {
   const alerts = [];
   const bringAlongSuggestions = [];
+  const windowConfig = RECOMMENDATION_CONFIG.forecastWindow;
 
   const windowHours = getForecastWindowHours(weather, windowId);
   const windowLabel = getTimeWindowLabel(windowId);
+  const windowTimeRange = getWindowTimeRange(windowHours);
   const currentForecastHour = getCurrentForecastHour(weather);
 
   const currentFeelsLike = toFiniteNumber(
@@ -185,6 +234,11 @@ export function analyzeForecast(
     currentFeelsLike
   );
 
+  const decisionWindowFeelsLike = getCoolerHalfAverage(
+    feelsLikeValues,
+    averageWindowFeelsLike
+  );
+
   const averageWindowTemperature = getAverage(
     temperatureValues,
     currentTemperature
@@ -200,6 +254,18 @@ export function analyzeForecast(
     fallbackMaxWind
   );
 
+  const rainyHourCount = rainValues.filter(
+    (value) => value >= windowConfig.sustainedRainChance
+  ).length;
+
+  const rainCoverageRatio =
+    rainValues.length > 0 ? rainyHourCount / rainValues.length : 0;
+
+  const sustainedRainRisk =
+    windowId !== "now" &&
+    rainyHourCount >= windowConfig.sustainedRainMinimumHours &&
+    rainCoverageRatio >= windowConfig.sustainedRainCoverage;
+
   const selectedWindowStartFeelsLike =
     feelsLikeValues[0] ?? currentFeelsLike;
 
@@ -210,6 +276,10 @@ export function analyzeForecast(
 
   const selectedConditions = {
     feelsLike:
+      windowId === "now"
+        ? currentFeelsLike
+        : decisionWindowFeelsLike,
+    averageFeelsLike:
       windowId === "now"
         ? currentFeelsLike
         : averageWindowFeelsLike,
@@ -240,6 +310,9 @@ export function analyzeForecast(
             windowHours,
             weather?.condition || "Unknown"
           ),
+    rainyHourCount,
+    rainCoverageRatio,
+    sustainedRainRisk,
     hourCount: windowId === "now" ? 1 : windowHours.length,
     usesForecastHours:
       windowId !== "now" && windowHours.length > 0,
@@ -261,6 +334,19 @@ export function analyzeForecast(
         item: "Light rain shell",
         reason:
           "Rain is likely, so a packable waterproof layer may be useful.",
+      });
+    } else if (sustainedRainRisk) {
+      alerts.push({
+        type: "rain",
+        message: `Rain risk stays near ${Math.round(
+          highestWindowRainChance
+        )}% through much of ${windowLabel.toLowerCase()}.`,
+      });
+
+      bringAlongSuggestions.push({
+        item: "Light rain shell",
+        reason:
+          "Rain risk persists across the selected hours, so a light waterproof layer is the safer call.",
       });
     } else if (highestWindowRainChance >= 35) {
       alerts.push({
@@ -340,15 +426,20 @@ export function analyzeForecast(
   return {
     windowId,
     windowLabel,
+    windowTimeRange,
     windowHours,
     alerts,
     bringAlongSuggestions: uniqueBringAlongSuggestions,
     lowestWindowFeelsLike,
     highestWindowFeelsLike,
     averageWindowFeelsLike,
+    decisionWindowFeelsLike,
     averageWindowTemperature,
     highestWindowRainChance,
     highestWindowWind,
+    rainyHourCount,
+    rainCoverageRatio,
+    sustainedRainRisk,
     tempDrop,
     selectedConditions,
     coverageLevel: getCoverageLevel(

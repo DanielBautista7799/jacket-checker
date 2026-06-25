@@ -1,5 +1,5 @@
 export const RECOMMENDATION_CONFIG = {
-  version: "9.0.0",
+  version: "9.1.0",
 
   weatherScore: {
     defaultFeelsLike: 65,
@@ -75,6 +75,12 @@ export const RECOMMENDATION_CONFIG = {
       minimum: 12,
       score: 1,
     },
+  },
+
+  forecastWindow: {
+    sustainedRainChance: 40,
+    sustainedRainMinimumHours: 2,
+    sustainedRainCoverage: 0.5,
   },
 
   decision: {

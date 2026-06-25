@@ -24,6 +24,11 @@ import { createOperationTimer, getSafeErrorCode } from "../utils/analyticsEvents
 import CheckResultCard from "./CheckResultCard";
 import LocationSearch from "./LocationSearch";
 import TimeWindowSelect from "./TimeWindowSelect";
+import Alert from "./ui/Alert";
+import Badge from "./ui/Badge";
+import Button from "./ui/Button";
+import Card from "./ui/Card";
+import PageHeader from "./ui/PageHeader";
 
 const FEEDBACK_WEIGHTS = {
   fire: 2,
@@ -666,181 +671,80 @@ function PersonalizedJacketCheck({ profile }) {
       Number(selectedLocation.lon);
 
   return (
-    <section className="page-enter" aria-labelledby="personalized-check-title">
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-purple-400">
-            Personalized
-          </p>
+    <section className="page-enter mx-auto w-full space-y-6" aria-labelledby="personalized-check-title">
+      <PageHeader
+        eyebrow="Today"
+        title="Your jacket check"
+        description="Choose where you are going and when. The recommendation uses your comfort profile and the jackets you own."
+        actions={activeRecommendation ? <Button type="button" variant="ghost" size="sm" onClick={clearResult}>Clear result</Button> : null}
+      />
 
-          <h1 id="personalized-check-title" className="mt-2 text-4xl font-black tracking-tight text-white">
-            Your jacket check
-          </h1>
-        </div>
-
-        {activeRecommendation && (
-          <button
-            type="button"
-            onClick={clearResult}
-            className="text-sm font-bold text-slate-400 transition hover:text-white"
-          >
-            Clear result
-          </button>
-        )}
-      </div>
-
-      <div className="mb-5 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Saved Default
-          </p>
-
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Card className="p-4" soft>
+          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500">Saved default</p>
           {defaultLocation ? (
-            <div className="flex items-center gap-2 text-sm text-sky-100">
-              <MapPin size={17} />
-              <span>
-                {defaultLocation.name}
-                {defaultLocation.region
-                  ? `, ${defaultLocation.region}`
-                  : ""}
-              </span>
-            </div>
-          ) : (
-            <div className="text-sm text-amber-200">
-              No default location saved.
-            </div>
-          )}
-        </div>
+            <div className="mt-3 flex items-center gap-2 text-sm font-bold text-cyan-100"><MapPin size={17} aria-hidden="true" /><span>{defaultLocation.name}{defaultLocation.region ? `, ${defaultLocation.region}` : ""}</span></div>
+          ) : <p className="mt-3 text-sm font-bold text-amber-200">No default location saved.</p>}
+        </Card>
 
-        <div className="rounded-3xl border border-purple-400/20 bg-purple-400/10 p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-200">
-            Profile Active
-          </p>
-
-          <div className="flex flex-wrap gap-2">
-            {profileSummary.map((item) => (
-              <span
-                key={item}
-                className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold capitalize text-slate-200"
-              >
-                {item}
-              </span>
-            ))}
+        <Card className="p-4" soft>
+          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-violet-200/75">Profile active</p>
+          <div className="mt-3 flex flex-wrap gap-2">{profileSummary.map((item) => <Badge key={item} tone="purple" className="capitalize">{item}</Badge>)}</div>
+          <div className="mt-4 flex flex-wrap gap-4 text-sm font-extrabold">
+            <Link to="/profile" viewTransition className="text-cyan-300 hover:text-cyan-200">Edit profile →</Link>
+            <Link to="/wardrobe" viewTransition className="text-emerald-300 hover:text-emerald-200">Wardrobe →</Link>
+            <Link to="/history" viewTransition className="text-violet-300 hover:text-violet-200">History →</Link>
           </div>
-
-          <div className="mt-3 flex flex-wrap gap-3 text-sm font-bold">
-            <Link
-              to="/profile"
-              className="text-sky-300 hover:text-sky-200"
-            >
-              Edit profile →
-            </Link>
-
-            <Link
-              to="/wardrobe"
-              className="text-emerald-300 hover:text-emerald-200"
-            >
-              Jackets →
-            </Link>
-
-            <Link
-              to="/history"
-              className="text-purple-300 hover:text-purple-200"
-            >
-              History →
-            </Link>
-          </div>
-        </div>
+        </Card>
       </div>
 
       {activeJacketItems.length === 0 && (
-        <div className="mb-5 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
-          <div className="flex items-center gap-2">
-            <Shirt size={17} />
-            <span>
-              Add an active jacket so personalized mode can recommend
-              one you own.
-            </span>
-          </div>
-        </div>
+        <Alert tone="warning"><span className="inline-flex items-center gap-2"><Shirt size={17} aria-hidden="true" />Add an active jacket so personalized mode can recommend one you own.</span></Alert>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="h-fit rounded-3xl border border-white/10 bg-slate-950/60 p-5">
+      <div className="grid gap-5 lg:grid-cols-[minmax(19rem,0.82fr)_minmax(0,1.18fr)] lg:items-start">
+        <Card className="h-fit min-w-0 p-5 sm:p-6" elevated>
+          <p className="mb-5 text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Set today’s forecast</p>
           <div className="space-y-5">
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-slate-200">
-                  Check location
-                </p>
-
-                {defaultLocation &&
-                  !selectedLocationIsDefault && (
-                    <button
-                      type="button"
-                      onClick={useDefaultLocation}
-                      className="flex items-center gap-1 text-xs font-bold text-sky-300 transition hover:text-sky-200"
-                    >
-                      <RotateCcw size={13} />
-                      Use saved default
-                    </button>
-                  )}
+                <p className="text-sm font-extrabold text-slate-200">Check location</p>
+                {defaultLocation && !selectedLocationIsDefault && (
+                  <button type="button" onClick={useDefaultLocation} className="flex items-center gap-1 text-xs font-extrabold text-cyan-300 transition hover:text-cyan-200"><RotateCcw size={13} aria-hidden="true" />Use saved default</button>
+                )}
               </div>
-
-              <LocationSearch
-                selectedLocation={selectedLocation}
-                onSelectLocation={handleLocationChange}
-                analyticsMode="personalized"
-              />
+              <LocationSearch selectedLocation={selectedLocation} onSelectLocation={handleLocationChange} analyticsMode="personalized" />
             </div>
-
-            <TimeWindowSelect
-              value={timeWindow}
-              onChange={handleTimeWindowChange}
-            />
-
-            <button
+            <TimeWindowSelect value={timeWindow} onChange={handleTimeWindowChange} />
+            <Button
               type="button"
+              size="lg"
               onClick={handlePersonalizedCheck}
-              disabled={
-                !selectedLocation ||
-                loading ||
-                wardrobeLoading ||
-                feedbackSaving
-              }
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-500 px-4 py-4 font-black text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+              loading={loading || wardrobeLoading}
+              loadingLabel={loading ? "Building your recommendation" : "Loading jackets"}
+              disabled={!selectedLocation || feedbackSaving}
+              className="w-full"
             >
-              <Sparkles size={19} />
-
-              {loading
-                ? "Checking..."
-                : wardrobeLoading
-                  ? "Loading jackets..."
-                  : "Run Personalized Check"}
-            </button>
+              <Sparkles size={19} aria-hidden="true" />
+              {loading ? "Building your recommendation…" : wardrobeLoading ? "Loading jackets…" : "Run personalized check"}
+            </Button>
           </div>
+          {displayedError && <div className="mt-5"><Alert tone="error">{displayedError}</Alert></div>}
+        </Card>
 
-          {displayedError && (
-            <div className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
-              {displayedError}
-            </div>
-          )}
-        </div>
-
-        <div aria-live="polite" aria-atomic="true">
-        <CheckResultCard
-          weather={resultWeather}
-          recommendation={activeRecommendation}
-          mode="personalized"
-          feedbackValue={savedFeedback?.rating || null}
-          onFeedback={handleFeedback}
-          feedbackLoading={feedbackSaving}
-          rankedMatches={
-            activeRecommendation?.rankedClosetMatches || []
-          }
-          selectedRankIndex={displayedRankIndex}
-          onSelectRank={selectRankedMatch}
-        />
+        <div className="min-w-0" aria-live="polite" aria-atomic="true">
+          <CheckResultCard
+            weather={resultWeather}
+            recommendation={activeRecommendation}
+            mode="personalized"
+            loading={loading}
+            feedbackValue={savedFeedback?.rating || null}
+            onFeedback={handleFeedback}
+            feedbackLoading={feedbackSaving}
+            rankedMatches={activeRecommendation?.rankedClosetMatches || []}
+            selectedRankIndex={displayedRankIndex}
+            onSelectRank={selectRankedMatch}
+          />
         </div>
       </div>
     </section>

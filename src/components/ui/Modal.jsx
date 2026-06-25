@@ -39,14 +39,14 @@ export default function Modal({ open, onClose, title, description, children, ini
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center" onMouseDown={(event) => event.target === event.currentTarget && onClose?.()}>
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby={description ? "modal-description" : undefined} tabIndex={-1} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-white/10 bg-slate-950 p-5 shadow-2xl sm:p-6">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 p-3 backdrop-blur-md sm:items-center" onMouseDown={(event) => event.target === event.currentTarget && onClose?.()}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby={description ? "modal-description" : undefined} tabIndex={-1} className="glass-nav max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[var(--radius-large)] p-5 shadow-2xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 id="modal-title" className="text-xl font-black text-white">{title}</h2>
+            <h2 id="modal-title" className="font-display text-xl font-bold text-white">{title}</h2>
             {description && <p id="modal-description" className="mt-1 text-sm leading-6 text-slate-400">{description}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/30"><X size={20} /></button>
+          <button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-400/20"><X size={20} /></button>
         </div>
         <div className="mt-5">{children}</div>
       </div>

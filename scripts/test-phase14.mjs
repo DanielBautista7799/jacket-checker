@@ -28,6 +28,12 @@ const requiredFiles = [
   "docs/KNOWN_LIMITATIONS.md",
   "docs/SECURITY_OVERVIEW.md",
   "docs/PHASE14_LIVE_TEST_RESULTS.md",
+  "src/components/ThemeToggle.jsx",
+  "src/context/ThemeContext.jsx",
+  "src/hooks/useTheme.js",
+  "src/utils/theme.js",
+  "tests/components/ThemeToggle.test.jsx",
+  "tests/unit/theme.test.js",
 ];
 
 test("all Phase 14 files exist", () => {
@@ -106,6 +112,9 @@ test("verified missing UI dependencies are supplied as complete files", () => {
   assert(exists("src/components/ui/ErrorState.jsx"), "ErrorState.jsx is missing");
   assert(read("src/components/ui/Alert.jsx").includes("export default function Alert"), "Alert.jsx is incomplete");
   assert(read("src/components/ui/ErrorState.jsx").includes("export default function ErrorState"), "ErrorState.jsx is incomplete");
+  assert(read("src/components/ThemeToggle.jsx").includes("Switch to ${nextTheme} mode"), "ThemeToggle.jsx is incomplete");
+  assert(read("src/styles/tokens.css").includes('[data-theme="light"]'), "Light theme tokens are missing");
+  assert(read("src/styles/tokens.css").includes('[data-theme="dark"]'), "Dark theme tokens are missing");
 });
 
 let passed = 0;

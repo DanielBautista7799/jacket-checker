@@ -40,6 +40,9 @@ function getSelectedConditions(weather, forecastAnalysis) {
     condition: String(
       selected.condition || weather?.condition || ""
     ).toLowerCase(),
+    sustainedRainRisk: selected.sustainedRainRisk === true,
+    rainyHourCount: toFiniteNumber(selected.rainyHourCount, 0),
+    rainCoverageRatio: toFiniteNumber(selected.rainCoverageRatio, 0),
   };
 }
 
@@ -85,6 +88,7 @@ export function getProtectionOverride({
 
   const rainRequired =
     selectedConditions.rainChance >= config.rainChance ||
+    selectedConditions.sustainedRainRisk ||
     (precipitationCondition &&
       selectedConditions.rainChance >=
         config.precipitationConditionRainChance) ||
@@ -148,9 +152,13 @@ export function getProtectionOverride({
         ? "Light rain shell"
         : "Water-resistant jacket";
 
-    const reason = `Rain risk may reach ${Math.round(
-      selectedConditions.rainChance
-    )}%, so a rain-protective jacket is recommended even if the selected window is warm.`;
+    const reason = selectedConditions.sustainedRainRisk
+      ? `Rain risk stays near ${Math.round(
+          selectedConditions.rainChance
+        )}% across much of the selected window, so a rain-protective jacket is recommended.`
+      : `Rain risk may reach ${Math.round(
+          selectedConditions.rainChance
+        )}%, so a rain-protective jacket is recommended even if the selected window is warm.`;
 
     return {
       recommendation: {
@@ -161,7 +169,9 @@ export function getProtectionOverride({
         summary: winterPrecipitation
           ? "Wear a weather-protective jacket because wintry precipitation is part of the selected forecast."
           : warmWindow
-            ? "Wear or bring a light rain shell. It is recommended for rain protection, not extra warmth."
+            ? selectedConditions.sustainedRainRisk
+              ? "Wear or bring a light rain shell. Rain risk stays elevated across much of the selected window, even though extra warmth is not necessary."
+              : "Wear or bring a light rain shell. It is recommended for rain protection, not extra warmth."
             : "Wear a water-resistant jacket because rain is likely during the selected window.",
         optionalLayer: null,
         recommendationBasis: "rain_protection",

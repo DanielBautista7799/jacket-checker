@@ -7,6 +7,7 @@ import EmptyState from "../components/ui/EmptyState";
 import LoadingState from "../components/ui/LoadingState";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
+import PageHeader from "../components/ui/PageHeader";
 import useAnalytics from "../hooks/useAnalytics";
 import useRecommendationLearning from "../hooks/useRecommendationLearning";
 import useWardrobeItems from "../hooks/useWardrobeItems";
@@ -116,20 +117,21 @@ export default function HistoryPage() {
 
   return (
     <section className="page-enter" aria-labelledby="history-title">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-3xl">
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-purple-300">History</p>
-          <h1 id="history-title" className="mt-2 text-4xl font-black tracking-tight text-white">Past recommendations</h1>
-          <p className="mt-3 leading-7 text-slate-400">Review previous checks, saved style ideas, and feedback. Deleting a rated result reverses its direct learning effect.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {learningRefreshing && <p role="status" className="text-xs font-bold text-slate-500">Syncing history…</p>}
-          <Button type="button" variant="secondary" onClick={() => setConfirmReset(true)} disabled={resettingLearning || deletingId !== null || !hasLearning} loading={resettingLearning}>
-            {resettingLearning ? <RotateCcw size={17} className="animate-spin" aria-hidden="true" /> : <BrainCircuit size={17} aria-hidden="true" />}
-            Reset learning
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="History"
+        title="Past recommendations"
+        description="Review previous checks, saved style ideas, and feedback. Deleting a rated result reverses its direct learning effect."
+        actions={
+          <div className="flex items-center gap-3">
+            {learningRefreshing && <p role="status" className="text-xs font-extrabold text-slate-500">Syncing history…</p>}
+            <Button type="button" variant="secondary" onClick={() => setConfirmReset(true)} disabled={resettingLearning || deletingId !== null || !hasLearning} loading={resettingLearning}>
+              {resettingLearning ? <RotateCcw size={17} className="animate-spin" aria-hidden="true" /> : <BrainCircuit size={17} aria-hidden="true" />}
+              Reset learning
+            </Button>
+          </div>
+        }
+        className="mb-6"
+      />
 
       {displayedError && <div className="mb-5"><Alert tone="error">{displayedError}</Alert></div>}
       {localMessage && <div className="mb-5"><Alert tone="success">{localMessage}</Alert></div>}
@@ -143,7 +145,7 @@ export default function HistoryPage() {
           <div className="space-y-7">
             {groupedHistory.map(([dateLabel, entries]) => (
               <section key={dateLabel} aria-labelledby={`history-date-${dateLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`}>
-                <h2 id={`history-date-${dateLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`} className="mb-3 text-sm font-black uppercase tracking-[0.16em] text-slate-500">{dateLabel}</h2>
+                <h2 id={`history-date-${dateLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`} className="mb-3 text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{dateLabel}</h2>
                 <div className="grid gap-4 lg:grid-cols-2">
                   {entries.map((entry) => (
                     <HistoryCard

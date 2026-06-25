@@ -1,22 +1,15 @@
-export default function Toggle({ checked, onChange, label, description, disabled = false, id }) {
-  const inputId = id || `toggle-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+import { cn } from "../../lib/utils";
+
+export default function Toggle({ checked, onChange, disabled = false, label, description, className = "" }) {
   return (
-    <label htmlFor={inputId} className={`flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
+    <label className={cn("flex cursor-pointer items-start justify-between gap-4 rounded-[var(--radius-card)] border border-slate-400/14 bg-white/[0.035] p-4", disabled && "cursor-not-allowed opacity-60", className)}>
       <span>
-        <span className="block text-sm font-bold text-white">{label}</span>
-        {description && <span className="mt-1 block text-sm leading-5 text-slate-400">{description}</span>}
+        <span className="block text-sm font-extrabold text-white">{label}</span>
+        {description && <span className="mt-1 block text-xs leading-5 text-slate-400">{description}</span>}
       </span>
-      <span className="relative mt-0.5 inline-flex shrink-0">
-        <input
-          id={inputId}
-          type="checkbox"
-          checked={checked}
-          onChange={(event) => onChange?.(event.target.checked)}
-          disabled={disabled}
-          className="peer sr-only"
-        />
-        <span className="h-7 w-12 rounded-full bg-slate-700 transition peer-checked:bg-sky-500 peer-focus-visible:ring-4 peer-focus-visible:ring-sky-400/30" />
-        <span className="pointer-events-none absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+      <input className="sr-only" type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} disabled={disabled} />
+      <span aria-hidden="true" className={cn("relative mt-0.5 h-7 w-12 shrink-0 rounded-full border transition", checked ? "border-blue-300/30 bg-blue-500" : "border-slate-400/20 bg-slate-700")}>
+        <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition", checked ? "left-6" : "left-1")} />
       </span>
     </label>
   );

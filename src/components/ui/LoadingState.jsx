@@ -1,13 +1,13 @@
 import Skeleton from "./Skeleton";
+import TextShimmer from "./TextShimmer";
 
 export default function LoadingState({ label = "Loading", rows = 3 }) {
   return (
-    <div role="status" aria-live="polite" aria-busy="true" className="rounded-3xl border border-white/10 bg-slate-950/60 p-6">
-      <span className="sr-only">{label}</span>
-      <Skeleton className="h-5 w-40" />
+    <section aria-busy="true" aria-label={label} className="storm-card-soft rounded-[var(--radius-large)] p-5 sm:p-6">
+      <TextShimmer className="text-sm font-extrabold">{label}…</TextShimmer>
       <div className="mt-5 space-y-3">
-        {Array.from({ length: rows }, (_, index) => <Skeleton key={index} className="h-14 w-full" />)}
+        {Array.from({ length: rows }, (_, index) => <Skeleton key={index} className={index === 0 ? "h-7 w-2/3" : "h-16 w-full"} />)}
       </div>
-    </div>
+    </section>
   );
 }

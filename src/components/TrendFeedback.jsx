@@ -21,35 +21,20 @@ export default function TrendFeedback({ styleSuggestion, recommendationId = null
     const result = await submitTrendFeedback({ response: value, styleSuggestion, recommendationId });
     if (result) {
       setSelected(value);
-      track("trend_feedback_submitted", {
-        experienceMode: "personalized",
-        metadata: {
-          feedback_type: value,
-          trend_influence: styleSuggestion.trend?.influence || "unknown",
-        },
-      });
+      track("trend_feedback_submitted", { experienceMode: "personalized", metadata: { feedback_type: value, trend_influence: styleSuggestion.trend?.influence || "unknown" } });
     }
   };
 
   return (
-    <fieldset className="mt-4 border-t border-emerald-200/10 pt-4">
-      <legend className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-100/70">Trend direction</legend>
+    <fieldset className="mt-4 border-t border-violet-200/10 pt-4">
+      <legend className="mb-2 text-xs font-extrabold uppercase tracking-[0.12em] text-violet-100/70">Trend direction</legend>
       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Trend suggestion feedback">
         {OPTIONS.map((option) => {
-          const IconComponent = option.icon;
+          const Icon = option.icon;
           const active = selected === option.value;
           return (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => choose(option.value)}
-              disabled={feedbackSaving || Boolean(selected)}
-              className={`flex min-h-10 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/30 ${active ? "border-emerald-300/60 bg-emerald-300/20 text-emerald-100" : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"} disabled:cursor-default disabled:opacity-70`}
-            >
-              <IconComponent size={13} aria-hidden="true" />
-              {active ? "Saved" : option.label}
+            <button key={option.value} type="button" role="radio" aria-checked={active} onClick={() => choose(option.value)} disabled={feedbackSaving || Boolean(selected)} className={`flex min-h-10 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-extrabold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300/20 ${active ? "border-violet-300/45 bg-violet-300/15 text-violet-100" : "border-slate-400/12 bg-white/[0.03] text-slate-300 hover:bg-white/[0.07]"} disabled:cursor-default disabled:opacity-70`}>
+              <Icon size={13} aria-hidden="true" />{active ? "Saved" : option.label}
             </button>
           );
         })}

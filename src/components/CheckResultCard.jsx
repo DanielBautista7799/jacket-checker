@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   CloudRain,
+  Clock3,
   MapPin,
   Shield,
   Shirt,
@@ -14,6 +15,10 @@ import {
 import RecommendationFeedback from "./RecommendationFeedback";
 import TrendFeedback from "./TrendFeedback";
 import WardrobeImage from "./WardrobeImage";
+import ForecastStrip from "./ForecastStrip";
+import WeatherMetric from "./WeatherMetric";
+import RecommendationSkeleton from "./ui/RecommendationSkeleton";
+import Badge from "./ui/Badge";
 
 function formatLabel(value = "") {
   return String(value)
@@ -22,33 +27,51 @@ function formatLabel(value = "") {
 }
 
 function toFiniteNumber(value, fallback) {
-  if (value === null || value === undefined || value === "") {
-    return fallback;
-  }
-
+  if (value === null || value === undefined || value === "") return fallback;
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }
 
 function getSelectedConditions(weather, recommendation) {
-  const selected =
-    recommendation?.forecastAnalysis?.selectedConditions || {};
+  const selected = recommendation?.forecastAnalysis?.selectedConditions || {};
+  return {
+    feelsLike: toFiniteNumber(selected.feelsLike, toFiniteNumber(weather?.feelsLike, 0)),
+    averageFeelsLike: toFiniteNumber(selected.averageFeelsLike, toFiniteNumber(selected.feelsLike, toFiniteNumber(weather?.feelsLike, 0))),
+    lowestFeelsLike: toFiniteNumber(selected.lowestFeelsLike, toFiniteNumber(selected.feelsLike, toFiniteNumber(weather?.feelsLike, 0))),
+    highestFeelsLike: toFiniteNumber(selected.highestFeelsLike, toFiniteNumber(selected.feelsLike, toFiniteNumber(weather?.feelsLike, 0))),
+    windSpeed: toFiniteNumber(selected.windSpeed, toFiniteNumber(weather?.windSpeed, 0)),
+    rainChance: toFiniteNumber(selected.rainChance, toFiniteNumber(weather?.rainChance, 0)),
+  };
+}
+
+function getWindowSummary(recommendation) {
+  const analysis = recommendation?.forecastAnalysis || {};
+  const windowLabel = analysis.windowLabel || "Selected window";
+  const timeRange = analysis.windowTimeRange || "";
+  const isCurrent = analysis.windowId === "now";
 
   return {
-    feelsLike: toFiniteNumber(
-      selected.feelsLike,
-      toFiniteNumber(weather?.feelsLike, 0)
-    ),
+    windowLabel,
+    timeRange,
+    isCurrent,
+    eyebrow: `${recommendation?.decision === "YES" ? "YES" : "NO"} for ${windowLabel.toLowerCase()}`,
+  };
+}
 
-    windSpeed: toFiniteNumber(
-      selected.windSpeed,
-      toFiniteNumber(weather?.windSpeed, 0)
-    ),
+function getFeelsLikeMetric(selectedConditions, isCurrent) {
+  if (isCurrent) {
+    return {
+      label: "Feels like",
+      value: `${Math.round(selectedConditions.feelsLike)}°F`,
+    };
+  }
 
-    rainChance: toFiniteNumber(
-      selected.rainChance,
-      toFiniteNumber(weather?.rainChance, 0)
-    ),
+  const low = Math.round(selectedConditions.lowestFeelsLike);
+  const high = Math.round(selectedConditions.highestFeelsLike);
+
+  return {
+    label: "Window feel",
+    value: low === high ? `${low}°F` : `${low}–${high}°F`,
   };
 }
 
@@ -61,17 +84,14 @@ function getItemSubtype(item) {
 }
 
 function isActiveJacketMatch(match) {
-  return Boolean(
-    match?.item &&
-      match.item.category === "jacket" &&
-      match.item.archived !== true
-  );
+  return Boolean(match?.item && match.item.category === "jacket" && match.item.archived !== true);
 }
 
-function CheckResultCard({
+export default function CheckResultCard({
   weather,
   recommendation,
   mode = "guest",
+  loading = false,
   feedbackValue = null,
   onFeedback,
   feedbackLoading = false,
@@ -81,415 +101,164 @@ function CheckResultCard({
 }) {
   const isPersonalized = mode === "personalized";
 
+  if (loading) return <RecommendationSkeleton />;
+
   if (!weather && !recommendation) {
     return (
-      <div className="rounded-3xl border border-dashed border-white/10 bg-slate-950/40 p-8 text-center" role="status">
-        <Shield className="mx-auto text-slate-600" size={42} />
-
-        <p className="mt-4 font-semibold text-slate-300">
-          Your jacket check will appear here.
-        </p>
-      </div>
+      <section className="storm-card-soft flex min-h-[29rem] flex-col items-center justify-center rounded-[var(--radius-hero)] border-dashed p-8 text-center" role="status">
+        <span className="flex h-16 w-16 items-center justify-center rounded-3xl border border-cyan-300/14 bg-cyan-400/[0.06] text-cyan-200 shadow-[0_0_36px_rgba(34,211,238,0.08)]">
+          <Shield size={30} aria-hidden="true" />
+        </span>
+        <h2 className="font-display mt-5 text-xl font-bold text-white">Your recommendation will appear here</h2>
+        <p className="mt-2 max-w-md text-sm leading-6 text-slate-400">Choose a location and forecast window to see one clear jacket decision.</p>
+      </section>
     );
   }
 
-  if (weather && !recommendation) {
-    return (
-      <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-6" role="status" aria-live="polite" aria-busy="true">
-        <p className="text-sm text-slate-400">
-          Checking forecast...
-        </p>
-      </div>
-    );
-  }
+  if (weather && !recommendation) return <RecommendationSkeleton />;
 
   const isYes = recommendation.decision === "YES";
   const protectionBasis = recommendation.recommendationBasis || null;
   const isProtectionRecommendation = Boolean(protectionBasis);
   const shouldShowWardrobe = isPersonalized && isYes;
-
-  const forecastAlerts =
-    recommendation.forecastAnalysis?.alerts || [];
-
-  const bringAlongSuggestions =
-    recommendation.forecastAnalysis?.bringAlongSuggestions || [];
-
+  const forecastAlerts = recommendation.forecastAnalysis?.alerts || [];
+  const bringAlongSuggestions = recommendation.forecastAnalysis?.bringAlongSuggestions || [];
   const optionalLayer = recommendation.optionalLayer || null;
   const styleSuggestion = recommendation.styleSuggestion || null;
-  const wardrobeMatch = isActiveJacketMatch(
-    recommendation.closetMatch
-  )
-    ? recommendation.closetMatch
-    : null;
+  const wardrobeMatch = isActiveJacketMatch(recommendation.closetMatch) ? recommendation.closetMatch : null;
 
-  const visibleBringAlongSuggestions = bringAlongSuggestions.filter(
-    (suggestion) => {
-      if (!isProtectionRecommendation) {
-        return true;
-      }
-
-      const item = String(suggestion?.item || "").toLowerCase();
-
-      return ![
-        "rain shell",
-        "rain layer",
-        "windbreaker",
-        "light layer",
-      ].some((term) => item.includes(term));
-    }
-  );
+  const visibleBringAlongSuggestions = bringAlongSuggestions.filter((suggestion) => {
+    if (!isProtectionRecommendation) return true;
+    const item = String(suggestion?.item || "").toLowerCase();
+    return !["rain shell", "rain layer", "windbreaker", "light layer"].some((term) => item.includes(term));
+  });
 
   const visibleRankedMatches = rankedMatches
-    .map((match, originalIndex) => ({
-      match,
-      originalIndex,
-    }))
+    .map((match, originalIndex) => ({ match, originalIndex }))
     .filter(({ match }) => isActiveJacketMatch(match))
     .slice(0, 3);
-
-  const topReasons = recommendation.reasons?.slice(0, 3) || [];
-
-  const selectedConditions = getSelectedConditions(
-    weather,
-    recommendation
-  );
+  const topReasons = recommendation.reasons?.slice(0, 4) || [];
+  const selectedConditions = getSelectedConditions(weather, recommendation);
+  const windowSummary = getWindowSummary(recommendation);
+  const feelsLikeMetric = getFeelsLikeMetric(selectedConditions, windowSummary.isCurrent);
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-slate-950/70 p-5 shadow-xl sm:p-6" aria-labelledby="recommendation-decision">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-            {isPersonalized ? "Personalized Check" : "Jacket Check"}
-          </p>
-
-          <h2
-            id="recommendation-decision"
-            className={`mt-1 text-5xl sm:text-6xl font-black tracking-tight ${
-              isYes ? "text-sky-300" : "text-emerald-300"
-            }`}
-          >
-            {recommendation.decision}
-          </h2>
-        </div>
-
-        <div
-          className={`rounded-2xl p-3 ${
-            isYes
-              ? "bg-sky-500/10 text-sky-300"
-              : "bg-emerald-500/10 text-emerald-300"
-          }`}
-        >
-          {isYes ? (
-            <CheckCircle2 size={32} />
-          ) : (
-            <XCircle size={32} />
-          )}
-        </div>
-      </div>
-
-      <div className="mb-5 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-        <p className="text-sm text-slate-400">
-          {isYes
-            ? isProtectionRecommendation
-              ? "Wear or bring"
-              : "Wear"
-            : "Decision"}
-        </p>
-
-        <p className="mt-1 text-2xl font-black text-white">
-          {recommendation.primaryItem}
-        </p>
-
-        <p className="mt-3 leading-6 text-slate-300">
-          {recommendation.summary}
-        </p>
-      </div>
-
-      {!isYes && optionalLayer && (
-        <div className="mb-5 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
-          <div className="mb-3 flex items-center gap-2 text-amber-200">
-            <Shirt size={18} />
-
-            <p className="font-bold">Optional Light Layer</p>
-          </div>
-
-          <p className="font-black text-white">
-            {optionalLayer.item}
-          </p>
-
-          <p className="mt-2 text-sm leading-6 text-slate-300">
-            {optionalLayer.reason}
-          </p>
-        </div>
-      )}
-
-      {shouldShowWardrobe && visibleRankedMatches.length > 0 && (
-        <div className="mb-5 rounded-3xl border border-purple-400/20 bg-purple-400/10 p-5">
-          <p className="mb-4 font-bold text-purple-200">
-            {protectionBasis === "rain_protection"
-              ? "Top rain-protection matches"
-              : protectionBasis === "wind_protection"
-                ? "Top wind-protection matches"
-                : protectionBasis === "rain_wind_protection"
-                  ? "Top weather-protection matches"
-                  : "Top jacket matches"}
-          </p>
-
-          <div className="space-y-3">
-            {visibleRankedMatches.map(
-              ({ match, originalIndex }, displayIndex) => {
-                const active =
-                  originalIndex === selectedRankIndex ||
-                  match.item.id === wardrobeMatch?.item?.id;
-
-                return (
-                <button
-                  key={match.item.id}
-                  type="button"
-                  onClick={() => onSelectRank?.(originalIndex)}
-                  aria-pressed={active}
-                  aria-label={`Select ${match.item.name} as jacket option ${displayIndex + 1}`}
-                  className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
-                    active
-                      ? "border-purple-400/60 bg-purple-500/20"
-                      : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
-                  }`}
-                >
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl">
-                    <WardrobeImage
-                      item={match.item}
-                      alt={`${match.item.name} primary wardrobe photo`}
-                      className="h-16 w-16 object-cover"
-                      fallbackClassName="flex h-16 w-16 items-center justify-center bg-white/10 text-slate-500"
-                      iconSize={22}
-                    />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black uppercase tracking-wide text-purple-300">
-                      {displayIndex === 0
-                        ? "Best match"
-                        : `Option ${displayIndex + 1}`}
-                    </p>
-
-                    <p className="truncate font-black text-white">
-                      {match.item.name}
-                    </p>
-
-                    <p className="text-xs text-slate-400">
-                      {formatLabel(getItemColor(match.item))}{" "}
-                      {formatLabel(getItemSubtype(match.item))}
-                    </p>
-                  </div>
-
-                  {active && (
-                    <CheckCircle2
-                      className="shrink-0 text-purple-200"
-                      size={22}
-                      aria-label="Selected"
-                    />
-                  )}
-                </button>
-                );
-              }
-            )}
-          </div>
-        </div>
-      )}
-
-      {shouldShowWardrobe && wardrobeMatch && (
-        <div className="mb-5 overflow-hidden rounded-3xl border border-sky-400/20 bg-sky-400/10">
-          <div className="h-56 w-full overflow-hidden bg-slate-900/60">
-            <WardrobeImage
-              item={wardrobeMatch.item}
-              alt={`${wardrobeMatch.item.name} primary wardrobe photo`}
-              className="h-56 w-full object-cover"
-              fallbackClassName="flex h-56 w-full items-center justify-center bg-white/[0.04] text-slate-500"
-              iconSize={34}
-              showLabel
-              loading="eager"
-            />
-          </div>
-
-          <div className="p-5">
-            <div className="mb-3 flex items-center gap-2 text-sky-200">
-              <Shirt size={18} />
-
-              <p className="font-bold">Selected Wardrobe Match</p>
+    <article className="recommendation-shell p-5 sm:p-7 lg:p-8" aria-labelledby="recommendation-decision">
+      <div className="relative z-10">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-500">{isPersonalized ? "Personalized recommendation" : "Jacket recommendation"}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge tone="info" className="normal-case tracking-normal">
+                <Clock3 size={13} aria-hidden="true" />
+                {windowSummary.windowLabel}{windowSummary.timeRange ? ` · ${windowSummary.timeRange}` : ""}
+              </Badge>
             </div>
-
-            <p className="text-xl font-black text-white">
-              {wardrobeMatch.item.name}
-            </p>
-
-            <p className="mt-1 text-sm text-slate-300">
-              {formatLabel(getItemColor(wardrobeMatch.item))}{" "}
-              {formatLabel(getItemSubtype(wardrobeMatch.item))}
-            </p>
-
-            <ul className="mt-3 space-y-2 text-sm leading-5 text-slate-300">
-              {wardrobeMatch.reasons
-                .slice(0, 4)
-                .map((reason, index) => (
-                  <li key={`${reason}-${index}`}>• {reason}</li>
-                ))}
-            </ul>
+            <h2 id="recommendation-decision" className={`font-display mt-3 text-6xl font-bold tracking-[-0.075em] sm:text-7xl lg:text-8xl ${isYes ? "text-emerald-300" : "text-cyan-200"}`}>
+              {recommendation.decision}
+            </h2>
           </div>
+          <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl border ${isYes ? "border-emerald-300/20 bg-emerald-400/[0.08] text-emerald-200" : "border-cyan-300/20 bg-cyan-400/[0.08] text-cyan-200"}`}>
+            {isYes ? <CheckCircle2 size={29} aria-hidden="true" /> : <XCircle size={29} aria-hidden="true" />}
+          </span>
         </div>
-      )}
 
-      {isPersonalized && styleSuggestion && (
-        <div className="mb-5 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
-          <div className="mb-3 flex items-center gap-2 text-emerald-200">
-            <Sparkles size={18} />
-            <p className="font-bold">Style idea</p>
-          </div>
-
-          <p className="font-black text-white">
-            {styleSuggestion.title || "Simple fit idea"}
-          </p>
-
-          {styleSuggestion.summary && (
-            <p className="mt-2 text-sm leading-6 text-slate-200">
-              {styleSuggestion.summary}
-            </p>
-          )}
-
-          {styleSuggestion.weatherNote && (
-            <p className="mt-2 text-xs leading-5 text-emerald-100/80">
-              {styleSuggestion.weatherNote}
-            </p>
-          )}
-
-          {styleSuggestion.trendNote && (
-            <p className="mt-3 rounded-2xl border border-violet-300/20 bg-violet-400/10 px-3 py-3 text-xs leading-5 text-violet-100">
-              {styleSuggestion.trendNote}
-            </p>
-          )}
-
-          <TrendFeedback
-            styleSuggestion={styleSuggestion}
-            recommendationId={recommendation.historyId || null}
-          />
+        <div className="mt-6 border-t border-slate-400/12 pt-6">
+          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{windowSummary.eyebrow}</p>
+          <p className="font-display mt-2 text-2xl font-bold tracking-[-0.035em] text-white sm:text-3xl">{recommendation.primaryItem}</p>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">{recommendation.summary}</p>
         </div>
-      )}
 
-      {isYes && visibleBringAlongSuggestions.length > 0 && (
-        <div className="mb-5 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-5">
-          <div className="mb-3 flex items-center gap-2 text-amber-200">
-            <AlertTriangle size={18} />
+        {weather && (
+          <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <WeatherMetric icon={Thermometer} label={feelsLikeMetric.label} value={feelsLikeMetric.value} />
+            <WeatherMetric icon={Wind} label="Wind" value={`${Math.round(selectedConditions.windSpeed)} mph`} accent="text-violet-200" />
+            <WeatherMetric icon={CloudRain} label="Rain" value={`${Math.round(selectedConditions.rainChance)}%`} accent="text-cyan-200" />
+            <WeatherMetric icon={MapPin} label="Location" value={weather.city} accent="text-blue-200" />
+          </dl>
+        )}
 
-            <p className="font-bold">Bring Along</p>
-          </div>
+        {!isYes && optionalLayer && (
+          <section className="mt-5 rounded-[var(--radius-card)] border border-amber-300/18 bg-amber-400/[0.065] p-4 sm:p-5">
+            <div className="flex items-center gap-2 text-amber-100"><Shirt size={18} aria-hidden="true" /><h3 className="font-extrabold">Optional backup layer</h3></div>
+            <p className="mt-3 font-bold text-white">{optionalLayer.item}</p>
+            <p className="mt-1 text-sm leading-6 text-slate-300">{optionalLayer.reason}</p>
+          </section>
+        )}
 
-          <div className="space-y-3">
-            {visibleBringAlongSuggestions
-              .slice(0, 2)
-              .map((suggestion, index) => (
-                <div key={`${suggestion.item}-${index}`}>
-                  <p className="font-bold text-white">
-                    {suggestion.item}
-                  </p>
+        {shouldShowWardrobe && visibleRankedMatches.length > 0 && (
+          <section className="mt-5 rounded-[var(--radius-card)] border border-violet-300/18 bg-violet-400/[0.055] p-4 sm:p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="font-extrabold text-violet-100">{protectionBasis === "rain_protection" ? "Top rain-protection matches" : protectionBasis === "wind_protection" ? "Top wind-protection matches" : protectionBasis === "rain_wind_protection" ? "Top weather-protection matches" : "Best jackets you own"}</h3>
+              <Badge tone="purple">Top {visibleRankedMatches.length}</Badge>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {visibleRankedMatches.map(({ match, originalIndex }, displayIndex) => {
+                const active = originalIndex === selectedRankIndex || match.item.id === wardrobeMatch?.item?.id;
+                return (
+                  <button key={match.item.id} type="button" onClick={() => onSelectRank?.(originalIndex)} aria-pressed={active} aria-label={`Select ${match.item.name} as jacket option ${displayIndex + 1}`} className={`overflow-hidden rounded-2xl border text-left transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-400/20 ${active ? "border-violet-300/45 bg-violet-400/12" : "border-slate-400/12 bg-white/[0.035] hover:border-slate-300/24"}`}>
+                    <WardrobeImage item={match.item} alt={`${match.item.name} primary wardrobe photo`} className="h-28 w-full object-cover" fallbackClassName="flex h-28 w-full items-center justify-center bg-white/[0.04] text-slate-600" iconSize={24} />
+                    <span className="block p-3">
+                      <span className="block text-[0.68rem] font-extrabold uppercase tracking-[0.12em] text-violet-200">{displayIndex === 0 ? "Best match" : `Option ${displayIndex + 1}`}</span>
+                      <span className="mt-1 block truncate font-extrabold text-white">{match.item.name}</span>
+                      <span className="mt-1 block text-xs text-slate-500">{formatLabel(getItemColor(match.item))} {formatLabel(getItemSubtype(match.item))}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-                  <p className="mt-1 text-sm leading-5 text-slate-300">
-                    {suggestion.reason}
-                  </p>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
+        {shouldShowWardrobe && wardrobeMatch && (
+          <section className="mt-5 overflow-hidden rounded-[var(--radius-card)] border border-cyan-300/18 bg-cyan-400/[0.045] sm:grid sm:grid-cols-[minmax(13rem,0.75fr)_1fr]">
+            <WardrobeImage item={wardrobeMatch.item} alt={`${wardrobeMatch.item.name} primary wardrobe photo`} className="h-64 w-full object-cover sm:h-full" fallbackClassName="flex h-64 w-full items-center justify-center bg-white/[0.04] text-slate-600 sm:h-full" iconSize={34} showLabel loading="eager" />
+            <div className="p-5">
+              <Badge tone="info"><Shirt size={13} aria-hidden="true" />Best match for {windowSummary.windowLabel.toLowerCase()}</Badge>
+              <h3 className="font-display mt-3 text-2xl font-bold text-white">{wardrobeMatch.item.name}</h3>
+              <p className="mt-1 text-sm text-slate-400">{formatLabel(getItemColor(wardrobeMatch.item))} {formatLabel(getItemSubtype(wardrobeMatch.item))}</p>
+              <ul className="mt-4 space-y-2 text-sm leading-6 text-slate-300">
+                {wardrobeMatch.reasons.slice(0, 4).map((reason, index) => <li key={`${reason}-${index}`} className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300" />{reason}</li>)}
+              </ul>
+            </div>
+          </section>
+        )}
 
-      {forecastAlerts.length > 0 && (
-        <div className="mb-5 rounded-3xl border border-sky-500/20 bg-sky-500/10 p-5">
-          <div className="mb-3 flex items-center gap-2 text-sky-200">
-            <CloudRain size={18} />
+        {isPersonalized && styleSuggestion && (
+          <section className="mt-5 rounded-[var(--radius-card)] border border-violet-300/18 bg-violet-400/[0.05] p-4 sm:p-5">
+            <div className="flex items-center gap-2 text-violet-100"><Sparkles size={18} aria-hidden="true" /><h3 className="font-extrabold">Style it</h3></div>
+            <p className="font-display mt-3 text-xl font-bold text-white">{styleSuggestion.title || "Simple fit idea"}</p>
+            {styleSuggestion.summary && <p className="mt-2 text-sm leading-6 text-slate-300">{styleSuggestion.summary}</p>}
+            {styleSuggestion.weatherNote && <p className="mt-2 text-xs leading-5 text-violet-100/75">{styleSuggestion.weatherNote}</p>}
+            {styleSuggestion.trendNote && <p className="mt-3 rounded-xl border border-violet-300/14 bg-violet-400/[0.06] px-3 py-3 text-xs leading-5 text-violet-100">{styleSuggestion.trendNote}</p>}
+            <TrendFeedback styleSuggestion={styleSuggestion} recommendationId={recommendation.historyId || null} />
+          </section>
+        )}
 
-            <p className="font-bold">Forecast Watch</p>
-          </div>
+        {isYes && visibleBringAlongSuggestions.length > 0 && (
+          <section className="mt-5 rounded-[var(--radius-card)] border border-amber-300/18 bg-amber-400/[0.055] p-4 sm:p-5">
+            <div className="flex items-center gap-2 text-amber-100"><AlertTriangle size={18} aria-hidden="true" /><h3 className="font-extrabold">Bring along</h3></div>
+            <div className="mt-3 space-y-3">{visibleBringAlongSuggestions.slice(0, 2).map((suggestion, index) => <div key={`${suggestion.item}-${index}`}><p className="font-bold text-white">{suggestion.item}</p><p className="mt-1 text-sm leading-6 text-slate-300">{suggestion.reason}</p></div>)}</div>
+          </section>
+        )}
 
-          <ul className="space-y-2 text-sm leading-5 text-slate-300">
-            {forecastAlerts.slice(0, 2).map((alert, index) => (
-              <li key={`${alert.type}-${index}`}>
-                • {alert.message}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {forecastAlerts.length > 0 && (
+          <section className="mt-5 rounded-[var(--radius-card)] border border-cyan-300/18 bg-cyan-400/[0.05] p-4 sm:p-5">
+            <div className="flex items-center gap-2 text-cyan-100"><CloudRain size={18} aria-hidden="true" /><h3 className="font-extrabold">Forecast watch</h3></div>
+            <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">{forecastAlerts.slice(0, 2).map((alert, index) => <li key={`${alert.type}-${index}`}>• {alert.message}</li>)}</ul>
+          </section>
+        )}
 
-      {topReasons.length > 0 && (
-        <div className="mb-5 rounded-3xl bg-white/[0.03] p-5">
-          <p className="mb-3 font-bold text-white">Why?</p>
+        {topReasons.length > 0 && (
+          <details className="mt-5 rounded-[var(--radius-card)] border border-slate-400/12 bg-white/[0.025] p-4 open:bg-white/[0.04]">
+            <summary className="cursor-pointer list-none font-extrabold text-white">Why this recommendation?</summary>
+            <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">{topReasons.map((reason, index) => <li key={`${reason}-${index}`}>• {reason}</li>)}</ul>
+          </details>
+        )}
 
-          <ul className="space-y-2 text-sm leading-5 text-slate-300">
-            {topReasons.map((reason, index) => (
-              <li key={`${reason}-${index}`}>• {reason}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {shouldShowWardrobe && wardrobeMatch && onFeedback && (
-        <div className="mb-5">
-          <RecommendationFeedback
-            value={feedbackValue}
-            onChange={onFeedback}
-            loading={feedbackLoading}
-            disabled={false}
-          />
-        </div>
-      )}
-
-      {weather && (
-        <dl className="grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-2xl bg-white/[0.03] p-4">
-            <dt className="mb-2 flex items-center gap-2 text-slate-400">
-              <Thermometer size={16} aria-hidden="true" />
-              Window feels
-            </dt>
-
-            <dd className="text-xl font-black text-white">
-              {Math.round(selectedConditions.feelsLike)}°F
-            </dd>
-          </div>
-
-          <div className="rounded-2xl bg-white/[0.03] p-4">
-            <dt className="mb-2 flex items-center gap-2 text-slate-400">
-              <Wind size={16} aria-hidden="true" />
-              Peak wind
-            </dt>
-
-            <dd className="text-xl font-black text-white">
-              {Math.round(selectedConditions.windSpeed)} mph
-            </dd>
-          </div>
-
-          <div className="rounded-2xl bg-white/[0.03] p-4">
-            <dt className="mb-2 flex items-center gap-2 text-slate-400">
-              <CloudRain size={16} aria-hidden="true" />
-              Rain risk
-            </dt>
-
-            <dd className="text-xl font-black text-white">
-              {Math.round(selectedConditions.rainChance)}%
-            </dd>
-          </div>
-
-          <div className="rounded-2xl bg-white/[0.03] p-4">
-            <dt className="mb-2 flex items-center gap-2 text-slate-400">
-              <MapPin size={16} aria-hidden="true" />
-              Location
-            </dt>
-
-            <dd className="truncate text-sm font-bold text-white">
-              {weather.city}
-            </dd>
-          </div>
-        </dl>
-      )}
+        {shouldShowWardrobe && wardrobeMatch && onFeedback && <div className="mt-5"><RecommendationFeedback value={feedbackValue} onChange={onFeedback} loading={feedbackLoading} disabled={false} /></div>}
+        <ForecastStrip weather={weather} recommendation={recommendation} />
+      </div>
     </article>
   );
 }
-
-export default CheckResultCard;

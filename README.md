@@ -13,7 +13,8 @@ The goal is to keep the user experience simple while the recommendation logic re
 # Project Status
 
 - Product implementation: complete through Phase 13
-- Phase 14 predeployment setup: implemented and being validated locally
+- Phase 14 predeployment setup: implemented and validated before the final UI pass
+- Phase 14.9.5 Storm Glass interface: implemented; final repository validation required after installation
 - Deployment status: pending
 - Planned frontend host: Netlify
 - Backend, authentication, database, storage, and Edge Functions: Supabase
@@ -40,6 +41,38 @@ The application has two intentionally separate experiences:
 Guest Mode is fast and low-friction.
 
 Personalized Mode uses saved profile information, owned jackets, style preferences, forecast context, recommendation history, learned feedback, visual similarity, and curated style-trend rules.
+
+## Storm Glass Interface
+
+The application uses one cohesive **Storm Glass** design system across guest and authenticated experiences. The visual layer is intentionally atmospheric and premium without changing the weather, recommendation, authentication, wardrobe, feedback, history, analytics, or Supabase data flows.
+
+The interface includes:
+
+- Complete light and dark Storm Glass themes with restrained blue, cyan, and violet atmosphere
+- A floating glass desktop navigation shell
+- A compact signed-in mobile bottom navigation
+- A recommendation-first hierarchy with large YES or NO typography
+- Image-forward jacket cards
+- Forecast strips and concise weather metrics
+- Purpose-specific skeleton, inline, auth, and wardrobe-analysis loading states
+- Consistent focus rings, touch targets, reduced-motion behavior, and responsive layouts
+- One restrained animated recommendation border rather than effects on every card
+- A bottom-left theme switcher that remembers the selected mode across visits
+
+Typography is bundled locally through npm:
+
+- **Manrope Variable** for navigation, body copy, controls, labels, and metadata
+- **Space Grotesk Variable** for recommendation decisions, temperatures, and major headings
+
+The component foundation is shadcn-compatible and uses Radix Slot only where composition is needed. Lucide React remains the only general interface icon system. The redesign adds no runtime font CDN, no third-party visual script, no `eval`, no `new Function`, and no CSP `unsafe-eval` requirement.
+
+The initial theme follows the saved browser preference when available and otherwise respects the operating-system color preference. Switching modes stores only the theme name in local browser storage; it does not send theme data to Supabase or analytics.
+
+The implementation details and file map are documented in:
+
+```text
+docs/STORM_GLASS_UI_IMPLEMENTATION.md
+```
 
 ---
 

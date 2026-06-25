@@ -385,6 +385,40 @@ export const RECOMMENDATION_TEST_SCENARIOS = [
     },
   },
   {
+    id: "tomorrow-night-sustained-rain",
+    name: "Tomorrow night sustained rain",
+    description: "A future window with persistent rain risk should recommend a light rain layer even when it stays mild.",
+    input: {
+      weather: createWeather({
+        localTime: "2026-01-15 12:00",
+        temperature: 76,
+        feelsLike: 76,
+        condition: "Clear",
+        forecastHours: createForecastHours({
+          date: "2026-01-16",
+          startHour: 18,
+          values: [
+            { feelsLike: 79, rainChance: 42, windSpeed: 4, condition: "Cloudy" },
+            { feelsLike: 68, rainChance: 42, windSpeed: 4, condition: "Cloudy" },
+            { feelsLike: 67, rainChance: 42, windSpeed: 4, condition: "Cloudy" },
+            { feelsLike: 67, rainChance: 42, windSpeed: 4, condition: "Cloudy" },
+            { feelsLike: 67, rainChance: 35, windSpeed: 4, condition: "Cloudy" },
+            { feelsLike: 68, rainChance: 38, windSpeed: 4, condition: "Cloudy" },
+          ],
+        }),
+      }),
+      profile: createProfile(),
+      windowId: "tomorrow_night",
+      closetItems: [lightJacket, rainShell],
+    },
+    expected: {
+      decision: "YES",
+      recommendationBasis: "rain_protection",
+      protectionOverrideApplied: true,
+      selectedJacketId: "rain-shell",
+    },
+  },
+  {
     id: "run-hot-close-call",
     name: "Run-hot profile",
     description: "A run-hot profile should lower a close recommendation.",

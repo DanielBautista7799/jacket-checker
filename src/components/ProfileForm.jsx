@@ -24,8 +24,8 @@ function FieldShell({ icon: Icon, label, children }) {
 
   return (
     <div>
-      <label htmlFor={fieldId} className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
-        {Icon && <Icon size={16} className="text-sky-300" aria-hidden="true" />}
+      <label htmlFor={fieldId} className="mb-2 flex items-center gap-2 text-sm font-extrabold text-slate-200">
+        {Icon && <Icon size={16} className="text-cyan-200" aria-hidden="true" />}
         {label}
       </label>
       {cloneElement(children, { id: children.props.id || fieldId })}
@@ -34,7 +34,7 @@ function FieldShell({ icon: Icon, label, children }) {
 }
 
 const inputClass =
-  "w-full rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-4 text-white outline-none transition focus:border-sky-500/70 focus:ring-4 focus:ring-sky-500/10";
+  "storm-field px-4 py-3";
 
 const initialForm = {
   display_name: "",
@@ -142,7 +142,7 @@ function ProfileForm({ profile, onSave, profileLoading }) {
     <form
       onSubmit={handleSubmit}
       aria-labelledby="profile-form-title"
-      className="rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-xl"
+      className="storm-card rounded-[var(--radius-large)] p-5 sm:p-6"
     >
       <div className="mb-6">
         <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
@@ -253,7 +253,7 @@ function ProfileForm({ profile, onSave, profileLoading }) {
           </FieldShell>
         </div>
 
-        <div className="md:col-span-2 rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
+        <div className="md:col-span-2 rounded-[var(--radius-card)] border border-emerald-300/18 bg-emerald-400/[0.05] p-5">
           <div className="mb-5">
             <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-emerald-200">
               <Shirt size={16} />
@@ -357,7 +357,7 @@ function ProfileForm({ profile, onSave, profileLoading }) {
           </div>
         </div>
 
-        <div className="md:col-span-2 rounded-3xl border border-violet-400/20 bg-violet-400/10 p-5">
+        <div className="md:col-span-2 rounded-[var(--radius-card)] border border-violet-300/18 bg-violet-400/[0.05] p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-violet-200">
@@ -396,7 +396,7 @@ function ProfileForm({ profile, onSave, profileLoading }) {
           )}
         </div>
 
-        <div className="md:col-span-2 rounded-3xl border border-sky-400/20 bg-sky-400/10 p-5">
+        <div className="md:col-span-2 rounded-[var(--radius-card)] border border-cyan-300/18 bg-cyan-400/[0.05] p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-sky-200">
@@ -420,7 +420,7 @@ function ProfileForm({ profile, onSave, profileLoading }) {
           </div>
         </div>
 
-        <div className="md:col-span-2 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="md:col-span-2 rounded-[var(--radius-card)] border border-slate-400/12 bg-white/[0.025] p-5">
           <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
             Default Location
           </p>
@@ -441,7 +441,7 @@ function ProfileForm({ profile, onSave, profileLoading }) {
       <button
         type="submit"
         disabled={profileLoading}
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-4 font-black text-white shadow-lg shadow-emerald-500/25 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
+        className="mt-6 flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-[var(--radius-control)] border border-emerald-300/20 bg-emerald-400 px-4 py-3 font-extrabold text-emerald-950 shadow-[0_14px_36px_rgba(52,211,153,.18)] transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
       >
         <Save size={19} />
         {profileLoading ? "Saving..." : "Save Profile"}

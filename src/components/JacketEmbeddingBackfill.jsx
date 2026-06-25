@@ -1,14 +1,17 @@
 import {
   CheckCircle2,
-  LoaderCircle,
   RefreshCw,
   ScanSearch,
   TriangleAlert,
 } from "lucide-react";
 
 import useJacketEmbeddings from "../hooks/useJacketEmbeddings";
+import Button from "./ui/Button";
+import Card from "./ui/Card";
+import Progress from "./ui/Progress";
+import TextShimmer from "./ui/TextShimmer";
 
-function JacketEmbeddingBackfill() {
+export default function JacketEmbeddingBackfill() {
   const {
     embeddingSummary,
     embeddingError,
@@ -19,74 +22,77 @@ function JacketEmbeddingBackfill() {
   const ready = embeddingSummary.ready;
   const total = embeddingSummary.total;
   const incomplete = Math.max(0, total - ready);
-  const running = Boolean(
-    backfillProgress && !backfillProgress.finished
-  );
+  const running = Boolean(backfillProgress && !backfillProgress.finished);
+  const progressValue = running
+    ? Math.round(
+        (backfillProgress.completed / Math.max(1, backfillProgress.total)) * 100,
+      )
+    : total > 0
+      ? Math.round((ready / total) * 100)
+      : 0;
 
-  if (total === 0) {
-    return null;
-  }
+  if (total === 0) return null;
 
   return (
-    <div className="mb-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/[0.07] p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 gap-3">
-          <ScanSearch className="mt-1 shrink-0 text-cyan-200" size={22} />
-          <div>
-            <p className="font-black text-cyan-100">
-              Visual jacket matching
-            </p>
-            <p className="mt-1 text-sm leading-6 text-slate-400">
-              {ready} of {total} jacket{total === 1 ? " is" : "s are"} ready
-              for duplicate detection and similar-jacket matching.
-            </p>
+    <Card className="mb-6 overflow-hidden border-cyan-300/16 bg-cyan-300/[0.045] p-0">
+      <div className="relative p-5 sm:p-6">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-20 -top-24 h-48 w-48 rounded-full bg-cyan-300/10 blur-3xl"
+        />
+
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 gap-3.5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/15 bg-cyan-300/10 text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.08)]">
+              <ScanSearch size={21} strokeWidth={2} aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-display text-lg font-bold tracking-[-0.02em] text-white">
+                Visual jacket matching
+              </p>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+                {ready} of {total} jacket{total === 1 ? " is" : "s are"} ready
+                for duplicate detection and similar-jacket matching.
+              </p>
+            </div>
           </div>
+
+          <Button
+            type="button"
+            onClick={() => backfillEmbeddings()}
+            disabled={running || incomplete === 0}
+            loading={running}
+            variant={incomplete === 0 ? "secondary" : "default"}
+            className="shrink-0"
+          >
+            {!running && (incomplete === 0 ? (
+              <CheckCircle2 size={17} aria-hidden="true" />
+            ) : (
+              <RefreshCw size={17} aria-hidden="true" />
+            ))}
+            {running
+              ? `Preparing ${backfillProgress.completed}/${backfillProgress.total}`
+              : incomplete === 0
+                ? "Matching ready"
+                : `Prepare ${incomplete} jacket${incomplete === 1 ? "" : "s"}`}
+          </Button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => backfillEmbeddings()}
-          disabled={running || incomplete === 0}
-          className="flex items-center gap-2 rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
-        >
-          {running ? (
-            <LoaderCircle size={17} className="animate-spin" />
-          ) : incomplete === 0 ? (
-            <CheckCircle2 size={17} />
-          ) : (
-            <RefreshCw size={17} />
-          )}
-          {running
-            ? `Preparing ${backfillProgress.completed}/${backfillProgress.total}`
-            : incomplete === 0
-              ? "Matching ready"
-              : `Prepare ${incomplete} jacket${incomplete === 1 ? "" : "s"}`}
-        </button>
+        <div className="relative mt-5">
+          <div className="mb-2 flex items-center justify-between gap-4 text-xs font-extrabold uppercase tracking-[0.12em] text-slate-500">
+            <span>{running ? <TextShimmer>Preparing visual matches…</TextShimmer> : "Readiness"}</span>
+            <span className="text-slate-300">{progressValue}%</span>
+          </div>
+          <Progress value={progressValue} label="Visual matching readiness" />
+        </div>
+
+        {embeddingError && (
+          <div className="relative mt-4 flex items-start gap-2.5 rounded-2xl border border-amber-300/18 bg-amber-300/[0.08] p-3.5 text-sm leading-6 text-amber-100">
+            <TriangleAlert size={17} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>{embeddingError}</span>
+          </div>
+        )}
       </div>
-
-      {running && (
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-900">
-          <div
-            className="h-full rounded-full bg-cyan-300 transition-all"
-            style={{
-              width: `${Math.round(
-                (backfillProgress.completed /
-                  Math.max(1, backfillProgress.total)) *
-                  100
-              )}%`,
-            }}
-          />
-        </div>
-      )}
-
-      {embeddingError && (
-        <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-100">
-          <TriangleAlert size={17} className="mt-0.5 shrink-0" />
-          {embeddingError}
-        </div>
-      )}
-    </div>
+    </Card>
   );
 }
-
-export default JacketEmbeddingBackfill;

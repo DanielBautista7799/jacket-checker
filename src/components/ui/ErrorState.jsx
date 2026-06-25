@@ -1,39 +1,18 @@
 import { AlertTriangle } from "lucide-react";
 import Button from "./Button";
+import Card from "./Card";
 
-export default function ErrorState({
-  title = "Something went wrong",
-  message = "The request could not be completed.",
-  onRetry,
-  retryLabel = "Try again",
-  className = "",
-}) {
+export default function ErrorState({ title = "Something went wrong", description, message, onRetry, retryLabel = "Try again" }) {
   return (
-    <section
-      role="alert"
-      aria-labelledby="error-state-title"
-      className={`rounded-3xl border border-rose-400/25 bg-rose-950/30 p-6 ${className}`}
-    >
-      <div className="flex items-start gap-4">
-        <div className="rounded-2xl bg-rose-500/10 p-3 text-rose-300">
-          <AlertTriangle size={24} aria-hidden="true" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 id="error-state-title" className="text-xl font-black text-white">
-            {title}
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-rose-100/80">
-            {message}
-          </p>
-          {onRetry && (
-            <div className="mt-5">
-              <Button type="button" variant="secondary" onClick={onRetry}>
-                {retryLabel}
-              </Button>
-            </div>
-          )}
+    <Card className="border-rose-300/20 bg-rose-400/[0.045] p-5 sm:p-6" role="alert">
+      <div className="flex gap-3">
+        <AlertTriangle size={21} className="mt-0.5 shrink-0 text-rose-300" aria-hidden="true" />
+        <div>
+          <h2 className="font-display text-lg font-bold text-white">{title}</h2>
+          {(description || message) && <p className="mt-2 text-sm leading-6 text-slate-300">{description || message}</p>}
+          {onRetry && <Button type="button" variant="secondary" onClick={onRetry} className="mt-4">{retryLabel}</Button>}
         </div>
       </div>
-    </section>
+    </Card>
   );
 }

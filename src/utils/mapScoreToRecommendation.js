@@ -41,6 +41,7 @@ function getSelectedConditions(weather, forecastAnalysis) {
     condition: String(
       selected.condition || weather?.condition || ""
     ).toLowerCase(),
+    sustainedRainRisk: selected.sustainedRainRisk === true,
   };
 }
 
@@ -118,6 +119,7 @@ export function mapScoreToRecommendation(
   );
 
   const rainy =
+    selectedConditions.sustainedRainRisk ||
     selectedConditions.rainChance >=
       decisionConfig.optionalRainChance ||
     selectedConditions.condition.includes("rain") ||

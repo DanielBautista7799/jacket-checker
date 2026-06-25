@@ -1,17 +1,7 @@
-export default function Card({
-  as = "div",
-  className = "",
-  children,
-  elevated = false,
-  ...props
-}) {
-  const Tag = as;
-  return (
-    <Tag
-      className={`rounded-3xl border border-white/10 bg-slate-950/60 ${elevated ? "shadow-2xl shadow-black/20" : ""} ${className}`}
-      {...props}
-    >
-      {children}
-    </Tag>
-  );
+import { createElement } from "react";
+import { cn } from "../../lib/utils";
+
+export default function Card({ as = "section", className = "", elevated = false, soft = false, children, ...props }) {
+  const surface = elevated ? "storm-card-elevated" : soft ? "storm-card-soft" : "storm-card";
+  return createElement(as, { className: cn(surface, "rounded-[var(--radius-large)]", className), ...props }, children);
 }

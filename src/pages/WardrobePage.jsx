@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Shirt, SlidersHorizontal } from "lucide-react";
+import { Plus, Search, Shirt, SlidersHorizontal } from "lucide-react";
 
 import JacketEmbeddingBackfill from "../components/JacketEmbeddingBackfill";
 import WardrobeItemCard from "../components/WardrobeItemCard";
@@ -11,6 +11,8 @@ import Badge from "../components/ui/Badge";
 import Input from "../components/ui/Input";
 import Select from "../components/ui/Select";
 import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+import PageHeader from "../components/ui/PageHeader";
 import { WARDROBE_SORT_OPTIONS } from "../data/wardrobeOptions";
 import useWardrobeItems from "../hooks/useWardrobeItems";
 import useAnalytics from "../hooks/useAnalytics";
@@ -127,38 +129,41 @@ export default function WardrobePage() {
   const actionLoading = wardrobeLoading || wardrobeImageLoading;
 
   return (
-    <section className="page-enter" aria-labelledby="wardrobe-title">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-3xl">
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-300">Jacket closet</p>
-          <h1 id="wardrobe-title" className="mt-2 text-4xl font-black tracking-tight text-white">Your saved jackets</h1>
-          <p className="mt-3 leading-7 text-slate-400">Keep the jackets you actually own, manage up to eight photos each, and let personalized mode choose the safest match for the forecast.</p>
-        </div>
-        {(wardrobeRefreshing || wardrobeImageLoading) && <p role="status" className="text-xs font-bold text-slate-500">Syncing jacket data…</p>}
-      </div>
+    <section className="page-enter space-y-6" aria-labelledby="wardrobe-title">
+      <PageHeader
+        eyebrow="Wardrobe"
+        title="Your saved jackets"
+        description="Keep the jackets you actually own, manage their photos, and let personalized mode choose the best match for the forecast."
+        actions={
+          <Button type="button" onClick={() => { setEditingItemId(null); document.getElementById("jacket-editor")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+            <Plus size={18} aria-hidden="true" /> Add jacket
+          </Button>
+        }
+      />
 
-      {wardrobeError && <div className="mb-5"><Alert tone="error">{wardrobeError}</Alert></div>}
-      {wardrobeImageError && <div className="mb-5"><Alert tone="error">{wardrobeImageError}</Alert></div>}
+      {(wardrobeRefreshing || wardrobeImageLoading) && <p role="status" className="text-right text-xs font-extrabold text-slate-500">Syncing jacket data…</p>}
+      {wardrobeError && <Alert tone="error">{wardrobeError}</Alert>}
+      {wardrobeImageError && <Alert tone="error">{wardrobeImageError}</Alert>}
 
       <JacketEmbeddingBackfill />
 
-      <dl className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
           ["Active jackets", activeCount, "info"],
           ["Saved photos", imageCount, "info"],
           ["Favorites", favoriteCount, "purple"],
           ["Archived", archivedCount, "warning"],
         ].map(([label, value, tone]) => (
-          <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <dt className="text-sm text-slate-400">{label}</dt>
-            <dd className="mt-1 text-2xl font-black text-white">{value}</dd>
+          <Card key={label} as="div" className="p-4" soft>
+            <dt className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-500">{label}</dt>
+            <dd className="font-display mt-2 text-3xl font-bold text-white">{value}</dd>
             <Badge tone={tone} className="mt-3">Jackets only</Badge>
-          </div>
+          </Card>
         ))}
       </dl>
 
-      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <div id="jacket-editor" className="scroll-mt-24">
+      <div className="grid gap-6 xl:grid-cols-[minmax(20rem,0.78fr)_minmax(0,1.22fr)] xl:items-start">
+        <div id="jacket-editor" className="scroll-mt-28">
           <WardrobeItemForm
             onSave={handleSave}
             loading={wardrobeLoading}
@@ -169,44 +174,36 @@ export default function WardrobePage() {
         </div>
 
         <div>
-          <div className="mb-5 rounded-3xl border border-white/10 bg-slate-950/60 p-4 sm:p-5">
-            <div className="mb-4 flex items-center gap-2 text-slate-200">
-              <SlidersHorizontal size={18} aria-hidden="true" />
-              <h2 className="font-black">Filter jackets</h2>
-            </div>
-
+          <Card className="mb-5 p-4 sm:p-5" soft>
+            <div className="mb-4 flex items-center gap-2 text-slate-200"><SlidersHorizontal size={18} aria-hidden="true" /><h2 className="font-extrabold">Find a jacket</h2></div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="relative sm:col-span-2">
                 <span className="sr-only">Search jackets</span>
-                <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+                <Search size={17} className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-500" aria-hidden="true" />
                 <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search name, color, type, or material" className="pl-11" type="search" />
               </label>
-
-              <label className="text-sm font-bold text-slate-200">Status<Select className="mt-2" value={archiveFilter} onChange={(event) => setArchiveFilter(event.target.value)}><option value="active">Active jackets</option><option value="archived">Archived jackets</option><option value="all">Active and archived</option></Select></label>
-              <label className="text-sm font-bold text-slate-200">Sort<Select className="mt-2" value={sortOption} onChange={(event) => setSortOption(event.target.value)}>{WARDROBE_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></label>
+              <label className="text-sm font-extrabold text-slate-200">Status<Select className="mt-2" value={archiveFilter} onChange={(event) => setArchiveFilter(event.target.value)}><option value="active">Active jackets</option><option value="archived">Archived jackets</option><option value="all">Active and archived</option></Select></label>
+              <label className="text-sm font-extrabold text-slate-200">Sort<Select className="mt-2" value={sortOption} onChange={(event) => setSortOption(event.target.value)}>{WARDROBE_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></label>
               <Button type="button" variant={favoritesOnly ? "primary" : "secondary"} onClick={() => setFavoritesOnly((current) => !current)} aria-pressed={favoritesOnly} className="sm:col-span-2">{favoritesOnly ? "Showing favorites" : "Favorites only"}</Button>
             </div>
+          </Card>
+
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-sm font-extrabold text-slate-400" aria-live="polite">{filteredItems.length} jacket{filteredItems.length === 1 ? "" : "s"}</p>
+            <span className="text-xs font-bold text-slate-600">Image-first closet</span>
           </div>
 
-          <p className="mb-4 text-sm font-bold text-slate-400" aria-live="polite">{filteredItems.length} jacket{filteredItems.length === 1 ? "" : "s"}</p>
-
-          <div className="space-y-4">
-            {wardrobeLoading && jackets.length === 0 ? (
-              <LoadingState label="Loading jackets" rows={4} />
-            ) : filteredItems.length === 0 ? (
-              <EmptyState icon={Shirt} title={jackets.length ? "No jackets match these filters" : "Your jacket closet is empty"} description={jackets.length ? "Clear or adjust the filters to see more jackets." : "Add your first jacket with a photo or manual details to unlock personalized recommendations."} />
-            ) : filteredItems.map((item) => (
-              <WardrobeItemCard
-                key={item.id}
-                item={item}
-                onEdit={handleEdit}
-                onDelete={handleDeleteItem}
-                onToggleFavorite={toggleWardrobeFavorite}
-                onArchive={handleArchive}
-                loading={actionLoading}
-              />
-            ))}
-          </div>
+          {wardrobeLoading && jackets.length === 0 ? (
+            <LoadingState label="Loading jackets" rows={4} />
+          ) : filteredItems.length === 0 ? (
+            <EmptyState icon={Shirt} title={jackets.length ? "No jackets match these filters" : "Your wardrobe is ready for its first jacket."} description={jackets.length ? "Clear or adjust the filters to see more jackets." : "Add your first jacket with a photo or manual details to unlock personalized recommendations."} actionLabel={jackets.length ? undefined : "Add jacket"} onAction={jackets.length ? undefined : () => document.getElementById("jacket-editor")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {filteredItems.map((item) => (
+                <WardrobeItemCard key={item.id} item={item} onEdit={handleEdit} onDelete={handleDeleteItem} onToggleFavorite={toggleWardrobeFavorite} onArchive={handleArchive} loading={actionLoading} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>

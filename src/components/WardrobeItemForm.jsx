@@ -33,13 +33,14 @@ import { formatAiProvider } from "../config/aiConfig";
 import { getWardrobeConfidenceLabel } from "../utils/normalizeWardrobeAnalysis";
 import { getDuplicateCandidates } from "../utils/jacketSimilarity";
 import DuplicateJacketWarning from "./DuplicateJacketWarning";
+import Progress from "./ui/Progress";
+import TextShimmer from "./ui/TextShimmer";
 import {
   validateWardrobeImage,
   validateWardrobeImages,
 } from "../utils/wardrobeImageStorage";
 
-const inputClass =
-  "w-full rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-white outline-none transition focus:border-sky-500/70 focus:ring-4 focus:ring-sky-500/10";
+const inputClass = "storm-field px-4 py-3";
 
 function createInitialForm() {
   return {
@@ -872,19 +873,19 @@ function WardrobeItemFormInner({
     <form
       onSubmit={handleSubmit}
       aria-labelledby="jacket-form-title"
-      className="h-fit rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-xl"
+      className="storm-card h-fit rounded-[var(--radius-large)] p-5 sm:p-6"
     >
       <div className="mb-6 flex items-center gap-3">
-        <div className="rounded-2xl bg-sky-500/10 p-3 text-sky-300">
+        <div className="rounded-2xl border border-cyan-300/14 bg-cyan-400/[0.07] p-3 text-cyan-200">
           <Shirt size={22} />
         </div>
 
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">
             {isEditing ? "Edit Item" : "Add Item"}
           </p>
 
-          <h2 id="jacket-form-title" className="text-2xl font-black text-white">
+          <h2 id="jacket-form-title" className="font-display text-2xl font-bold text-white">
             {isEditing ? editingItem.name : "Build your jacket closet"}
           </h2>
         </div>
@@ -907,7 +908,21 @@ function WardrobeItemFormInner({
         className="hidden"
       />
 
-      <section aria-labelledby="jacket-images-title" className="mb-6 rounded-3xl border border-white/10 bg-white/[0.025] p-4">
+      {(imageBusy || isAnalyzing || isSubmitting || loading) && (
+        <section className="mb-5 rounded-[var(--radius-card)] border border-cyan-300/18 bg-cyan-400/[0.045] p-4" aria-live="polite">
+          <TextShimmer className="text-sm font-extrabold">
+            {isAnalyzing ? "Analyzing your jacket…" : isSubmitting || loading ? "Saving wardrobe item…" : "Uploading image…"}
+          </TextShimmer>
+          <Progress className="mt-3" label="Wardrobe processing" />
+          <div className="mt-3 grid gap-2 text-xs font-bold text-slate-400 sm:grid-cols-3">
+            <span>1. Uploading image</span>
+            <span>2. Reading color and material</span>
+            <span>3. Saving wardrobe item</span>
+          </div>
+        </section>
+      )}
+
+      <section aria-labelledby="jacket-images-title" className="mb-6 rounded-[var(--radius-card)] border border-slate-400/12 bg-white/[0.025] p-4">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-white">
@@ -925,7 +940,7 @@ function WardrobeItemFormInner({
             type="button"
             onClick={() => addImagesInputRef.current?.click()}
             disabled={imageBusy || remainingImageSlots === 0}
-            className="flex items-center gap-2 rounded-2xl bg-sky-500 px-4 py-2.5 text-sm font-black text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+            className="storm-primary-action flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] px-4 py-2.5 text-sm font-extrabold transition disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ImagePlus size={17} />
             {remainingImageSlots === 0 ? "Image limit reached" : "Add images"}
@@ -937,7 +952,7 @@ function WardrobeItemFormInner({
             type="button"
             onClick={() => addImagesInputRef.current?.click()}
             disabled={imageBusy}
-            className="flex w-full flex-col items-center justify-center rounded-3xl border border-dashed border-white/15 bg-white/[0.03] px-5 py-8 text-center transition hover:border-sky-500/50 hover:bg-sky-500/5 disabled:opacity-50"
+            className="flex w-full flex-col items-center justify-center rounded-[var(--radius-large)] border border-dashed border-cyan-300/18 bg-cyan-400/[0.025] px-5 py-10 text-center transition hover:border-cyan-300/35 hover:bg-cyan-400/[0.05] disabled:opacity-50"
           >
             <ImagePlus size={30} className="text-sky-300" />
             <span className="mt-3 font-bold text-white">
@@ -1178,7 +1193,7 @@ function WardrobeItemFormInner({
             type="button"
             onClick={handleAnalyze}
             disabled={imageBusy || isAnalyzing || !canAnalyze}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-purple-500 px-4 py-3 text-sm font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-control)] border border-violet-300/20 bg-violet-400/14 px-4 py-3 text-sm font-extrabold text-violet-50 transition hover:bg-violet-400/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isAnalyzing ? (
               <LoaderCircle size={18} className="animate-spin" />
@@ -1448,7 +1463,7 @@ function WardrobeItemFormInner({
             isAnalyzing ||
             !form.name.trim()
           }
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 py-3 font-black text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="storm-primary-action flex min-h-[3.25rem] flex-1 items-center justify-center gap-2 rounded-[var(--radius-control)] px-5 py-3 font-extrabold transition disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading || wardrobeImageLoading || isSubmitting ? (
             <LoaderCircle size={18} className="animate-spin" />
@@ -1468,7 +1483,7 @@ function WardrobeItemFormInner({
             type="button"
             onClick={handleCancel}
             disabled={imageBusy || isAnalyzing}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 px-5 py-3 font-bold text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
+            className="flex min-h-[3.25rem] items-center justify-center gap-2 rounded-[var(--radius-control)] border border-slate-400/16 bg-white/[0.035] px-5 py-3 font-extrabold text-slate-300 transition hover:bg-white/[0.07] disabled:opacity-50"
           >
             <X size={18} />
             Cancel edit
@@ -1478,7 +1493,7 @@ function WardrobeItemFormInner({
             type="button"
             onClick={resetForm}
             disabled={imageBusy || isAnalyzing}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 px-5 py-3 font-bold text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
+            className="flex min-h-[3.25rem] items-center justify-center gap-2 rounded-[var(--radius-control)] border border-slate-400/16 bg-white/[0.035] px-5 py-3 font-extrabold text-slate-300 transition hover:bg-white/[0.07] disabled:opacity-50"
           >
             <RotateCcw size={18} />
             Reset

@@ -244,8 +244,8 @@ function HistoryCard({
         </div>
 
         {styleIdea && (
-          <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
-            <div className="flex items-center gap-2 font-bold text-emerald-200">
+          <div className="mt-5 rounded-[var(--radius-card)] border border-violet-300/18 bg-violet-400/[0.055] p-4">
+            <div className="flex items-center gap-2 font-bold text-violet-200">
               <Sparkles size={16} aria-hidden="true" />
               Style idea
             </div>
@@ -259,7 +259,7 @@ function HistoryCard({
             </p>
 
             {styleIdea.weatherNote && (
-              <p className="mt-2 text-xs leading-5 text-emerald-100/80">
+              <p className="mt-2 text-xs leading-5 text-violet-100/80">
                 {styleIdea.weatherNote}
               </p>
             )}

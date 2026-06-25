@@ -14,3 +14,19 @@ test("skip link and navigation are keyboard accessible", async ({ page }) => {
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: /Skip to main content/i })).toBeFocused();
 });
+
+test("theme toggle is accessible and persists the selected mode", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("jacket-checker-theme", "dark");
+  });
+
+  await page.goto("/");
+  const lightModeButton = page.getByRole("button", { name: "Switch to light mode" });
+  await expect(lightModeButton).toBeVisible();
+  await lightModeButton.click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.getByRole("button", { name: "Switch to dark mode" })).toBeVisible();
+});
