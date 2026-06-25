@@ -4,9 +4,6 @@ import path from "node:path";
 const allowed = new Set([
   "VITE_SUPABASE_URL",
   "VITE_SUPABASE_ANON_KEY",
-  "VITE_ENABLE_DEV_SCORING",
-  "VITE_ENABLE_DEV_TRENDS",
-  "VITE_ENABLE_DEV_ANALYTICS",
   "DEV",
   "PROD",
   "MODE",

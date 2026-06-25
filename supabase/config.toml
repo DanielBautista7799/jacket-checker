@@ -459,6 +459,18 @@ verify_jwt = false
 import_map = "./functions/get-analytics-dashboard/deno.json"
 entrypoint = "./functions/get-analytics-dashboard/index.ts"
 
+[functions.get-developer-access]
+enabled = true
+verify_jwt = false
+import_map = "./functions/get-developer-access/deno.json"
+entrypoint = "./functions/get-developer-access/index.ts"
+
+[functions.manage-developer-access]
+enabled = true
+verify_jwt = false
+import_map = "./functions/manage-developer-access/deno.json"
+entrypoint = "./functions/manage-developer-access/index.ts"
+
 
 [functions.delete-account]
 enabled = true

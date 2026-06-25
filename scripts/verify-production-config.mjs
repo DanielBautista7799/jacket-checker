@@ -20,9 +20,6 @@ const REQUIRED_FILES = [
 const ALLOWED_VITE_VARIABLES = new Set([
   "VITE_SUPABASE_URL",
   "VITE_SUPABASE_ANON_KEY",
-  "VITE_ENABLE_DEV_SCORING",
-  "VITE_ENABLE_DEV_TRENDS",
-  "VITE_ENABLE_DEV_ANALYTICS",
 ]);
 
 const FORBIDDEN_CLIENT_NAME = /(SERVICE_ROLE|SECRET|PASSWORD|PRIVATE|DATABASE|GEMINI|OPENAI|WEATHER_API_KEY|RATE_LIMIT_SALT)/i;
@@ -89,13 +86,10 @@ if (!supabaseKey) {
   failures.push("VITE_SUPABASE_ANON_KEY still contains a placeholder value.");
 }
 
-for (const name of ["VITE_ENABLE_DEV_SCORING", "VITE_ENABLE_DEV_TRENDS", "VITE_ENABLE_DEV_ANALYTICS"]) {
-  if (String(env[name] || "").toLowerCase() === "true") {
-    const message = `${name} is enabled.`;
-    if (strict) failures.push(`${message} Disable developer routes for production.`);
-    else warnings.push(`${message} Keep it false or omitted in production.`);
-  }
+if (Object.keys(env).some((name) => name.startsWith("VITE_ENABLE_DEV_"))) {
+  failures.push("Legacy VITE_ENABLE_DEV_* flags are no longer supported. Developer access must be server-authorized.");
 }
+
 
 if (fs.existsSync(path.join(root, "netlify.toml"))) {
   const netlify = fs.readFileSync(path.join(root, "netlify.toml"), "utf8");

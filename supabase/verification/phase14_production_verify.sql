@@ -13,7 +13,9 @@ with required_tables(table_name) as (
     ('style_trend_rules'),
     ('style_trend_feedback'),
     ('analytics_events'),
-    ('edge_rate_limits')
+    ('edge_rate_limits'),
+    ('developer_access_registry'),
+    ('developer_access_audit')
 ),
 table_checks as (
   select
@@ -37,7 +39,10 @@ required_functions(function_name) as (
     ('prune_edge_rate_limits'),
     ('match_user_jackets'),
     ('get_user_jacket_similarity_pairs'),
-    ('delete_my_analytics')
+    ('delete_my_analytics'),
+    ('bootstrap_developer_owner'),
+    ('grant_developer_admin'),
+    ('revoke_developer_admin')
 ),
 function_checks as (
   select
@@ -95,7 +100,7 @@ server_only_checks as (
       select 1
       from information_schema.role_table_grants
       where table_schema = 'public'
-        and table_name in ('analytics_events', 'edge_rate_limits')
+        and table_name in ('analytics_events', 'edge_rate_limits', 'developer_access_registry', 'developer_access_audit')
         and grantee in ('anon', 'authenticated')
     ) then 'PASS' else 'FAIL' end as status,
     'browser roles must have no direct table grants' as details
@@ -122,6 +127,14 @@ consistency_checks as (
         select 1 from public.profiles where trend_influence not in ('off', 'subtle', 'balanced')
       ) then 'PASS' else 'FAIL' end,
       'all profile trend values are valid'
+    ),
+    (
+      'data:developer-access-owner',
+      case when (
+        select count(*) from public.developer_access_registry
+        where active = true and role = 'owner'
+      ) = 1 then 'PASS' else 'FAIL' end,
+      'exactly one active developer owner is initialized'
     )
   ) as checks(check_name, status, details)
 )

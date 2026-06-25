@@ -60,9 +60,12 @@ test("guest sessions use random UUID storage", () => {
 
 test("developer analytics requires authorization", () => {
   const source = read("supabase/functions/get-analytics-dashboard/index.ts");
+  const accessCheck = read("supabase/functions/get-developer-access/index.ts");
   const sharedAccess = read("supabase/functions/_shared/security/adminAccess.ts");
   assert(source.includes("requireDeveloper"), "Dashboard must require developer access.");
-  assert(sharedAccess.includes("DEVELOPER_EMAILS"), "Developer allowlist should be supported by shared security.");
+  assert(accessCheck.includes("requireDeveloper"), "Route access checks must require developer access.");
+  assert(sharedAccess.includes("developer_access_registry"), "Developer registry should be the primary authorization source.");
+  assert(sharedAccess.includes("legacy_secret"), "Legacy secrets should be limited to first-owner bootstrap.");
 });
 
 test("analytics table is server-only", () => {
@@ -108,11 +111,13 @@ test("skip link and semantic main exist", () => {
   assert(source.includes('id="main-content"'), "Main landmark should exist.");
 });
 
-test("developer routes stay out of primary navigation", () => {
+test("developer tools stay out of primary navigation and appear only for approved accounts", () => {
   const source = read("src/components/AppHeader.jsx");
-  assert(!source.includes("/dev/analytics"), "Developer analytics should not be in normal navigation.");
-  assert(!source.includes("/dev/scoring"), "Developer scoring should not be in normal navigation.");
-  assert(!source.includes("/dev/trends"), "Developer trends should not be in normal navigation.");
+  const primaryLinks = source.match(/const accountLinks = \[(.*?)\];/s)?.[1] || "";
+  assert(!primaryLinks.includes("/dev/"), "Developer tools must not appear in primary navigation.");
+  assert(source.includes("isDeveloper &&"), "Developer menu entry must be conditional.");
+  assert(source.includes('to="/dev/access"'), "Approved accounts need a Developer tools menu entry that opens the access registry.");
+  assert(source.includes("Developer tools"), "The approved-account menu entry needs the Developer tools label.");
 });
 
 test("no shopping mechanics or retailer links were added", () => {
@@ -133,6 +138,8 @@ test("phase 12 function configuration exists", () => {
   const config = read("supabase/config.toml");
   assert(config.includes("[functions.track-analytics]"), "Tracking function must be configured.");
   assert(config.includes("[functions.get-analytics-dashboard]"), "Dashboard function must be configured.");
+  assert(config.includes("[functions.get-developer-access]"), "Developer access function must be configured.");
+  assert(config.includes("[functions.manage-developer-access]"), "Developer access management function must be configured.");
 });
 
 let passed = 0;

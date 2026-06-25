@@ -69,8 +69,8 @@ export default function JacketForm() {
   };
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
-      <Card as="form" onSubmit={handleSubmit} className="h-fit p-5 sm:p-6" elevated>
+    <div className="guest-check-layout mx-auto grid w-full min-w-0 gap-5 lg:grid-cols-[minmax(18rem,0.86fr)_minmax(0,1.14fr)] lg:items-start">
+      <Card as="form" onSubmit={handleSubmit} className="h-fit min-w-0 p-5 sm:p-6" elevated>
         <p className="mb-5 text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">Set your forecast</p>
         <div className="space-y-5">
           <LocationSearch selectedLocation={selectedLocation} onSelectLocation={handleLocationChange} analyticsMode="guest" />
@@ -81,7 +81,7 @@ export default function JacketForm() {
         </div>
         {(validationError || error) && <div className="mt-5"><Alert tone="error">{validationError || error}</Alert></div>}
       </Card>
-      <div aria-live="polite" aria-atomic="true">
+      <div className="min-w-0" aria-live="polite" aria-atomic="true">
         <CheckResultCard weather={weather} recommendation={recommendation} mode="guest" loading={loading} />
       </div>
     </div>

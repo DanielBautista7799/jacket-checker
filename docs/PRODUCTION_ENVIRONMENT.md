@@ -2,22 +2,16 @@
 
 ## Browser variables
 
-Configure these two values in Netlify. They are intentionally browser-visible and must be the publishable/anon credentials protected by RLS.
+Configure only these two values in Netlify. They are intentionally browser-visible and must be the publishable/anon credentials protected by RLS.
 
 ```text
 VITE_SUPABASE_URL
 VITE_SUPABASE_ANON_KEY
 ```
 
-Keep these false or omit them in production:
+Developer access is **not** controlled by a `VITE_` flag. Do not create `VITE_ENABLE_DEV_*` variables. The browser asks the `get-developer-access` Edge Function to verify the signed-in account against the server-only UUID registry.
 
-```text
-VITE_ENABLE_DEV_SCORING
-VITE_ENABLE_DEV_TRENDS
-VITE_ENABLE_DEV_ANALYTICS
-```
-
-Never create a `VITE_` variable for provider keys, service-role credentials, database credentials, rate-limit salts, or developer allowlists.
+Never create a `VITE_` variable for provider keys, service-role credentials, database credentials, rate-limit salts, or developer authorization.
 
 ## Supabase Edge Function secrets
 
@@ -44,7 +38,9 @@ JACKET_EMBEDDING_PROVIDER
 JACKET_EMBEDDING_MODEL
 ```
 
-Developer authorization:
+## Developer authorization bootstrap
+
+These legacy allowlist secrets are temporary bootstrap inputs only:
 
 ```text
 DEVELOPER_USER_IDS
@@ -53,7 +49,19 @@ TREND_ADMIN_USER_IDS
 TREND_ADMIN_EMAILS
 ```
 
-Supabase provides the project URL and keys to hosted functions. Do not place the service-role key in the frontend.
+Use your currently approved email long enough to initialize the first Owner at `/dev/access`. Once `public.developer_access_registry` contains an active Owner, the registry becomes the only active authorization source and the shared access module ignores every legacy allowlist secret.
+
+After confirming the Owner can still open `/dev/access`, remove the bootstrap secrets:
+
+```bash
+npx supabase secrets unset \
+  DEVELOPER_USER_IDS \
+  DEVELOPER_EMAILS \
+  TREND_ADMIN_USER_IDS \
+  TREND_ADMIN_EMAILS
+```
+
+Supabase provides the project URL and server credentials to hosted functions. Never place the service-role key in the frontend.
 
 ## Allowed origins
 
@@ -72,9 +80,10 @@ npm run test:production-config
 npm run test:production-config:strict
 ```
 
-The normal check supports local Supabase during development. Strict mode rejects localhost and enabled developer route flags.
+The normal check supports local Supabase during development. Strict mode rejects localhost and rejects any legacy `VITE_ENABLE_DEV_*` variable.
 
 Official references:
 
 - https://docs.netlify.com/build/configure-builds/file-based-configuration/
 - https://supabase.com/docs/guides/functions/secrets
+- https://supabase.com/docs/guides/database/postgres/row-level-security

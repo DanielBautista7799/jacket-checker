@@ -18,7 +18,7 @@ Supabase Auth + Postgres + Storage + Edge Functions
 - React 19 with Vite 7
 - React Router routes for guest, account, jacket, profile, history, and developer experiences
 - Tailwind CSS 4 plus project design tokens and accessibility utilities
-- Context providers for authentication, profile, analytics, weather, trends, wardrobe, recommendation learning, and network status
+- Context providers for authentication, developer authorization, profile, analytics, weather, trends, wardrobe, recommendation learning, and network status
 
 ## Recommendation flow
 
@@ -54,7 +54,7 @@ Supabase Auth + Postgres + Storage + Edge Functions
 - Browser receives only the Supabase URL and publishable/anon key.
 - Provider keys, service-role credentials, developer allowlists, and rate-limit salt stay in Supabase secrets.
 - Protected Edge Functions derive the user from the verified JWT.
-- Developer functions require server-side allowlist authorization.
+- Every `/dev/*` route is gated by the `get-developer-access` Edge Function before rendering. Developer analytics and trend administration independently enforce the same server-side UUID registry. `/dev/access` is the readable Owner/Admin roster and immutable grant/revoke audit view.
 - Database RLS and private Storage policies remain the final data boundary.
 
 ## Production topology

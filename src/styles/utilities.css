@@ -111,6 +111,16 @@ h2[data-display="true"] {
   color: var(--storm-text);
 }
 
+#main-content:focus,
+#main-content:focus-visible {
+  outline: none;
+}
+
+.guest-check-layout,
+.guest-check-layout > * {
+  min-width: 0;
+}
+
 .page-container {
   width: 100%;
   max-width: var(--content-width);

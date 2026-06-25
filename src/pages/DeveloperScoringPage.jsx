@@ -3,7 +3,7 @@ import {
   MapPin,
   PlayCircle,
   RotateCcw,
-  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -255,11 +255,10 @@ function DeveloperScoringPage() {
             </div>
           )}
 
-          <div className="mt-5 flex items-start gap-2 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm leading-6 text-amber-100">
-            <ShieldAlert size={17} className="mt-1 shrink-0" />
+          <div className="mt-5 flex items-start gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm leading-6 text-emerald-100">
+            <ShieldCheck size={17} className="mt-1 shrink-0" />
             <span>
-              Leave VITE_ENABLE_DEV_SCORING disabled in public production
-              unless Phase 13 adds server-enforced admin access.
+              Developer access was verified by the server before this diagnostic panel rendered.
             </span>
           </div>
         </div>

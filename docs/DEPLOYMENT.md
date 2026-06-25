@@ -16,24 +16,30 @@ Netlify's Vite guidance uses `npm run build` and `dist`, and React history routi
 
 ## Final deployment sequence
 
-These steps are intentionally deferred until the predeployment gate is complete.
-
-1. Connect the GitHub repository to Netlify.
-2. Confirm Netlify reads `netlify.toml`.
-3. Add only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to Netlify.
-4. Leave all developer route flags false or unset.
-5. Create the first HTTPS Netlify URL.
-6. Set the exact frontend origin in the Supabase `ALLOWED_ORIGINS` secret.
-7. Verify `RATE_LIMIT_SALT`, weather, AI, and developer authorization secrets.
-8. Apply pending forward migrations with `npx supabase db push` only if the migration history reports pending files.
-9. Deploy the eight active Edge Functions.
-10. Deploy the Netlify frontend.
-11. Run Phase 13 RLS, Storage, and summary verification SQL.
-12. Run `supabase/verification/phase14_production_verify.sql`.
-13. Run public production smoke tests.
-14. Run optional authenticated smoke tests using a disposable account.
-15. Manually verify destructive account deletion with that disposable account.
-16. Record results in `docs/PHASE14_LIVE_TEST_RESULTS.md`.
+1. Confirm `npm run test:predeploy` passes locally.
+2. Push the final source to GitHub.
+3. Connect the GitHub repository to Netlify.
+4. Confirm Netlify reads `netlify.toml`.
+5. Add only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to Netlify.
+6. Confirm no legacy `VITE_ENABLE_DEV_*` variables exist in Netlify.
+7. Create the first HTTPS Netlify URL.
+8. Set the exact frontend origin in the Supabase `ALLOWED_ORIGINS` secret.
+9. Keep your current approved email in `DEVELOPER_EMAILS` temporarily for first-owner bootstrap.
+10. Apply pending forward migrations with `npx supabase db push`.
+11. Deploy all ten active Edge Functions, including both developer-access functions.
+12. Start the app locally or open the deployed site, sign in with the approved account, and open **Account → Developer tools → Access**.
+13. Select **Initialize owner registry**.
+14. Confirm the roster shows your account as **Owner · Active**.
+15. Remove the four legacy developer/trend allowlist secrets.
+16. Refresh `/dev/access` and confirm access remains available from the database registry.
+17. Deploy or redeploy the Netlify frontend after the final backend configuration is verified.
+18. Run Phase 13 RLS, Storage, and summary verification SQL.
+19. Run `supabase/verification/developer_access_registry_verify.sql`.
+20. Run `supabase/verification/phase14_production_verify.sql`.
+21. Run public production smoke tests.
+22. Run optional authenticated smoke tests using a disposable account.
+23. Manually verify destructive account deletion with that disposable account.
+24. Record results in `docs/PHASE14_LIVE_TEST_RESULTS.md`.
 
 ## Active function deployment order
 
@@ -45,8 +51,24 @@ npx supabase functions deploy generate-jacket-embedding
 npx supabase functions deploy sync-style-trends
 npx supabase functions deploy track-analytics
 npx supabase functions deploy get-analytics-dashboard
+npx supabase functions deploy get-developer-access
+npx supabase functions deploy manage-developer-access
 npx supabase functions deploy delete-account
 ```
+
+## Remove bootstrap allowlists
+
+After Owner initialization succeeds:
+
+```bash
+npx supabase secrets unset \
+  DEVELOPER_USER_IDS \
+  DEVELOPER_EMAILS \
+  TREND_ADMIN_USER_IDS \
+  TREND_ADMIN_EMAILS
+```
+
+The registry remains the source of truth. Future access changes happen from `/dev/access`.
 
 ## Production smoke tests
 
@@ -74,3 +96,4 @@ Official references:
 - https://docs.netlify.com/manage/routing/redirects/overview/
 - https://docs.netlify.com/manage/routing/headers/
 - https://supabase.com/docs/guides/functions/deploy
+- https://supabase.com/docs/guides/auth/managing-user-data

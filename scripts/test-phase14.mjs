@@ -27,6 +27,7 @@ const requiredFiles = [
   "docs/INCIDENT_RESPONSE.md",
   "docs/KNOWN_LIMITATIONS.md",
   "docs/SECURITY_OVERVIEW.md",
+  "docs/DEVELOPER_ACCESS.md",
   "docs/PHASE14_LIVE_TEST_RESULTS.md",
   "src/components/ThemeToggle.jsx",
   "src/context/ThemeContext.jsx",
@@ -34,6 +35,17 @@ const requiredFiles = [
   "src/utils/theme.js",
   "tests/components/ThemeToggle.test.jsx",
   "tests/unit/theme.test.js",
+  "src/components/DeveloperRoute.jsx",
+  "src/components/DeveloperNav.jsx",
+  "src/context/DeveloperAccessContext.jsx",
+  "src/hooks/useDeveloperAccess.js",
+  "supabase/functions/get-developer-access/index.ts",
+  "supabase/functions/get-developer-access/deno.json",
+  "supabase/functions/manage-developer-access/index.ts",
+  "supabase/functions/manage-developer-access/deno.json",
+  "supabase/migrations/20260625020000_create_developer_access_registry.sql",
+  "supabase/verification/developer_access_registry_verify.sql",
+  "src/pages/DeveloperAccessPage.jsx",
 ];
 
 test("all Phase 14 files exist", () => {
@@ -62,7 +74,7 @@ test("only browser-safe Vite variables are documented", () => {
   const source = read(".env.example");
   assert(source.includes("VITE_SUPABASE_URL"), "Supabase URL example is missing");
   assert(source.includes("VITE_SUPABASE_ANON_KEY"), "Supabase browser key example is missing");
-  for (const forbidden of ["SERVICE_ROLE", "GEMINI_API_KEY", "OPENAI_API_KEY", "WEATHER_API_KEY", "RATE_LIMIT_SALT"]) {
+  for (const forbidden of ["SERVICE_ROLE", "GEMINI_API_KEY", "OPENAI_API_KEY", "WEATHER_API_KEY", "RATE_LIMIT_SALT", "VITE_ENABLE_DEV_"]) {
     assert(!source.includes(forbidden), `.env.example exposes or documents ${forbidden}`);
   }
 });
@@ -105,6 +117,38 @@ test("documentation keeps deployment pending and preserves MVP scope", () => {
   for (const forbidden of ["includes retailer recommendations", "includes affiliate links", "automatic background removal is included"]) {
     assert(!readme.toLowerCase().includes(forbidden), `README claims excluded scope: ${forbidden}`);
   }
+});
+
+
+test("developer routes are server-gated and admin navigation is conditional", () => {
+  const app = read("src/App.jsx");
+  const header = read("src/components/AppHeader.jsx");
+  const route = read("src/components/DeveloperRoute.jsx");
+  const accessFunction = read("supabase/functions/get-developer-access/index.ts");
+
+  assert(app.includes("DeveloperAccessProvider"), "Developer access provider is missing");
+  assert(app.includes("DeveloperRoute"), "Developer pages must use the secure route guard");
+  assert(!app.includes("VITE_ENABLE_DEV_"), "Legacy client developer flags must be removed");
+  assert(header.includes("isDeveloper &&"), "Developer dropdown entry must be conditional");
+  assert(header.includes("Developer tools"), "Approved administrators need a dropdown entry");
+  assert(route.includes('to="/app" replace'), "Unapproved accounts must be redirected");
+  assert(accessFunction.includes("requireDeveloper"), "Access check must enforce server authorization");
+  assert(app.includes('path="/dev/access"'), "Developer access route is missing");
+  assert(header.includes('to="/dev/access"'), "Developer tools should open the access registry");
+});
+
+
+
+test("developer registry is documented and deployment-ready", () => {
+  const docs = read("docs/DEVELOPER_ACCESS.md");
+  const config = read("supabase/config.toml");
+  const migration = read("supabase/migrations/20260625020000_create_developer_access_registry.sql");
+  assert(docs.includes("Initialize owner registry"), "Owner bootstrap instructions are missing");
+  assert(docs.includes("developer_access_registry"), "Registry documentation is missing");
+  assert(config.includes("[functions.manage-developer-access]"), "Management function is not configured");
+  assert(migration.includes("bootstrap_developer_owner"), "Owner bootstrap RPC is missing");
+  assert(migration.includes("grant_developer_admin"), "Admin grant RPC is missing");
+  assert(migration.includes("revoke_developer_admin"), "Admin revoke RPC is missing");
 });
 
 test("verified missing UI dependencies are supplied as complete files", () => {

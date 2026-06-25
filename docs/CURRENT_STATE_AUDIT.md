@@ -27,12 +27,13 @@ The React provider tree is:
 
 1. `NetworkStatusProvider`
 2. `AuthProvider`
-3. `ProfileProvider`
-4. `AnalyticsProvider`
-5. `WeatherProvider`
-6. `StyleTrendProvider`
-7. `WardrobeProvider`
-8. `RecommendationLearningProvider`
+3. `DeveloperAccessProvider`
+4. `ProfileProvider`
+5. `AnalyticsProvider`
+6. `WeatherProvider`
+7. `StyleTrendProvider`
+8. `WardrobeProvider`
+9. `RecommendationLearningProvider`
 
 This order is retained because downstream providers consume authentication and profile state.
 
@@ -45,6 +46,7 @@ This order is retained because downstream providers consume authentication and p
 - `sync-style-trends`
 - `track-analytics`
 - `get-analytics-dashboard`
+- `get-developer-access`
 - `delete-account`
 
 ## Confirmed production controls

@@ -19,6 +19,8 @@ const edgeFunctions = [
   "sync-style-trends",
   "track-analytics",
   "get-analytics-dashboard",
+  "get-developer-access",
+  "manage-developer-access",
   "delete-account",
 ];
 
@@ -63,12 +65,62 @@ test("authenticated and developer functions enforce access", () => {
     );
   }
 
-  for (const name of ["sync-style-trends", "get-analytics-dashboard"]) {
+  for (const name of [
+    "sync-style-trends",
+    "get-analytics-dashboard",
+    "get-developer-access",
+    "manage-developer-access",
+  ]) {
     assert(
       read(`supabase/functions/${name}/index.ts`).includes("requireDeveloper"),
       `${name} must require developer access`,
     );
   }
+});
+
+
+test("developer pages use server-enforced authorization", () => {
+  const app = read("src/App.jsx");
+  const route = read("src/components/DeveloperRoute.jsx");
+  const accessContext = read("src/context/DeveloperAccessContext.jsx");
+  const accessFunction = read("supabase/functions/get-developer-access/index.ts");
+
+  assert(app.includes("DeveloperAccessProvider"), "Developer access provider is missing");
+  assert(app.includes("DeveloperRoute"), "Developer routes must use the secure route guard");
+  assert(!app.includes("VITE_ENABLE_DEV_"), "Client-side developer feature flags must be removed");
+  assert(route.includes("isDeveloper"), "Developer route must require verified access");
+  assert(
+    accessContext.includes('"get-developer-access"'),
+    "Frontend must verify access through the Edge Function",
+  );
+  assert(
+    accessFunction.includes("requireDeveloper"),
+    "Developer access Edge Function must require the server allowlist",
+  );
+});
+
+
+
+test("developer access registry is server-only and audited", () => {
+  const migration = read(
+    "supabase/migrations/20260625020000_create_developer_access_registry.sql",
+  ).toLowerCase();
+  const access = read("supabase/functions/_shared/security/adminAccess.ts");
+  const manager = read("supabase/functions/manage-developer-access/index.ts");
+
+  assert(migration.includes("developer_access_registry"), "Developer registry table is missing");
+  assert(migration.includes("developer_access_audit"), "Developer audit table is missing");
+  assert(migration.includes("enable row level security"), "Developer tables must use RLS");
+  assert(
+    migration.includes("revoke all on table public.developer_access_registry from anon, authenticated"),
+    "Browser roles must not have registry access",
+  );
+  assert(migration.includes("append_only"), "Audit rows must be append-only");
+  assert(migration.includes("active_developer_owner_cannot_be_deleted"), "Active owner deletion must be blocked");
+  assert(migration.includes("pg_advisory_xact_lock"), "Owner bootstrap must be concurrency-safe");
+  assert(access.includes("registryHasActiveAccounts"), "Registry must disable secret fallback after bootstrap");
+  assert(manager.includes("requireDeveloperOwner"), "Access changes must require the owner role");
+  assert(manager.includes("auth.admin.listUsers"), "Grants must resolve existing Auth users server-side");
 });
 
 test("server rate limiting stores only hashed scopes", () => {

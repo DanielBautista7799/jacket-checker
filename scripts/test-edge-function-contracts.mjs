@@ -10,6 +10,8 @@ const functions = [
   "sync-style-trends",
   "track-analytics",
   "get-analytics-dashboard",
+  "get-developer-access",
+  "manage-developer-access",
   "delete-account",
 ];
 const errors = [];

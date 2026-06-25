@@ -14,7 +14,7 @@
 - [ ] `.env` contains the real Supabase URL
 - [ ] `.env` contains the real publishable/anon key
 - [ ] No server secret uses a `VITE_` prefix
-- [ ] Developer flags are false or omitted for production
+- [ ] No legacy `VITE_ENABLE_DEV_*` variables exist
 - [ ] `npm run test:production-config` passed
 
 ## C. Automated predeployment gate
@@ -66,13 +66,20 @@ Test 320, 375, 430, 768, 1024, and 1440 pixel widths.
 - [ ] HTTPS site loads
 - [ ] Security headers are present
 - [ ] Deep-route refreshes do not return 404
-- [ ] All eight Edge Functions work
+- [ ] All ten Edge Functions work
 - [ ] Production CORS permits the exact site origin
 - [ ] Phase 13 RLS audit passes
 - [ ] Phase 13 Storage audit passes
 - [ ] Phase 14 SQL reports PASS for every row
 - [ ] Public production smoke tests pass
 - [ ] Authenticated smoke tests pass with a disposable account
+- [ ] Approved account sees **Developer tools** in the Account dropdown
+- [ ] Approved account can open access, scoring, trends, and analytics tabs
+- [ ] Owner can see the active/revoked roster and append-only audit history
+- [ ] Owner can grant an existing Auth user and revoke an Admin account
+- [ ] Admin account can view the roster but cannot grant or revoke access
+- [ ] Unapproved account does not see the Developer tools entry
+- [ ] Unapproved direct navigation to `/dev/access`, `/dev/scoring`, `/dev/trends`, or `/dev/analytics` redirects to `/app`
 - [ ] Normal users cannot access developer data or trend administration
 - [ ] Disposable-account deletion removes Auth, database records, and private images
 - [ ] Live results document is completed

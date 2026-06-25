@@ -12,3 +12,7 @@
 - Existing legacy non-jacket database rows may be preserved, but the current product UI and recommendation engine are jacket-only.
 - Full wardrobe outfit generation, shopping, retailer links, pricing, affiliate links, and automatic background removal are outside the MVP.
 - The application does not replace professional weather or safety guidance for severe conditions.
+
+## Developer owner transfer
+
+The current developer-access UI supports one protected Owner and any number of Admin accounts. It does not provide an in-app ownership-transfer action. The active Owner cannot revoke or delete itself through normal application flows. A future ownership transfer must be handled as a deliberate server-side maintenance operation before the original Owner account is removed.

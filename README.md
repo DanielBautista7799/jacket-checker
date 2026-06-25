@@ -1000,6 +1000,8 @@ supabase/
 │   ├── delete-account/
 │   ├── generate-jacket-embedding/
 │   ├── get-analytics-dashboard/
+│   ├── get-developer-access/
+│   ├── manage-developer-access/
 │   ├── get-weather/
 │   ├── sync-style-trends/
 │   └── track-analytics/
@@ -1032,12 +1034,13 @@ supabase/
 ## Developer Routes
 
 ```text
+/dev/access
 /dev/scoring
 /dev/trends
 /dev/analytics
 ```
 
-Developer routes are hidden from normal production navigation and require both an enabled frontend flag and server-side authorization for protected data operations.
+Developer routes are hidden from the normal primary navigation and require server-side authorization for every account. Approved administrators see a **Developer tools** entry inside the Account dropdown, which opens the Access, Scoring, Trends, and Analytics panels. `/dev/access` shows the active and revoked roster plus the append-only grant/revoke audit history. Unapproved accounts are redirected before any developer page renders.
 
 ---
 
@@ -1081,6 +1084,10 @@ Stores allowlisted events and safe aggregate data for the developer dashboard.
 
 Stores only hashed rate-limit scopes and time buckets. Raw IP addresses are not persisted.
 
+## Developer Access Registry
+
+Stores the UUID-based Owner/Admin authorization state and a server-only append-only access audit log. Browser roles have no direct table grants.
+
 ## Storage
 
 The private `closet-images` bucket stores uploaded jacket images.
@@ -1097,6 +1104,8 @@ generate-jacket-embedding
 sync-style-trends
 track-analytics
 get-analytics-dashboard
+get-developer-access
+manage-developer-access
 delete-account
 ```
 
@@ -1308,7 +1317,7 @@ GEMINI_API_KEY
 OPENAI_API_KEY
 ```
 
-Developer authorization secrets used by `adminAccess.ts` must also be configured without exposing their values in the repository.
+Developer authorization is stored in `public.developer_access_registry` after first-owner initialization. A temporary `DEVELOPER_EMAILS` or `DEVELOPER_USER_IDS` secret may be used only to bootstrap the first Owner. Once `/dev/access` shows an active Owner, remove all legacy developer and trend-admin allowlist secrets.
 
 Example commands:
 
@@ -1317,6 +1326,13 @@ npx supabase secrets set ALLOWED_ORIGINS=https://YOUR_DEPLOYED_DOMAIN
 npx supabase secrets set RATE_LIMIT_SALT="$(openssl rand -hex 32)"
 npx supabase secrets set WEATHER_API_KEY=YOUR_REAL_KEY
 npx supabase secrets set GEMINI_API_KEY=YOUR_REAL_KEY
+npx supabase secrets set DEVELOPER_EMAILS=YOUR_APPROVED_EMAIL
+```
+
+After **Initialize owner registry** succeeds in `/dev/access`:
+
+```bash
+npx supabase secrets unset DEVELOPER_USER_IDS DEVELOPER_EMAILS TREND_ADMIN_USER_IDS TREND_ADMIN_EMAILS
 ```
 
 Only set `OPENAI_API_KEY` when the OpenAI provider is enabled.
@@ -1343,6 +1359,8 @@ npx supabase functions deploy generate-jacket-embedding
 npx supabase functions deploy sync-style-trends
 npx supabase functions deploy track-analytics
 npx supabase functions deploy get-analytics-dashboard
+npx supabase functions deploy get-developer-access
+npx supabase functions deploy manage-developer-access
 npx supabase functions deploy delete-account
 ```
 

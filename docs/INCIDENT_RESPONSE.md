@@ -70,6 +70,20 @@ Actions:
 3. Verify endpoint-specific limits and windows.
 4. Adjust only through a reviewed forward change.
 
+## Suspicious developer access
+
+Expected behavior: the Owner can immediately revoke an Admin while preserving the historical record.
+
+Actions:
+
+1. Open `/dev/access` and revoke the suspicious account.
+2. Confirm the account is marked Revoked and cannot reopen any `/dev/*` route.
+3. Review the append-only audit log for who granted access, when, and the associated request ID.
+4. Run `supabase/verification/developer_access_registry_verify.sql` and retain the results.
+5. Review Supabase Auth sessions and project logs for the affected account.
+6. Rotate relevant secrets or credentials when compromise is suspected.
+7. Do not delete audit rows or rewrite the access history.
+
 ## Broken frontend deployment
 
 1. Stop new changes.
