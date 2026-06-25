@@ -26,7 +26,7 @@ Netlify's Vite guidance uses `npm run build` and `dist`, and React history routi
 8. Set the exact frontend origin in the Supabase `ALLOWED_ORIGINS` secret.
 9. Keep your current approved email in `DEVELOPER_EMAILS` temporarily for first-owner bootstrap.
 10. Apply pending forward migrations with `npx supabase db push`.
-11. Deploy all ten active Edge Functions, including both developer-access functions.
+11. Deploy all eleven active Edge Functions, including both developer-access functions and `manage-password`.
 12. Start the app locally or open the deployed site, sign in with the approved account, and open **Account → Developer tools → Access**.
 13. Select **Initialize owner registry**.
 14. Confirm the roster shows your account as **Owner · Active**.
@@ -97,3 +97,32 @@ Official references:
 - https://docs.netlify.com/manage/routing/headers/
 - https://supabase.com/docs/guides/functions/deploy
 - https://supabase.com/docs/guides/auth/managing-user-data
+
+## Password-policy production add-on
+
+Deploy the password function before publishing frontend code that calls it:
+
+```bash
+npx supabase functions deploy manage-password --no-verify-jwt
+```
+
+Apply the matching hosted Auth policy with a temporary Supabase personal access token:
+
+```bash
+export SUPABASE_PROJECT_REF="achnzeuvmqymguiqepji"
+read -s SUPABASE_ACCESS_TOKEN
+export SUPABASE_ACCESS_TOKEN
+npm run security:password-policy:configure
+npm run security:password-policy:verify
+unset SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF
+```
+
+The expected hosted values are:
+
+```text
+password_min_length = 6
+password_required_characters = lower_upper_letters_digits_symbols
+```
+
+Do not save the personal access token in `.env`, Netlify, Supabase Edge Function secrets, shell history, or the repository. After the function and hosted policy are verified, run `npm run test:predeploy`, push the frontend commit, and complete a real signup, normal password change, and recovery reset on the production site.
+

@@ -12,6 +12,7 @@ const functions = [
   "get-analytics-dashboard",
   "get-developer-access",
   "manage-developer-access",
+  "manage-password",
   "delete-account",
 ];
 const errors = [];

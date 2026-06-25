@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState("");
+  const [authEvent, setAuthEvent] = useState("");
   const mountedRef = useRef(true);
 
   const applySession = useCallback((nextSession) => {
@@ -42,13 +43,14 @@ export function AuthProvider({ children }) {
       return false;
     }
     clearClientCaches();
+    setAuthEvent("SIGNED_OUT");
     applySession(null);
     return true;
   }, [applySession]);
 
   useEffect(() => {
     mountedRef.current = true;
-    let timeoutId = window.setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       if (mountedRef.current) {
         setAuthLoading(false);
         setAuthError((current) => current || "Session restoration took too long. Refresh or sign in again.");
@@ -58,6 +60,8 @@ export function AuthProvider({ children }) {
     void refreshSession().finally(() => window.clearTimeout(timeoutId));
 
     const { data } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (!mountedRef.current) return;
+      setAuthEvent(event);
       applySession(currentSession);
       if (event === "SIGNED_OUT" || event === "USER_DELETED") {
         clearClientCaches();
@@ -79,9 +83,10 @@ export function AuthProvider({ children }) {
     user,
     authLoading,
     authError,
+    authEvent,
     refreshSession,
     signOut,
-  }), [session, user, authLoading, authError, refreshSession, signOut]);
+  }), [session, user, authLoading, authError, authEvent, refreshSession, signOut]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

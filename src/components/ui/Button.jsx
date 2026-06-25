@@ -10,10 +10,14 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary: "storm-primary-action",
-        success: "border border-emerald-300/20 bg-emerald-400 text-emerald-950 shadow-[0_14px_36px_rgba(52,211,153,0.18)] hover:bg-emerald-300",
-        secondary: "border border-slate-400/16 bg-white/[0.055] text-slate-100 shadow-sm hover:border-slate-300/25 hover:bg-white/[0.09]",
-        ghost: "border border-transparent bg-transparent text-slate-300 hover:bg-white/[0.06] hover:text-white",
-        danger: "border border-rose-400/28 bg-rose-400/10 text-rose-100 hover:bg-rose-400/18",
+        success:
+          "border border-emerald-300/20 bg-emerald-400 text-emerald-950 shadow-[0_14px_36px_rgba(52,211,153,0.18)] hover:bg-emerald-300",
+        secondary:
+          "border border-slate-400/16 bg-white/[0.055] text-slate-100 shadow-sm hover:border-slate-300/25 hover:bg-white/[0.09]",
+        ghost:
+          "border border-transparent bg-transparent text-slate-300 hover:bg-white/[0.06] hover:text-white",
+        danger:
+          "border border-rose-400/28 bg-rose-400/10 text-rose-100 hover:bg-rose-400/18",
       },
       size: {
         sm: "min-h-10 px-3.5 py-2 text-sm",
@@ -23,22 +27,51 @@ const buttonVariants = cva(
       },
     },
     defaultVariants: { variant: "primary", size: "md" },
-  }
+  },
 );
 
 const Button = forwardRef(function Button(
-  { as, asChild = false, variant = "primary", size = "md", className = "", loading = false, loadingLabel = "Loading", disabled, children, ...props },
-  ref
+  {
+    as,
+    asChild = false,
+    variant = "primary",
+    size = "md",
+    className = "",
+    loading = false,
+    loadingLabel = "Loading",
+    disabled,
+    children,
+    ...props
+  },
+  ref,
 ) {
-  const Component = asChild ? Slot : as || "button";
+  const classes = cn(buttonVariants({ variant, size }), className);
+  const unavailable = Boolean(disabled || loading);
+
+  if (asChild) {
+    return (
+      <Slot
+        ref={ref}
+        aria-disabled={unavailable || undefined}
+        aria-busy={loading || undefined}
+        className={classes}
+        {...props}
+      >
+        {children}
+      </Slot>
+    );
+  }
+
+  const Component = as || "button";
   const isNativeButton = Component === "button";
+
   return (
     <Component
       ref={ref}
-      disabled={isNativeButton ? disabled || loading : undefined}
-      aria-disabled={disabled || loading || undefined}
+      disabled={isNativeButton ? unavailable : undefined}
+      aria-disabled={unavailable || undefined}
       aria-busy={loading || undefined}
-      className={cn(buttonVariants({ variant, size }), className)}
+      className={classes}
       {...props}
     >
       {loading && <Spinner size={17} label={loadingLabel} />}

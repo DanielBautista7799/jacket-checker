@@ -20,14 +20,17 @@
     "security:audit": "node scripts/audit-project-security.mjs",
     "security:schema": "node scripts/test-supabase-schema.mjs",
     "security:functions": "node scripts/test-edge-function-contracts.mjs",
-    "test:all": "npm run lint && npm run test:recommendations && npm run test:phase10 && npm run test:phase11 && npm run test:phase12 && npm run test:phase13 && npm run test:phase14 && npm run test:unit && npm run test:security && npm run build",
+    "test:all": "npm run lint && npm run test:recommendations && npm run test:phase10 && npm run test:phase11 && npm run test:phase12 && npm run test:phase13 && npm run test:phase14 && npm run test:password-security && npm run test:unit && npm run test:security && npm run build",
     "test:phase13": "node scripts/test-phase13.mjs",
     "test:phase14": "node scripts/test-phase14.mjs",
     "test:production-config": "node scripts/verify-production-config.mjs",
     "test:production-config:strict": "node scripts/verify-production-config.mjs --strict",
     "test:production-build": "node scripts/check-production-build.mjs",
     "test:production-smoke": "playwright test --config=playwright.production.config.js",
-    "test:predeploy": "npm run test:all && npm run test:production-config && npm run test:production-build && npm run test:e2e"
+    "test:predeploy": "npm run test:all && npm run test:production-config && npm run test:production-build && npm run test:e2e",
+    "test:password-security": "node scripts/test-password-security.mjs",
+    "security:password-policy:configure": "node scripts/configure-hosted-password-policy.mjs",
+    "security:password-policy:verify": "node scripts/configure-hosted-password-policy.mjs --verify-only"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.2.8",

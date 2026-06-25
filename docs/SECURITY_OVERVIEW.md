@@ -6,7 +6,7 @@ The browser receives only the Supabase project URL and publishable/anon key. RLS
 
 ## Edge Functions
 
-The ten active functions share modules for:
+The eleven active functions share modules for:
 
 - Origin allowlisting and preflight handling
 - Method restrictions
@@ -44,6 +44,16 @@ The CORS allowlist includes the Supabase client headers used by the current brow
 ## Upload protection
 
 Client and server controls limit jacket images to JPEG, PNG, and WebP, with a 5 MiB limit. Client validation also checks empty files, extensions, dimensions, duplicate same-session files, and filename safety.
+
+## Server-enforced password policy
+
+- Signup, signed-in password changes, and recovery resets are routed through `manage-password`.
+- The Edge Function applies the same six-character uppercase/lowercase/number/symbol policy as the client.
+- Normal password changes require an authenticated user and the current password.
+- Recovery resets require an authenticated JWT whose `amr` claim contains the `recovery` method.
+- Hosted Supabase Auth is configured with the matching native password policy through `scripts/configure-hosted-password-policy.mjs`; this protects direct Auth API requests that do not pass through the application.
+- Password values are never written to application logs, analytics, or database tables.
+- The function is public only because unauthenticated signup must reach it; signed-in actions perform explicit application-layer JWT verification.
 
 ## Authentication and account deletion
 

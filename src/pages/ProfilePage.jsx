@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import ProfileForm from "../components/ProfileForm";
 import DeleteAccountPanel from "../components/DeleteAccountPanel";
+import AccountSecurityPanel from "../components/AccountSecurityPanel";
 import useAuth from "../hooks/useAuth";
 import useProfile from "../hooks/useProfile";
 import Alert from "../components/ui/Alert";
@@ -32,6 +33,7 @@ export default function ProfilePage() {
       {saved && <div className="mb-5"><Alert tone="success" title="Profile saved"><span className="inline-flex items-center gap-2"><CheckCircle2 size={16} aria-hidden="true" />Your latest settings are active.</span></Alert></div>}
 
       <ProfileForm profile={profile} onSave={handleSave} profileLoading={profileLoading} />
+      <AccountSecurityPanel user={user} />
       <DeleteAccountPanel />
     </section>
   );

@@ -49,6 +49,14 @@ Supabase Auth + Postgres + Storage + Edge Functions
 - Embeddings are stored in `jacket_embeddings` with provider, model, dimensions, source hash, and status metadata.
 - Similarity is user-isolated and optional; failure does not block jacket creation.
 
+## Password security flow
+
+1. Signup, password change, and recovery forms provide immediate client-side policy feedback.
+2. Each mutation calls the `manage-password` Edge Function.
+3. The function validates the password, authenticates the applicable flow, rate-limits the request, and delegates the final mutation to Supabase Auth.
+4. Hosted Supabase Auth independently enforces the same native password policy, preventing direct Auth API bypass.
+5. Recovery updates additionally require the verified JWT `amr` method to be `recovery`; normal changes require the current password.
+
 ## Security boundaries
 
 - Browser receives only the Supabase URL and publishable/anon key.

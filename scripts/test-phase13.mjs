@@ -21,6 +21,7 @@ const edgeFunctions = [
   "get-analytics-dashboard",
   "get-developer-access",
   "manage-developer-access",
+  "manage-password",
   "delete-account",
 ];
 
@@ -35,6 +36,7 @@ test("shared Edge Function security modules exist", () => {
     "safeError",
     "securityHeaders",
     "logSecurityEvent",
+    "passwordPolicy",
   ]) {
     assert(
       exists(`supabase/functions/_shared/security/${name}.ts`),
@@ -58,6 +60,7 @@ test("authenticated and developer functions enforce access", () => {
     "analyze-wardrobe-item",
     "generate-jacket-embedding",
     "delete-account",
+    "manage-password",
   ]) {
     assert(
       read(`supabase/functions/${name}/index.ts`).includes("requireAuthenticatedUser"),
@@ -121,6 +124,25 @@ test("developer access registry is server-only and audited", () => {
   assert(access.includes("registryHasActiveAccounts"), "Registry must disable secret fallback after bootstrap");
   assert(manager.includes("requireDeveloperOwner"), "Access changes must require the owner role");
   assert(manager.includes("auth.admin.listUsers"), "Grants must resolve existing Auth users server-side");
+});
+
+
+test("password mutations are server-enforced", () => {
+  const authPanel = read("src/components/AuthPanel.jsx");
+  const accountSecurity = read("src/components/AccountSecurityPanel.jsx");
+  const resetPage = read("src/pages/ResetPasswordPage.jsx");
+  const api = read("src/utils/passwordSecurityApi.js");
+  const server = read("supabase/functions/manage-password/index.ts");
+  const policy = read("supabase/functions/_shared/security/passwordPolicy.ts");
+
+  assert(authPanel.includes("signUpWithServerPasswordPolicy"), "Signup must use the password Edge Function");
+  assert(accountSecurity.includes("changePasswordWithServerPolicy"), "Password changes must use the password Edge Function");
+  assert(resetPage.includes("resetPasswordWithServerPolicy"), "Password resets must use the password Edge Function");
+  assert(api.includes('"manage-password"'), "Client password API must invoke manage-password");
+  assert(server.includes("requireAuthenticatedUser"), "Protected password actions must authenticate the caller");
+  assert(server.includes("requireRecoveryAuthentication"), "Password reset must require a recovery session");
+  assert(server.includes("current_password"), "Signed-in password changes must verify the current password");
+  assert(policy.includes("PASSWORD_MIN_LENGTH = 6"), "Server minimum password length must be six");
 });
 
 test("server rate limiting stores only hashed scopes", () => {

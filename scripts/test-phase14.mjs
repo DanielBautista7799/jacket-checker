@@ -46,6 +46,12 @@ const requiredFiles = [
   "supabase/migrations/20260625020000_create_developer_access_registry.sql",
   "supabase/verification/developer_access_registry_verify.sql",
   "src/pages/DeveloperAccessPage.jsx",
+  "supabase/functions/manage-password/index.ts",
+  "supabase/functions/manage-password/deno.json",
+  "supabase/functions/_shared/security/passwordPolicy.ts",
+  "src/utils/passwordSecurityApi.js",
+  "scripts/configure-hosted-password-policy.mjs",
+  "scripts/test-password-security.mjs",
 ];
 
 test("all Phase 14 files exist", () => {
@@ -81,10 +87,11 @@ test("only browser-safe Vite variables are documented", () => {
 
 test("package scripts contain the complete predeployment gate", () => {
   const scripts = JSON.parse(read("package.json")).scripts;
-  for (const name of ["test:phase14", "test:production-config", "test:production-config:strict", "test:production-build", "test:production-smoke", "test:predeploy"]) {
+  for (const name of ["test:phase14", "test:password-security", "security:password-policy:configure", "security:password-policy:verify", "test:production-config", "test:production-config:strict", "test:production-build", "test:production-smoke", "test:predeploy"]) {
     assert(scripts?.[name], `Missing package script ${name}`);
   }
   assert(scripts["test:all"].includes("test:phase14"), "test:all must include Phase 14");
+  assert(scripts["test:all"].includes("test:password-security"), "test:all must include password security checks");
   assert(scripts["test:predeploy"].includes("test:e2e"), "Final predeployment gate must include local browser tests");
 });
 
@@ -149,6 +156,18 @@ test("developer registry is documented and deployment-ready", () => {
   assert(migration.includes("bootstrap_developer_owner"), "Owner bootstrap RPC is missing");
   assert(migration.includes("grant_developer_admin"), "Admin grant RPC is missing");
   assert(migration.includes("revoke_developer_admin"), "Admin revoke RPC is missing");
+});
+
+
+test("password policy is server-enforced and deployment-ready", () => {
+  const config = read("supabase/config.toml");
+  const server = read("supabase/functions/manage-password/index.ts");
+  const policyScript = read("scripts/configure-hosted-password-policy.mjs");
+  assert(config.includes("[functions.manage-password]"), "Password management function is not configured");
+  assert(server.includes("validatePassword"), "Password management function must validate passwords");
+  assert(server.includes("requireRecoveryAuthentication"), "Recovery changes must verify recovery authentication");
+  assert(policyScript.includes("password_min_length: 6"), "Hosted password minimum is not configured");
+  assert(policyScript.includes("lower_upper_letters_digits_symbols"), "Hosted required characters are not configured");
 });
 
 test("verified missing UI dependencies are supplied as complete files", () => {

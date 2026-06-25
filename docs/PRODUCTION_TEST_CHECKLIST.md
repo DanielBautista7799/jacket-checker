@@ -66,13 +66,18 @@ Test 320, 375, 430, 768, 1024, and 1440 pixel widths.
 - [ ] HTTPS site loads
 - [ ] Security headers are present
 - [ ] Deep-route refreshes do not return 404
-- [ ] All ten Edge Functions work
+- [ ] All eleven Edge Functions work
 - [ ] Production CORS permits the exact site origin
 - [ ] Phase 13 RLS audit passes
 - [ ] Phase 13 Storage audit passes
 - [ ] Phase 14 SQL reports PASS for every row
 - [ ] Public production smoke tests pass
 - [ ] Authenticated smoke tests pass with a disposable account
+- [ ] `manage-password` is deployed with JWT gateway verification disabled for public signup
+- [ ] Hosted Auth password policy verifies as 6 + uppercase/lowercase/number/symbol
+- [ ] Production signup rejects a password that fails the server policy
+- [ ] Signed-in password change requires the current password
+- [ ] Recovery reset accepts a valid recovery session and rejects a normal session
 - [ ] Approved account sees **Developer tools** in the Account dropdown
 - [ ] Approved account can open access, scoring, trends, and analytics tabs
 - [ ] Owner can see the active/revoked roster and append-only audit history

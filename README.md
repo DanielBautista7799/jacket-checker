@@ -1594,3 +1594,73 @@ How should I style it?
 # Author
 
 Daniel Islas
+
+---
+
+# Account Recovery and Credential Management
+
+JacketCheck supports complete email/password account maintenance through Supabase Auth.
+
+## Signed-out recovery
+
+The authentication page includes:
+
+- Forgot password
+- Privacy-safe forgotten-email assistance
+- Generic recovery responses that do not reveal whether an account exists
+- A dedicated `/auth/reset-password` route for secure recovery links
+
+Password reset emails redirect to:
+
+```text
+https://jacketchecker.netlify.app/auth/reset-password
+```
+
+## Signed-in account security
+
+The Profile page includes an Account Security section where users can:
+
+- See their current sign-in email
+- Change their password after verifying the current password
+- Request an email-address change
+- Complete Supabase email confirmations without changing the underlying user UUID
+
+## Password policy
+
+All JacketCheck signup and password-change forms require:
+
+- At least 6 characters
+- Uppercase and lowercase letters
+- A number
+- A symbol
+
+## Server-enforced password policy
+
+Password mutations use defense in depth:
+
+1. The browser validates the six-character uppercase/lowercase/number/symbol rule for immediate feedback.
+2. `manage-password` validates the same rule inside a Supabase Edge Function before JacketCheck signup, signed-in password changes, or recovery resets reach Supabase Auth.
+3. The hosted Supabase Auth project is configured with the same native policy so direct Auth API requests cannot bypass the requirement.
+
+The Edge Function also:
+
+- Rate-limits signup and password-update attempts
+- Requires the current authenticated user for signed-in changes
+- Requires the current password for normal password changes
+- Requires a JWT authenticated through the Supabase recovery flow for password resets
+- Never logs current or new password values
+
+Deploy and configure the policy with:
+
+```bash
+npx supabase functions deploy manage-password --no-verify-jwt
+
+export SUPABASE_PROJECT_REF="achnzeuvmqymguiqepji"
+read -s SUPABASE_ACCESS_TOKEN
+export SUPABASE_ACCESS_TOKEN
+npm run security:password-policy:configure
+npm run security:password-policy:verify
+unset SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF
+```
+
+`SUPABASE_ACCESS_TOKEN` is a personal access token for the Supabase Management API. It is used only in the local terminal for this one configuration operation and must never be committed, placed in Netlify, or exposed to browser code.

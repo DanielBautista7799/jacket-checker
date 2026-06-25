@@ -10,6 +10,8 @@ const required = [
   "supabase/functions/_shared/security/rateLimit.ts",
   "supabase/migrations/20260625020000_create_developer_access_registry.sql",
   "supabase/functions/manage-developer-access/index.ts",
+  "supabase/functions/manage-password/index.ts",
+  "supabase/functions/_shared/security/passwordPolicy.ts",
 ];
 const missing = required.filter((file) => !fs.existsSync(file));
 if (missing.length) {
