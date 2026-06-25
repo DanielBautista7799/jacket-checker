@@ -10,20 +10,31 @@ The goal is to keep the user experience simple while the recommendation logic re
 
 ---
 
+# Live Application
+
+The completed production application is available at:
+
+**[https://jacketchecker.netlify.app/](https://jacketchecker.netlify.app/)**
+
+The public Guest Mode can be used without an account. Personalized wardrobe recommendations, saved profiles, recommendation history, feedback learning, and private jacket management require authentication.
+
+---
+
 # Project Status
 
-- Product implementation: complete through Phase 13
-- Phase 14 predeployment setup: implemented and validated before the final UI pass
-- Phase 14.9.5 Storm Glass interface: implemented; final repository validation required after installation
-- Deployment status: pending
-- Planned frontend host: Netlify
+- Product implementation: complete through Phase 15
+- Phase 14 production-readiness work: complete
+- Phase 14.9.5 Storm Glass interface: complete and deployed
+- Deployment status: live in production
+- Frontend hosting: Netlify
+- Permanent production URL: [https://jacketchecker.netlify.app/](https://jacketchecker.netlify.app/)
 - Backend, authentication, database, storage, and Edge Functions: Supabase
-- Final live production verification: not run yet
-- Phase 15 portfolio polish: not started
+- Production deployment and live verification: complete
+- Phase 15 documentation and portfolio polish: complete
 
-Phase 14 deployment is intentionally the last step. The project should not be described as live until the production URL, live Edge Functions, database checks, Storage checks, and production smoke tests have all been completed.
+Jacket Checker is a completed, deployed production project. The public application, authenticated workflows, Supabase services, private Storage system, Edge Functions, security controls, and production configuration are represented in this final README.
 
-The live-results document remains marked `NOT RUN` until deployment:
+Production-readiness and live-verification records are maintained in:
 
 ```text
 docs/PHASE14_LIVE_TEST_RESULTS.md
@@ -1002,6 +1013,7 @@ supabase/
 │   ├── get-analytics-dashboard/
 │   ├── get-developer-access/
 │   ├── manage-developer-access/
+│   ├── manage-password/
 │   ├── get-weather/
 │   ├── sync-style-trends/
 │   └── track-analytics/
@@ -1106,6 +1118,7 @@ track-analytics
 get-analytics-dashboard
 get-developer-access
 manage-developer-access
+manage-password
 delete-account
 ```
 
@@ -1205,7 +1218,7 @@ npm run test:predeploy
 
 This gate runs the full local validation sequence before deployment.
 
-Deployment remains pending until the predeployment gate, manual checklist, production environment setup, live SQL checks, and production smoke tests are complete.
+It was used as the final local release gate for the production deployment and remains available for future releases. Any future production update should continue to pass the predeployment gate, manual checklist, production-environment checks, live SQL checks, and production smoke tests before it is considered complete.
 
 ---
 
@@ -1347,9 +1360,9 @@ npx supabase secrets list
 
 # Edge Function Deployment
 
-Deployment is intentionally postponed until the Phase 14 predeployment gate passes.
+The active Edge Functions are deployed to the production Supabase project.
 
-The final deployment sequence will include all active functions:
+The following is the forward deployment sequence for future function updates:
 
 ```bash
 npx supabase functions deploy get-weather
@@ -1361,10 +1374,11 @@ npx supabase functions deploy track-analytics
 npx supabase functions deploy get-analytics-dashboard
 npx supabase functions deploy get-developer-access
 npx supabase functions deploy manage-developer-access
+npx supabase functions deploy manage-password --no-verify-jwt
 npx supabase functions deploy delete-account
 ```
 
-Do not treat this list as proof that deployment has already occurred.
+After changing an Edge Function, redeploy only the affected function unless a shared module change requires all dependent functions to be redeployed.
 
 ---
 
@@ -1430,6 +1444,7 @@ Actual secret values are not.
 
 # Current Completed Features
 
+- Live Netlify production deployment at [jacketchecker.netlify.app](https://jacketchecker.netlify.app/)
 - React and Vite setup
 - Tailwind CSS
 - Lucide React
@@ -1540,7 +1555,6 @@ Actual secret values are not.
 - Style trends are internally curated rather than live-scraped
 - Guest history is not persisted
 - Visual similarity depends on successful embedding generation
-- Production deployment and live validation are still pending
 - The current recommendation inventory remains jacket-only
 
 ---
@@ -1664,3 +1678,49 @@ unset SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF
 ```
 
 `SUPABASE_ACCESS_TOKEN` is a personal access token for the Supabase Management API. It is used only in the local terminal for this one configuration operation and must never be committed, placed in Netlify, or exposed to browser code.
+
+---
+
+# Phase 15: Final Documentation and Portfolio Completion
+
+Phase 15 closes the project by aligning the repository documentation with the completed production application.
+
+## Completed Phase 15 Work
+
+- Updated the README to reflect the final deployed product rather than a pending deployment
+- Added the permanent production URL
+- Preserved the complete guest, authenticated, wardrobe, recommendation, AI, security, testing, and deployment documentation
+- Recorded the final architecture, active Edge Functions, environment boundaries, and production workflow
+- Distinguished completed MVP scope from optional future expansion
+- Prepared the repository to serve as a portfolio and interview reference
+
+## Portfolio Summary
+
+Jacket Checker is a production full-stack web application that converts live and forecast weather data into an explainable YES or NO jacket decision. Authenticated users can maintain a private image-based jacket wardrobe, receive ranked recommendations from jackets they own, review styling guidance, and improve future results through explicit feedback.
+
+The project demonstrates:
+
+- React and Vite application architecture with responsive, accessible UI design
+- Supabase authentication, PostgreSQL data modeling, Row Level Security, private Storage, and Edge Functions
+- Server-side weather, AI-analysis, embedding, analytics, account-security, and account-deletion workflows
+- A deterministic recommendation and ranking engine that balances weather safety, comfort, style, and learned preferences
+- Privacy-safe analytics, sanitized error handling, rate limiting, security headers, secret isolation, and production access controls
+- Automated unit, component, regression, security, configuration, build, and Playwright browser testing
+- Netlify production deployment with SPA routing, immutable asset caching, and production security configuration
+
+## Final Outcome
+
+The finished application answers three progressively personalized questions:
+
+```text
+Do I need a jacket?
+Which jacket that I own is the best choice?
+How should I style it?
+```
+
+The production application is permanently available at:
+
+**[https://jacketchecker.netlify.app/](https://jacketchecker.netlify.app/)**
+
+The jacket-focused MVP is complete. Items listed under **Future Enhancements** are optional expansion opportunities and are not unfinished requirements.
+
