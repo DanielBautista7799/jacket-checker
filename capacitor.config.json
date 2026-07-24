@@ -1,11 +1,11 @@
 {
-"appId": "com.danielbautista.jacketchecker",
-"appName": "Jacket Checker",
-"webDir": "dist",
-"plugins": {
-    "StatusBar": {
-    "overlaysWebView": false,
-    "style": "DEFAULT"
+    "appId": "com.danielbautista.jacketchecker",
+    "appName": "Jacket Checker",
+    "webDir": "dist",
+    "plugins": {
+      "StatusBar": {
+        "overlaysWebView": true,
+        "style": "DEFAULT"
+      }
     }
-}
-}
+  }
