@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Sparkles, UserRound } from "lucide-react";
 
 import PersonalizedJacketCheck from "../components/PersonalizedJacketCheck";

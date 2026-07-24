@@ -1,4 +1,4 @@
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router";
 import { ArrowRight, Sparkles, Zap } from "lucide-react";
 import useAuth from "../hooks/useAuth";
 import JacketForm from "../components/JacketForm";

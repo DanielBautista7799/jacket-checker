@@ -16,6 +16,9 @@ export default defineConfig([
     ".cache/**",
     "node_modules/**",
     "supabase/.temp/**",
+
+    // Capacitor and Xcode output is generated/native code.
+    "ios/**",
   ]),
   {
     files: ["**/*.{js,jsx}"],
@@ -29,12 +32,19 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: {
         ecmaVersion: "latest",
-        ecmaFeatures: { jsx: true },
+        ecmaFeatures: {
+          jsx: true,
+        },
         sourceType: "module",
       },
     },
     rules: {
-      "no-unused-vars": ["error", { varsIgnorePattern: "^[A-Z_]" }],
+      "no-unused-vars": [
+        "error",
+        {
+          varsIgnorePattern: "^[A-Z_]",
+        },
+      ],
     },
   },
   {

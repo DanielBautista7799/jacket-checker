@@ -6,7 +6,7 @@ import {
   Sparkles,
   UsersRound,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 
 import { cn } from "../lib/utils";
 

@@ -11,28 +11,42 @@ body,
 min-height: 100%;
 }
 
-body {
-min-height: 100vh;
-min-height: 100dvh;
-}
-
+body,
 #root {
 min-height: 100vh;
 min-height: 100dvh;
-padding-top: var(--native-safe-area-top);
 }
 
 /*
-* The application background is allowed to extend behind the native iOS
-* status bar, while the sticky JacketCheck navigation remains below it.
+* The WebView is edge-to-edge, so the application background can extend
+* behind the iOS status bar. Only the header receives top safe-area spacing.
 */
-header.sticky {
-top: var(--native-safe-area-top);
+html.capacitor-native #root {
+padding-top: 0;
+}
+
+html.capacitor-native header.sticky {
+top: 0;
+padding-top: max(
+    0.75rem,
+    var(--native-safe-area-top)
+) !important;
 }
 
 /*
-* Keep the keyboard-accessible skip link below the iOS status area.
+* The browser version keeps its accessibility skip link. Inside the native
+* shell, native navigation and the compact WebView focus behavior make the
+* link unnecessary and can cause it to appear during application launch.
 */
-.skip-link {
-top: calc(1rem + var(--native-safe-area-top));
+html.capacitor-native .skip-link {
+display: none;
+}
+
+@media (min-width: 640px) {
+html.capacitor-native header.sticky {
+    padding-top: max(
+    1rem,
+    var(--native-safe-area-top)
+    ) !important;
+}
 }

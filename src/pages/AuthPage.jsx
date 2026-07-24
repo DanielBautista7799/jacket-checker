@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate } from "react-router";
 import { CloudSun, ShieldCheck, Sparkles } from "lucide-react";
 import useAuth from "../hooks/useAuth";
 import AuthPanel from "../components/AuthPanel";

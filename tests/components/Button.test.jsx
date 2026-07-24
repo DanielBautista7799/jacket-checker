@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { MemoryRouter } from "react-router";
+import { Link } from "react-router";
 
 import Button from "../../src/components/ui/Button";
 
