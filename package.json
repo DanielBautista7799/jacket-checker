@@ -37,6 +37,7 @@
     "security:password-policy:verify": "node scripts/configure-hosted-password-policy.mjs --verify-only"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
     "@capacitor/core": "^8.0.0",
     "@capacitor/geolocation": "^8.2.0",
     "@capacitor/ios": "^8.0.0",
