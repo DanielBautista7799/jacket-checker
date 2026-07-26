@@ -18,10 +18,14 @@ The completed production application is available at:
 
 The public Guest Mode can be used without an account. Personalized wardrobe recommendations, saved profiles, recommendation history, feedback learning, and private jacket management require authentication.
 
+Mobile APP:
+Currently Under Construction 
+
 ---
 
 # Project Status
 
+- Begin App implementation with aim to create a widget on IOS
 - Product implementation: complete through Phase 15
 - Phase 14 production-readiness work: complete
 - Phase 14.9.5 Storm Glass interface: complete and deployed
