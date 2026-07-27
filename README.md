@@ -1728,3 +1728,18 @@ The production application is permanently available at:
 
 The jacket-focused MVP is complete. Items listed under **Future Enhancements** are optional expansion opportunities and are not unfinished requirements.
 
+<!-- IOS_FREE_FINALIZATION_START -->
+## iOS app status
+
+Jacket Checker includes a completed Capacitor iOS implementation with native foreground location, safe-area handling, status-bar integration, authentication deep links, password recovery callbacks, and modern scene lifecycle support.
+
+The permanent public version is available at **https://jacketchecker.netlify.app/**. The iOS project can be run in the simulator or installed on the owner's iPhone through Xcode with a free Apple Account. TestFlight and App Store distribution are intentionally excluded because they require paid Apple Developer Program membership.
+
+Final validation:
+
+```bash
+npm run project:final:check
+```
+
+Complete instructions are in `docs/IOS_FREE_INSTALL_AND_FINALIZATION.md`.
+<!-- IOS_FREE_FINALIZATION_END -->

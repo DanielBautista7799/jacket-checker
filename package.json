@@ -14,7 +14,6 @@
     "mobile:run": "npm run build && npx cap run ios",
     "mobile:release:check": "npm run test:all && npm audit --omit=dev && npm run mobile:sync && node scripts/test-ios-release-readiness.mjs",
     "mobile:release:simulator": "xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build",
-    "mobile:release:archive": "xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath build/JacketChecker.xcarchive archive",
     "test:recommendations": "node scripts/run-recommendation-scenarios.mjs",
     "test:phase10": "node scripts/run-phase10-tests.mjs",
     "test:phase11": "node scripts/run-phase11-tests.mjs",
@@ -37,7 +36,12 @@
     "test:predeploy": "npm run test:all && npm run test:production-config && npm run test:production-build && npm run test:e2e",
     "test:password-security": "node scripts/test-password-security.mjs",
     "security:password-policy:configure": "node scripts/configure-hosted-password-policy.mjs",
-    "security:password-policy:verify": "node scripts/configure-hosted-password-policy.mjs --verify-only"
+    "security:password-policy:verify": "node scripts/configure-hosted-password-policy.mjs --verify-only",
+    "ios:free:check": "bash scripts/ios-free-final-check.sh",
+    "ios:free:open": "npm run mobile:sync && npx cap open ios",
+    "ios:free:simulator": "npm run mobile:release:simulator",
+    "ios:free:device": "npm run mobile:sync && npx cap open ios",
+    "project:final:check": "bash scripts/ios-free-final-check.sh"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

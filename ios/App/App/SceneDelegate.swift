@@ -16,12 +16,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
 
-        /*
-         Store cold-launch URLs until the scene becomes active.
-
-         Forwarding them directly from willConnectTo can happen before
-         Capacitor and the App plugin are ready to retain or emit the URL.
-         */
         pendingURLContext = connectionOptions.urlContexts.first
         pendingUserActivity = connectionOptions.userActivities.first
     }
@@ -59,11 +53,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
 
-        /*
-         Wait until the next main run-loop turn after scene activation.
-         This allows the storyboard, Capacitor bridge, and native plugins
-         to finish their activation work first.
-         */
         DispatchQueue.main.async { [weak self] in
             guard let self else {
                 return
@@ -84,9 +73,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             .openInPlace: urlContext.options.openInPlace,
         ]
 
-        if let sourceApplication =
-            urlContext.options.sourceApplication
-        {
+        if let sourceApplication = urlContext.options.sourceApplication {
             options[.sourceApplication] = sourceApplication
         }
 
