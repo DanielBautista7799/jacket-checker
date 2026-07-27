@@ -1743,3 +1743,45 @@ npm run project:final:check
 
 Complete instructions are in `docs/IOS_FREE_INSTALL_AND_FINALIZATION.md`.
 <!-- IOS_FREE_FINALIZATION_END -->
+
+# iOS Application
+
+Jacket Checker also includes a Capacitor-based iOS application built from the same React and Vite codebase as the production web app.
+
+## Completed iOS Work
+
+- Capacitor iOS project
+- Native iPhone simulator support
+- Successful installation and testing on a physical iPhone
+- Native foreground location access
+- Native status-bar integration
+- iOS safe-area handling
+- Custom authentication callback scheme
+- Signup confirmation, password recovery, and email-change deep links
+- Warm-launch and cold-launch authentication handling
+- Modern `UIScene` lifecycle support
+- Session restoration after the app is closed and reopened
+- Privacy and Support routes shared with the production web application
+- Release simulator builds and iOS-specific readiness checks
+
+## Current Distribution
+
+The permanent public version remains:
+
+**[https://jacketchecker.netlify.app/](https://jacketchecker.netlify.app/)**
+
+The native iOS project can be run in the simulator or installed on a personal iPhone through Xcode using a free Apple Personal Team.
+
+Free Personal Team installations are intended for personal testing. Their provisioning profiles expire after seven days, so the app must periodically be rebuilt and reinstalled through Xcode.
+
+TestFlight and App Store distribution are intentionally deferred because they require enrollment in the paid Apple Developer Program.
+
+Future App Store deployment is documented in:
+
+```text
+docs/APPLE_APP_STORE_FUTURE_DEPLOYMENT.md
+```
+
+The iOS application does not replace the Netlify deployment. Both clients use the same Supabase backend, authentication system, private data model, Edge Functions, and production security controls.
+
+---
